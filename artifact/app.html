@@ -1,0 +1,345 @@
+<title>Daily Kit — 계산기 · 날씨 · 할일 · 타이머</title>
+<link rel="stylesheet" href="css/app.css">
+<script>
+  // Artifact 배포본에는 서비스 워커를 함께 올리지 않으므로 등록을 건너뜁니다.
+  window.__DK_DISABLE_SW = true;
+</script>
+<div class="app">
+
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand"><span class="brand-mark">DK</span> Daily Kit</div>
+      <button class="icon-btn" id="theme-toggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button>
+    </div>
+
+    <!-- 배너: 설정 탭에서 문구 편집 가능 -->
+    <section class="banner" id="banner" aria-label="배너">
+      <div class="banner-body">
+        <div class="banner-title" id="banner-title">환영합니다</div>
+        <div class="banner-text" id="banner-text">설정 탭에서 배너 문구를 바꿀 수 있어요.</div>
+      </div>
+      <div class="banner-dots" id="banner-dots"></div>
+    </section>
+
+    <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
+      <button class="tab" role="tab" data-tab="calc"     aria-selected="true"><span>🧮</span>계산기</button>
+      <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span>🌤️</span>날씨</button>
+      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>할 일</button>
+      <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
+      <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
+      <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
+      <button class="tab" role="tab" data-tab="music"    aria-selected="false"><span>🎵</span>음악</button>
+      <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span>🤖</span>AI 검색</button>
+      <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span>⚙️</span>설정</button>
+    </nav>
+  </header>
+
+  <main class="app-main" id="main">
+
+    <!-- ================= 계산기 ================= -->
+    <section class="panel grid grid-2" id="panel-calc" role="tabpanel" aria-label="계산기">
+      <div class="card">
+        <div class="calc-display">
+          <input class="calc-expr" id="calc-expr" inputmode="text" autocomplete="off" spellcheck="false"
+                 placeholder="0" aria-label="수식 입력">
+          <div class="calc-result" id="calc-result">0</div>
+        </div>
+        <div class="keypad" id="keypad">
+          <button class="key key-fn" data-act="clear">AC</button>
+          <button class="key key-fn" data-act="paren">( )</button>
+          <button class="key key-fn" data-ins="%">%</button>
+          <button class="key key-op" data-ins="÷">÷</button>
+          <button class="key" data-ins="7">7</button>
+          <button class="key" data-ins="8">8</button>
+          <button class="key" data-ins="9">9</button>
+          <button class="key key-op" data-ins="×">×</button>
+          <button class="key" data-ins="4">4</button>
+          <button class="key" data-ins="5">5</button>
+          <button class="key" data-ins="6">6</button>
+          <button class="key key-op" data-ins="-">−</button>
+          <button class="key" data-ins="1">1</button>
+          <button class="key" data-ins="2">2</button>
+          <button class="key" data-ins="3">3</button>
+          <button class="key key-op" data-ins="+">+</button>
+          <button class="key" data-ins="0">0</button>
+          <button class="key" data-ins=".">.</button>
+          <button class="key key-fn" data-act="back">⌫</button>
+          <button class="key key-eq" data-act="equals">=</button>
+        </div>
+        <p class="card-sub" style="margin-top:10px">키보드로도 입력할 수 있어요. Enter = 계산, Esc = 초기화</p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">계산 기록</h2>
+          <button class="btn btn-sm btn-ghost" id="calc-clear-hist" type="button">기록 지우기</button>
+        </div>
+        <ul class="hist-list" id="calc-history"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 날씨 ================= -->
+    <section class="panel grid grid-2" id="panel-weather" role="tabpanel" aria-label="날씨" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title" id="wx-place">현재 날씨</h2>
+          <button class="btn btn-sm" id="wx-locate" type="button">📍 내 위치</button>
+        </div>
+        <form class="row" id="wx-search-form" style="margin-bottom:14px">
+          <input class="field grow" id="wx-query" placeholder="도시 검색 (예: 서울, Busan, Tokyo)" autocomplete="off">
+          <button class="btn btn-primary" type="submit">검색</button>
+        </form>
+        <div id="wx-now"><p class="empty">날씨를 불러오는 중…</p></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">주간 예보 (7일)</h2></div>
+        <ul class="wx-week" id="wx-week"><li class="empty">—</li></ul>
+        <p class="card-sub" style="margin-top:12px">데이터: Open-Meteo (CC BY 4.0)</p>
+      </div>
+    </section>
+
+    <!-- ================= 할 일 ================= -->
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="할 일" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">할 일</h2>
+          <span class="card-sub" id="todo-count"></span>
+        </div>
+        <form class="row" id="todo-form" style="margin-bottom:12px">
+          <input class="field grow" id="todo-input" placeholder="할 일을 입력하고 Enter" maxlength="200" autocomplete="off">
+          <button class="btn btn-primary" type="submit">추가</button>
+        </form>
+        <div class="row" style="margin-bottom:6px">
+          <button class="chip" data-filter="all" aria-pressed="true">전체</button>
+          <button class="chip" data-filter="active" aria-pressed="false">진행 중</button>
+          <button class="chip" data-filter="done" aria-pressed="false">완료</button>
+          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" style="margin-left:auto">완료 항목 삭제</button>
+        </div>
+        <ul class="todo-list" id="todo-list"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 시계 · 타이머 ================= -->
+    <section class="panel grid grid-2" id="panel-time" role="tabpanel" aria-label="시계와 타이머" hidden>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">시계</h2></div>
+        <div class="clock-time" id="clock-time">--:--:--</div>
+        <div class="clock-date" id="clock-date">—</div>
+        <ul class="world-list" id="world-clocks"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">타이머 · 뽀모도로</h2>
+          <button class="btn btn-sm btn-ghost" id="notify-enable" type="button">🔔 알림 허용</button>
+        </div>
+        <div class="timer-display" id="timer-display">25:00</div>
+        <div class="preset-row" style="margin:12px 0">
+          <button class="chip" data-min="25">뽀모도로 25분</button>
+          <button class="chip" data-min="5">휴식 5분</button>
+          <button class="chip" data-min="15">15분</button>
+          <button class="chip" data-min="50">50분</button>
+        </div>
+        <div class="row" style="justify-content:center;margin-bottom:12px">
+          <input class="field" id="timer-min" type="number" min="0" max="600" step="1" value="25" style="width:82px" aria-label="분">
+          <span class="card-sub">분</span>
+          <input class="field" id="timer-sec" type="number" min="0" max="59" step="1" value="0" style="width:72px" aria-label="초">
+          <span class="card-sub">초</span>
+        </div>
+        <div class="row" style="justify-content:center">
+          <button class="btn btn-primary" id="timer-start" type="button">시작</button>
+          <button class="btn" id="timer-pause" type="button">일시정지</button>
+          <button class="btn" id="timer-reset" type="button">초기화</button>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <div class="card-head"><h3 class="card-title">알람 (특정 시각)</h3></div>
+        <div class="row">
+          <input class="field" id="alarm-time" type="time" style="width:130px" aria-label="알람 시각">
+          <button class="btn btn-primary btn-sm" id="alarm-set" type="button">알람 설정</button>
+          <button class="btn btn-sm btn-danger" id="alarm-clear" type="button">해제</button>
+        </div>
+        <p class="card-sub" id="alarm-status" style="margin-top:8px">설정된 알람 없음</p>
+        <p class="note" style="margin-top:12px">
+          <strong>주의:</strong> 알람·타이머는 <strong>이 탭이 열려 있을 때만</strong> 울립니다.
+          브라우저가 완전히 종료되면 동작하지 않습니다. 백그라운드 알람은 앱으로 패키징한 뒤 네이티브 알람 기능을 붙여야 합니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= 메모 · 낙서 ================= -->
+    <section class="panel grid grid-2" id="panel-memo" role="tabpanel" aria-label="메모와 낙서판" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">낙서판</h2>
+          <span class="card-sub">손가락·마우스·펜</span>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <div class="row-tight" id="pen-colors"></div>
+          <input type="range" id="pen-size" min="1" max="24" value="3" style="width:96px" aria-label="펜 굵기">
+          <button class="btn btn-sm" id="pen-eraser" type="button" aria-pressed="false">지우개</button>
+          <button class="btn btn-sm" id="draw-undo" type="button">되돌리기</button>
+          <button class="btn btn-sm btn-danger" id="draw-clear" type="button">전체 지우기</button>
+        </div>
+        <div class="draw-wrap"><canvas id="draw-canvas"></canvas></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn btn-sm" id="draw-save" type="button">💾 저장</button>
+          <button class="btn btn-sm" id="draw-download" type="button">⬇️ PNG 내려받기</button>
+          <span class="card-sub" id="draw-status"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">간단 메모</h2>
+          <span class="card-sub" id="memo-count"></span>
+        </div>
+        <form id="memo-form" style="margin-bottom:12px">
+          <textarea class="field" id="memo-input" placeholder="메모를 입력하세요. Ctrl/⌘ + Enter 로 저장" maxlength="2000"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn btn-primary btn-sm" type="submit">메모 저장</button>
+          </div>
+        </form>
+        <ul class="memo-list" id="memo-list"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 글귀 ================= -->
+    <section class="panel grid grid-2" id="panel-quote" role="tabpanel" aria-label="글귀" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">오늘의 글귀</h2>
+          <button class="btn btn-sm" id="quote-next" type="button">🔄 다른 글귀</button>
+        </div>
+        <div class="quote-box">
+          <div class="quote-text" id="quote-text">—</div>
+          <div class="quote-author" id="quote-author"></div>
+        </div>
+        <p class="card-sub" style="margin-top:10px">내가 등록한 글귀가 있으면 우선 보여줍니다.</p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">내 글귀</h2>
+          <span class="card-sub" id="quote-count"></span>
+        </div>
+        <form id="quote-form" style="margin-bottom:12px">
+          <textarea class="field" id="quote-input" placeholder="간직하고 싶은 문장을 적어보세요" maxlength="500"></textarea>
+          <div class="row" style="margin-top:8px">
+            <input class="field grow" id="quote-author-input" placeholder="출처 / 작성자 (선택)" maxlength="60">
+            <button class="btn btn-primary btn-sm" type="submit">등록</button>
+          </div>
+        </form>
+        <ul class="memo-list" id="quote-list"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 음악 ================= -->
+    <section class="panel grid" id="panel-music" role="tabpanel" aria-label="음악" hidden>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">YouTube 플레이어</h2></div>
+        <form class="row" id="yt-form" style="margin-bottom:12px">
+          <input class="field grow" id="yt-input" placeholder="YouTube 영상/재생목록 URL 또는 ID 붙여넣기" autocomplete="off">
+          <button class="btn btn-primary" type="submit">재생</button>
+        </form>
+        <div id="yt-holder"><p class="empty">URL 을 넣으면 여기에서 재생됩니다.</p></div>
+        <div class="row" style="margin-top:10px">
+          <input class="field grow" id="yt-search" placeholder="유튜브에서 검색할 곡·아티스트" autocomplete="off">
+          <button class="btn" id="yt-search-btn" type="button">🔎 유튜브 검색</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">음악 서비스 바로가기</h2></div>
+        <p class="note" style="margin-bottom:12px">
+          <strong>기술적 한계 안내:</strong> 멜론·지니·유튜브뮤직은 외부 앱에서 <strong>계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.</strong>
+          Spotify 는 API 가 있지만 2026년 2월부터 개발 모드 앱은 소유자 Premium 필수 + 테스터 5명 제한이며,
+          확장 쿼터는 법인 + 월 활성사용자 25만 이상만 신청할 수 있어 개인 앱은 사실상 불가합니다.
+          따라서 아래는 <strong>검색어를 들고 각 서비스로 이동하는 바로가기</strong>이며, 재생은 해당 앱/사이트에서 이뤄집니다.
+        </p>
+        <div class="row" style="margin-bottom:12px">
+          <input class="field grow" id="svc-query" placeholder="검색할 곡 또는 아티스트" autocomplete="off">
+        </div>
+        <div class="svc-grid" id="svc-grid"></div>
+      </div>
+    </section>
+
+    <!-- ================= AI 검색 ================= -->
+    <section class="panel grid" id="panel-ai" role="tabpanel" aria-label="AI 검색" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">AI 검색 · 질문</h2>
+          <span class="card-sub" id="ai-mode">키 미설정</span>
+        </div>
+        <div class="chat-log" id="ai-log"></div>
+        <form class="row" id="ai-form" style="margin-top:12px">
+          <input class="field grow" id="ai-input" placeholder="무엇이든 물어보세요" autocomplete="off">
+          <button class="btn btn-primary" type="submit" id="ai-send">전송</button>
+        </form>
+        <div class="row" style="margin-top:10px">
+          <span class="card-sub">키가 없으면 외부 검색으로:</span>
+          <button class="btn btn-sm" data-ext="google" type="button">Google</button>
+          <button class="btn btn-sm" data-ext="naver" type="button">네이버</button>
+          <button class="btn btn-sm" data-ext="perplexity" type="button">Perplexity</button>
+        </div>
+        <p class="note" style="margin-top:12px">
+          <strong>보안 주의:</strong> 이 기능은 <strong>본인 API 키를 브라우저에 직접 저장</strong>하는 BYOK 방식입니다.
+          키는 이 기기의 localStorage 에만 저장되지만, <strong>개발자 도구로 열람이 가능</strong>합니다.
+          본인 기기에서만 쓰고, <strong>남에게 배포하는 서비스라면 반드시 서버 프록시를 두세요.</strong>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= 설정 ================= -->
+    <section class="panel grid grid-2" id="panel-settings" role="tabpanel" aria-label="설정" hidden>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">표시 설정</h2></div>
+        <div class="row" style="margin-bottom:14px">
+          <span class="card-sub grow">테마</span>
+          <select class="field" id="set-theme" style="width:150px">
+            <option value="auto">시스템 설정</option>
+            <option value="light">라이트</option>
+            <option value="dark">다크</option>
+          </select>
+        </div>
+        <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
+        <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
+        <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-primary btn-sm" id="set-banner-save" type="button">배너 저장</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">AI 연동 (BYOK)</h2></div>
+        <p class="card-sub" style="margin-bottom:8px">
+          Anthropic API 키를 입력하면 AI 검색 탭이 활성화됩니다.
+          키 발급: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>
+        </p>
+        <div class="row">
+          <input class="field grow" id="set-apikey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+          <button class="btn btn-primary btn-sm" id="set-apikey-save" type="button">저장</button>
+          <button class="btn btn-sm btn-danger" id="set-apikey-clear" type="button">삭제</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <span class="card-sub grow">모델</span>
+          <select class="field" id="set-model" style="width:200px">
+            <option value="claude-opus-5">Claude Opus 5 (고성능)</option>
+            <option value="claude-sonnet-5">Claude Sonnet 5 (균형)</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5 (저렴·빠름)</option>
+          </select>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <div class="card-head"><h3 class="card-title">데이터</h3></div>
+        <div class="row">
+          <button class="btn btn-sm" id="set-export" type="button">⬇️ 백업 내려받기</button>
+          <button class="btn btn-sm" id="set-import" type="button">⬆️ 백업 복원</button>
+          <button class="btn btn-sm btn-danger" id="set-reset" type="button">전체 초기화</button>
+        </div>
+        <input type="file" id="set-import-file" accept="application/json" class="sr-only">
+        <p class="card-sub" id="set-storage-note" style="margin-top:10px"></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script type="module" src="js/main.js"></script>
