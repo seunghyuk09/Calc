@@ -8,9 +8,10 @@ PWA 로 동작해 모바일 홈 화면에 설치할 수 있습니다.
 
 ```bash
 npm start          # http://127.0.0.1:8099
-npm run test:unit  # 계산 엔진 단위 테스트 (node --test)
-npm run test:e2e   # 실제 Chromium E2E 테스트 (46개 검증)
-npm test           # 둘 다
+npm run test:unit    # 계산 엔진 단위 테스트 (node --test, 9종)
+npm run test:assets  # 정적 파일 참조 무결성 검사 (sw.js / manifest / index.html)
+npm run test:e2e     # 실제 Chromium E2E 테스트 (47종)
+npm test             # 전부
 ```
 
 > `file://` 로 직접 열면 ES 모듈과 서비스 워커가 동작하지 않습니다. 반드시 HTTP 로 띄우세요.
@@ -84,6 +85,7 @@ tests/
   e2e.mjs                 Chromium E2E 테스트
 scripts/
   build-artifact.mjs      미리보기용 단일 페이지 생성
+  verify-assets.mjs       정적 파일 참조 무결성 검사 (CI 에서 실행)
 ```
 
 ## 배포
