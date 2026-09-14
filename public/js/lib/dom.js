@@ -48,3 +48,22 @@ export function escapeHtml(text) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 }
+
+/**
+ * 고유 ID 를 만듭니다.
+ * crypto.randomUUID 는 보안 컨텍스트에서만 동작하므로, 없으면 대체 방식을 씁니다.
+ * (예: file:// 로 연 단일 파일 버전, 구형 브라우저)
+ */
+export function uid() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch { /* 아래 대체 방식으로 내려갑니다 */ }
+  // 마지막 대체: 시각 + 증가 카운터 (같은 세션 안에서 충돌하지 않으면 충분합니다)
+  uidCounter += 1;
+  return `id-${Date.now().toString(36)}-${uidCounter.toString(36)}`;
+}
+let uidCounter = 0;

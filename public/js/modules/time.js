@@ -50,7 +50,12 @@ function notify(title, body) {
   toast(`${title} — ${body}`);
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: './assets/icon-192.png' });
+      // 단일 파일로 배포하면 assets/ 폴더가 없으므로, 아이콘 파일이 있는 경우에만 지정합니다.
+      const options = { body };
+      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+        options.icon = './assets/icon-192.png';
+      }
+      new Notification(title, options);
     }
   } catch { /* 무시 */ }
 }

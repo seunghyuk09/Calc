@@ -8,10 +8,12 @@ PWA 로 동작해 모바일 홈 화면에 설치할 수 있습니다.
 
 ```bash
 npm start          # http://127.0.0.1:8099
-npm run test:unit    # 계산 엔진 단위 테스트 (node --test, 9종)
-npm run test:assets  # 정적 파일 참조 무결성 검사 (sw.js / manifest / index.html)
-npm run test:e2e     # 실제 Chromium E2E 테스트 (47종)
-npm test             # 전부
+npm run build            # 단일 파일(dist/) + 미리보기 페이지 생성
+npm run test:unit        # 계산 엔진 단위 테스트 (node --test, 9종)
+npm run test:assets      # 정적 파일 참조 무결성 검사 (sw.js / manifest / index.html)
+npm run test:e2e         # 실제 Chromium E2E 테스트 (47종, http 모드)
+npm run test:standalone  # 단일 파일을 file:// 로 열어 같은 47종 실행
+npm test                 # 전부
 ```
 
 > `file://` 로 직접 열면 ES 모듈과 서비스 워커가 동작하지 않습니다. 반드시 HTTP 로 띄우세요.
@@ -83,10 +85,50 @@ public/
 tests/
   calc-engine.test.mjs    단위 테스트
   e2e.mjs                 Chromium E2E 테스트
-scripts/
-  build-artifact.mjs      미리보기용 단일 페이지 생성
+  build-artifact.mjs      미리보기용 페이지 생성
+  build-standalone.mjs    단일 HTML 파일 생성 (서버 없이 실행용)
   verify-assets.mjs       정적 파일 참조 무결성 검사 (CI 에서 실행)
+dist/
+  데일리킷.html            서버 없이 더블클릭으로 여는 단일 파일 (생성물)
+  데일리킷 실행.bat        위 파일을 브라우저로 여는 Windows 실행기
 ```
+
+## 서버 없이 실행 (Windows)
+
+`dist/` 의 두 파일을 같은 폴더에 두고 `데일리킷 실행.bat` 을 더블클릭하면
+웹서버 없이 브라우저에서 바로 열립니다. 인터넷 연결도 필요 없습니다.
+
+```
+npm run build        # dist/데일리킷.html 재생성
+```
+
+`데일리킷.html` 을 직접 더블클릭해도 동일하게 열립니다.
+배치 파일은 html 을 못 찾았을 때 원인을 한국어로 알려주는 역할이 추가로 있습니다.
+
+### 단일 파일 버전의 제약
+
+| 항목 | 서버로 열 때 (http) | 파일로 열 때 (file://) |
+|---|---|---|
+| 계산기 · 할 일 · 메모 · 낙서 · 글귀 · 타이머 | ✅ | ✅ |
+| 날씨 · AI 검색 | ✅ | ✅ (인터넷 필요) |
+| 홈 화면에 추가 / 오프라인 캐시 (PWA) | ✅ | ❌ manifest·서비스워커 없음 |
+| API 키 디스크 저장 | ✅ | ❌ **의도적으로 차단** (아래 참고) |
+
+**API 키가 파일 모드에서 저장되지 않는 이유:** Chromium 계열은 `file://` 문서의
+localStorage 를 *모든 로컬 HTML 파일이 공유하는 하나의 저장소*로 다룹니다.
+즉 같은 PC 의 다른 `.html` 파일이 저장된 키를 그대로 읽을 수 있습니다.
+그래서 파일 모드에서는 키를 디스크에 쓰지 않고 **현재 창의 메모리에만** 보관합니다
+(창을 닫으면 사라집니다). 할 일·메모 등 민감하지 않은 데이터는 정상 저장됩니다.
+
+### 배치 파일 설계 메모
+
+Windows 의 `cmd.exe` 는 배치 파일을 **현재 콘솔 코드페이지**로 디코딩합니다.
+따라서 배치 안에 적은 한글 파일명은 코드페이지가 949 가 아니면
+(영문 Windows, "Unicode UTF-8 사용(베타)" 옵션 사용자) 실제 파일명과 달라집니다.
+이를 피하려고 **파일을 찾는 부분에는 한글을 쓰지 않고**, 이름이 맞지 않으면
+같은 폴더의 `*.html` 을 ASCII 경로로 탐색하도록 만들었습니다.
+안내 문구의 한글은 표시 전용이라 깨져도 동작에 영향이 없으며,
+영문을 병기해 어떤 환경에서도 원인을 읽을 수 있게 했습니다.
 
 ## 배포
 

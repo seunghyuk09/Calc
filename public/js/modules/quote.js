@@ -1,5 +1,5 @@
 /** 글귀 모듈: 사용자가 등록한 글귀를 우선 표시하고, 없으면 기본 격언을 보여줍니다. */
-import { $, el, toast } from '../lib/dom.js';
+import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 
 const KEY = 'quote.items';
@@ -70,7 +70,7 @@ export function initQuote() {
     const authorEl = $('#quote-author-input');
     const text = textEl.value.trim();
     if (!text) return;
-    items.unshift({ id: crypto.randomUUID(), text, author: authorEl.value.trim(), at: Date.now() });
+    items.unshift({ id: uid(), text, author: authorEl.value.trim(), at: Date.now() });
     textEl.value = '';
     authorEl.value = '';
     save(KEY, items);

@@ -96,3 +96,42 @@ export function importAll(data) {
 
 /** localStorage 사용 가능 여부 */
 export function isPersistent() { return checkStorage(); }
+
+/**
+ * 저장소가 다른 문서와 공유되는 환경인지 판정합니다.
+ * Chromium 계열은 file:// 문서의 localStorage 를 "모든 로컬 파일이 공유하는 하나의 저장소" 로 다룹니다.
+ * 즉 바탕화면에 있는 다른 .html 파일이 여기에 저장한 값을 그대로 읽을 수 있습니다.
+ */
+export function isSharedStorage() {
+  try {
+    return window.location.protocol === 'file:';
+  } catch {
+    return false;
+  }
+}
+
+// 공유 저장소 환경에서 비밀값을 담아 두는 메모리 전용 보관소 (탭을 닫으면 사라집니다)
+const secretMemory = new Map();
+
+/** API 키처럼 유출되면 안 되는 값을 저장합니다. 공유 저장소 환경에서는 메모리에만 둡니다. */
+export function saveSecret(key, value) {
+  if (isSharedStorage()) {
+    secretMemory.set(key, value);
+    return true;
+  }
+  return save(key, value);
+}
+
+/** saveSecret 으로 저장한 값을 읽습니다. */
+export function loadSecret(key, fallback) {
+  if (isSharedStorage()) {
+    return secretMemory.has(key) ? secretMemory.get(key) : fallback;
+  }
+  return load(key, fallback);
+}
+
+/** saveSecret 으로 저장한 값을 지웁니다. */
+export function removeSecret(key) {
+  secretMemory.delete(key);
+  remove(key);
+}

@@ -1,6 +1,7 @@
 /** 설정 모듈: 테마, 배너 편집, API 키 관리, 데이터 백업/복원/초기화 */
 import { $, toast } from '../lib/dom.js';
-import { load, save, remove, clearAll, exportAll, importAll, isPersistent } from '../lib/store.js';
+import { load, save, remove, clearAll, exportAll, importAll, isPersistent,
+  saveSecret, loadSecret, removeSecret, isSharedStorage } from '../lib/store.js';
 import { BANNER_KEY, parseBannerText, saveBanner } from './banner.js';
 import { APIKEY_KEY, MODEL_KEY, refreshAiMode } from './ai.js';
 
@@ -70,7 +71,7 @@ export function initSettings() {
 
   // --- API 키 ---
   const keyInput = $('#set-apikey');
-  const savedKey = load(APIKEY_KEY, '');
+  const savedKey = loadSecret(APIKEY_KEY, '');
   if (savedKey) keyInput.placeholder = `저장됨 (${savedKey.slice(0, 7)}…${savedKey.slice(-4)})`;
 
   $('#set-apikey-save').addEventListener('click', () => {
@@ -80,15 +81,17 @@ export function initSettings() {
       toast('Anthropic 키는 보통 sk-ant- 로 시작합니다. 다시 확인해 주세요.', 'error');
       return;
     }
-    save(APIKEY_KEY, value);
+    saveSecret(APIKEY_KEY, value);
     keyInput.value = '';
     keyInput.placeholder = `저장됨 (${value.slice(0, 7)}…${value.slice(-4)})`;
     refreshAiMode();
-    toast('API 키를 저장했습니다 (이 기기에만 저장됨)');
+    toast(isSharedStorage()
+      ? 'API 키를 이 창에만 보관합니다 (창을 닫으면 지워집니다)'
+      : 'API 키를 저장했습니다 (이 기기에만 저장됨)');
   });
 
   $('#set-apikey-clear').addEventListener('click', () => {
-    remove(APIKEY_KEY);
+    removeSecret(APIKEY_KEY);
     keyInput.value = '';
     keyInput.placeholder = 'sk-ant-...';
     refreshAiMode();
@@ -137,7 +140,14 @@ export function initSettings() {
     setTimeout(() => window.location.reload(), 900);
   });
 
-  $('#set-storage-note').textContent = isPersistent()
-    ? '데이터는 이 브라우저(localStorage)에만 저장됩니다. 기기 간 동기화는 되지 않습니다.'
-    : '⚠️ 이 브라우저는 저장소가 차단되어 있습니다. 새로고침하면 데이터가 사라집니다.';
+  if (!isPersistent()) {
+    $('#set-storage-note').textContent = '⚠️ 이 브라우저는 저장소가 차단되어 있습니다. 새로고침하면 데이터가 사라집니다.';
+  } else if (isSharedStorage()) {
+    // file:// 로 연 경우 Chromium 은 모든 로컬 html 이 같은 저장소를 쓰게 합니다.
+    $('#set-storage-note').textContent = '⚠️ 파일로 직접 연 상태입니다. 저장 공간이 이 컴퓨터의 다른 로컬 HTML 파일과 공유되므로, '
+      + 'API 키는 디스크에 저장하지 않고 이 창에만 보관합니다(창을 닫으면 지워집니다). '
+      + '할 일·메모 등 나머지 데이터는 정상 저장됩니다.';
+  } else {
+    $('#set-storage-note').textContent = '데이터는 이 브라우저(localStorage)에만 저장됩니다. 기기 간 동기화는 되지 않습니다.';
+  }
 }

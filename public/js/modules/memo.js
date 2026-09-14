@@ -2,7 +2,7 @@
  * 메모 · 낙서판 모듈
  * 낙서판은 Pointer Events 로 마우스/터치/펜을 동일하게 처리합니다.
  */
-import { $, el, toast } from '../lib/dom.js';
+import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 
 const MEMO_KEY = 'memo.items';
@@ -170,7 +170,7 @@ export function initMemo() {
     const input = $('#memo-input');
     const text = input.value.trim();
     if (!text) return;
-    memos.unshift({ id: crypto.randomUUID(), text, at: Date.now() });
+    memos.unshift({ id: uid(), text, at: Date.now() });
     input.value = '';
     save(MEMO_KEY, memos);
     renderMemos();

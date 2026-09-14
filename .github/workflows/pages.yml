@@ -34,6 +34,17 @@ jobs:
       - name: 정적 파일 무결성 검사
         run: node scripts/verify-assets.mjs
 
+      # public/ 을 고치고 dist/ 를 다시 빌드하지 않으면 배포본이 낡은 채로 남습니다.
+      # 빌드를 다시 돌려 커밋된 결과물과 다르면 실패시킵니다.
+      - name: 단일 파일 빌드 동기화 검사
+        run: |
+          node scripts/build-standalone.mjs
+          node scripts/build-artifact.mjs
+          if ! git diff --exit-code -- dist artifact; then
+            echo "::error::dist/ 또는 artifact/ 가 public/ 과 어긋납니다. 'npm run build' 후 커밋하세요."
+            exit 1
+          fi
+
   deploy:
     name: Pages 배포
     needs: test

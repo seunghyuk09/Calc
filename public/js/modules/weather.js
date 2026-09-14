@@ -178,15 +178,33 @@ export function initWeather() {
   $('#wx-locate').addEventListener('click', () => {
     if (!navigator.geolocation) { showError('이 브라우저는 위치 기능을 지원하지 않습니다.'); return; }
     $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 위치 확인 중…'));
+
+    // getCurrentPosition 의 timeout 은 '권한이 확정된 뒤'부터 계산됩니다.
+    // 권한 창이 뜨지 않거나 사용자가 응답하지 않으면 두 콜백 모두 호출되지 않아
+    // 스피너가 영구히 멈추므로, 별도 감시 타이머를 둡니다.
+    let settled = false;
+    const watchdog = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      showError('위치 확인에 응답이 없습니다. 브라우저 주소창의 위치 권한을 확인하거나 도시 이름으로 검색해 주세요.');
+    }, 20000);
+
+    const finish = (fn) => (arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      fn(arg);
+    };
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => loadWeather({
+      finish((pos) => loadWeather({
         name: '내 위치', country: '',
         latitude: Number(pos.coords.latitude.toFixed(4)),
         longitude: Number(pos.coords.longitude.toFixed(4)),
-      }),
-      (err) => showError(
+      })),
+      finish((err) => showError(
         err.code === 1 ? '위치 권한이 거부되었습니다. 도시 이름으로 검색해 주세요.' : '위치를 확인하지 못했습니다.',
-      ),
+      )),
       { timeout: 10000, maximumAge: 300000 },
     );
   });

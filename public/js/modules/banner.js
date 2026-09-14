@@ -8,8 +8,16 @@ const ROTATE_MS = 6000;
 const DEFAULTS = [
   { title: '환영합니다 👋', text: '계산기 · 날씨 · 할 일 · 타이머를 한 화면에서' },
   { title: '설정에서 바꿔보세요', text: '이 배너 문구는 설정 탭에서 직접 편집할 수 있습니다' },
-  { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' },
 ];
+
+// 웹 주소로 접속했을 때만 설치 안내가 의미가 있습니다.
+// 파일을 직접 연 경우(file://)에는 매니페스트가 없어 '홈 화면에 추가' 가 동작하지 않습니다.
+function installHint() {
+  const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+  return isWeb
+    ? { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' }
+    : { title: '오프라인으로 실행 중', text: '인터넷 없이도 계산기 · 타이머 · 메모를 쓸 수 있습니다' };
+}
 
 let items = DEFAULTS;
 let index = 0;
@@ -57,7 +65,7 @@ export function parseBannerText(raw) {
 }
 
 export function applyBanner(list) {
-  items = Array.isArray(list) && list.length ? list : DEFAULTS;
+  items = Array.isArray(list) && list.length ? list : [...DEFAULTS, installHint()];
   index = 0;
   render();
   restart();

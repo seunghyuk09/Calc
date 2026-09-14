@@ -1,0 +1,3021 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Kit — 계산기 · 날씨 · 할일 · 타이머</title>
+<meta name="theme-color" content="#3b6ef6">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzYjZlZjYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YzVjZjYiLz4KICA8L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjE4IiB5PSIyNCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSIxOCIgeT0iMzQuNSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KPC9zdmc+Cg==" type="image/svg+xml">
+<style>
+/* =========================================================
+   Daily Kit - 공통 스타일
+   라이트/다크 테마, 모바일 우선 반응형
+   ========================================================= */
+
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f1f4;
+  --surface-3: #e6e8ec;
+  --border: #dcdfe4;
+  --text: #1a1d21;
+  --text-dim: #5f6773;
+  --text-faint: #8b94a1;
+  --accent: #3b6ef6;
+  --accent-soft: #e6edfe;
+  --accent-text: #ffffff;
+  --danger: #d9453b;
+  --success: #1a8f5a;
+  --warn: #c47b12;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .07);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard",
+          "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1216;
+  --surface: #181c22;
+  --surface-2: #21262e;
+  --surface-3: #2c333d;
+  --border: #2e3641;
+  --text: #e8ecf1;
+  --text-dim: #9aa5b4;
+  --text-faint: #6b7684;
+  --accent: #5b8bff;
+  --accent-soft: #1d2a44;
+  --accent-text: #ffffff;
+  --danger: #ff6b60;
+  --success: #3ecf8e;
+  --warn: #e8a33d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1216;
+    --surface: #181c22;
+    --surface-2: #21262e;
+    --surface-3: #2c333d;
+    --border: #2e3641;
+    --text: #e8ecf1;
+    --text-dim: #9aa5b4;
+    --text-faint: #6b7684;
+    --accent: #5b8bff;
+    --accent-soft: #1d2a44;
+    --accent-text: #ffffff;
+    --danger: #ff6b60;
+    --success: #3ecf8e;
+    --warn: #e8a33d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+
+/* ---------- 레이아웃 ---------- */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(1.6) blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px 0;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -.01em;
+  margin-right: auto;
+}
+
+.brand-mark {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px; font-weight: 800;
+}
+
+.icon-btn {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  font-size: 15px;
+  color: var(--text-dim);
+  transition: background .15s, color .15s;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+/* ---------- 배너 ---------- */
+.banner {
+  margin: 10px 0 0;
+  border-radius: var(--radius);
+  background: linear-gradient(100deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #8b5cf6));
+  color: #fff;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  box-shadow: var(--shadow);
+}
+.banner-body { flex: 1; min-width: 0; }
+.banner-title { font-weight: 700; font-size: 13.5px; }
+.banner-text { font-size: 12.5px; opacity: .92; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.banner-dots { display: flex; gap: 5px; }
+.banner-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.4); border: 0; padding: 0; }
+.banner-dot[aria-current="true"] { background: #fff; width: 16px; border-radius: 3px; }
+
+/* ---------- 탭 ---------- */
+.tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 10px 0 0;
+  margin: 0 -16px;
+  padding-inline: 16px;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 8px 13px 11px;
+  border-bottom: 2px solid transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ---------- 본문 ---------- */
+.app-main {
+  flex: 1;
+  padding: 16px;
+  padding-bottom: 32px;
+}
+.panel[hidden] { display: none !important; }
+.panel { animation: fade .18s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.grid { display: grid; gap: 14px; align-items: start; }
+@media (min-width: 760px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 980px) { .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.card-head {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 12px;
+}
+.card-title { font-size: 14px; font-weight: 700; margin: 0; margin-right: auto; }
+.card-sub { font-size: 12px; color: var(--text-faint); }
+
+/* ---------- 폼 ---------- */
+.field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  outline: none;
+}
+.field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
+
+.btn {
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: filter .15s, background .15s;
+}
+.btn:hover { filter: brightness(.97); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn-ghost { background: transparent; }
+.btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: transparent; }
+.btn-sm { padding: 6px 10px; font-size: 12.5px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row-tight { display: flex; gap: 6px; align-items: center; }
+.grow { flex: 1; min-width: 0; }
+
+.empty {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 26px 12px;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 9px 11px;
+  line-height: 1.55;
+}
+.note strong { color: var(--text); }
+
+/* ---------- 계산기 ---------- */
+.calc-display {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  text-align: right;
+  margin-bottom: 12px;
+}
+.calc-expr {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 19px;
+  color: var(--text-dim);
+  outline: none;
+  padding: 0;
+  min-height: 26px;
+}
+.calc-result {
+  font-family: var(--mono);
+  font-size: 33px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin-top: 4px;
+  min-height: 42px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.calc-result::-webkit-scrollbar { display: none; }
+.calc-result.is-error { color: var(--danger); font-size: 16px; font-weight: 600; white-space: normal; }
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.key {
+  height: 58px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 19px;
+  font-weight: 600;
+  font-family: var(--mono);
+  transition: transform .06s, filter .15s;
+  user-select: none;
+}
+.key:active { transform: scale(.96); }
+.key-fn { background: var(--surface-3); color: var(--text-dim); font-size: 15px; }
+.key-op { color: var(--accent); }
+.key-eq { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.key-wide { grid-column: span 2; }
+
+.hist-list { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+.hist-item {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 1px; padding: 9px 10px; border-radius: var(--radius-sm);
+  cursor: pointer; border: 1px solid transparent;
+}
+.hist-item:hover { background: var(--surface-2); border-color: var(--border); }
+.hist-expr { font-family: var(--mono); font-size: 12px; color: var(--text-faint); }
+.hist-val { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+
+/* ---------- 날씨 ---------- */
+.wx-now { display: flex; align-items: center; gap: 14px; }
+.wx-icon { font-size: 46px; line-height: 1; }
+.wx-temp { font-size: 40px; font-weight: 700; letter-spacing: -.02em; }
+.wx-desc { color: var(--text-dim); font-size: 13px; }
+.wx-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 8px; margin-top: 14px; }
+.wx-meta div { background: var(--surface-2); border-radius: var(--radius-sm); padding: 8px 10px; }
+.wx-meta dt { font-size: 11px; color: var(--text-faint); margin: 0; }
+.wx-meta dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
+.wx-week { list-style: none; margin: 0; padding: 0; }
+.wx-day {
+  display: grid;
+  grid-template-columns: 54px 34px 1fr auto;
+  align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13.5px;
+}
+.wx-day:first-child { border-top: 0; }
+.wx-day-name { color: var(--text-dim); }
+.wx-bar { height: 5px; border-radius: 3px; background: linear-gradient(90deg, #5b8bff, #f7b733, #e0533d); opacity: .75; }
+.wx-range { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+.wx-range .lo { color: var(--text-faint); }
+
+/* ---------- 할 일 ---------- */
+.todo-list { list-style: none; margin: 0; padding: 0; }
+.todo-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 4px; border-top: 1px solid var(--border);
+}
+.todo-item:first-child { border-top: 0; }
+.todo-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+.todo-text { flex: 1; word-break: break-word; }
+.todo-item.done .todo-text { text-decoration: line-through; color: var(--text-faint); }
+.chip {
+  border: 1px solid var(--border); background: var(--surface-2);
+  border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; color: var(--text-dim);
+}
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* ---------- 시계 / 타이머 ---------- */
+.clock-time {
+  font-family: var(--mono); font-size: clamp(38px, 11vw, 62px);
+  font-weight: 700; letter-spacing: -.03em; text-align: center; line-height: 1.1;
+}
+.clock-date { text-align: center; color: var(--text-dim); font-size: 13.5px; margin-top: 2px; }
+.world-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.world-item { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+.timer-display {
+  font-family: var(--mono); font-size: clamp(40px, 13vw, 64px);
+  font-weight: 700; text-align: center; letter-spacing: -.02em; line-height: 1.15;
+}
+.timer-display.is-done { color: var(--danger); }
+.timer-ring { display: block; margin: 0 auto 6px; }
+.preset-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+/* ---------- 메모 / 낙서판 ---------- */
+.draw-wrap { position: relative; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: #fff; }
+:root[data-theme="dark"] .draw-wrap { background: #fbfbfb; }
+#draw-canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+.pen-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border); padding: 0; }
+.pen-dot[aria-pressed="true"] { border-color: var(--text); transform: scale(1.12); }
+.memo-list { list-style: none; margin: 0; padding: 0; }
+.memo-item { border-top: 1px solid var(--border); padding: 10px 0; }
+.memo-item:first-child { border-top: 0; }
+.memo-body { white-space: pre-wrap; word-break: break-word; font-size: 13.5px; }
+.memo-time { font-size: 11.5px; color: var(--text-faint); }
+
+/* ---------- 글귀 ---------- */
+.quote-box {
+  background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent-soft) 40%, var(--surface)));
+  border-radius: var(--radius); padding: 22px 20px; text-align: center;
+}
+.quote-text { font-size: 17px; line-height: 1.65; font-weight: 600; word-break: keep-all; }
+.quote-author { margin-top: 10px; font-size: 12.5px; color: var(--text-dim); }
+
+/* ---------- 음악 ---------- */
+.yt-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--radius-sm); background: #000; display: block; }
+.svc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+.svc-btn { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text); }
+.svc-btn span:first-child { font-size: 19px; }
+
+/* ---------- AI ---------- */
+.chat-log { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+.msg { padding: 10px 13px; border-radius: 13px; font-size: 13.5px; line-height: 1.62; white-space: pre-wrap; word-break: break-word; max-width: 88%; }
+.msg-user { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
+.msg-ai { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.msg-err { align-self: stretch; background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); color: var(--text); max-width: 100%; }
+
+/* ---------- 토스트 ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 14px);
+  background: var(--text); color: var(--bg);
+  padding: 10px 17px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 100;
+  max-width: calc(100vw - 32px); text-align: center;
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.toast[data-type="error"] { background: var(--danger); color: #fff; }
+
+.spinner {
+  width: 15px; height: 15px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite; display: inline-block; vertical-align: -2px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 420px) {
+  .app-main { padding: 12px; }
+  .key { height: 54px; font-size: 18px; }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand"><span class="brand-mark">DK</span> Daily Kit</div>
+      <button class="icon-btn" id="theme-toggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button>
+    </div>
+
+    <!-- 배너: 설정 탭에서 문구 편집 가능 -->
+    <section class="banner" id="banner" aria-label="배너">
+      <div class="banner-body">
+        <div class="banner-title" id="banner-title">환영합니다</div>
+        <div class="banner-text" id="banner-text">설정 탭에서 배너 문구를 바꿀 수 있어요.</div>
+      </div>
+      <div class="banner-dots" id="banner-dots"></div>
+    </section>
+
+    <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
+      <button class="tab" role="tab" data-tab="calc"     aria-selected="true"><span>🧮</span>계산기</button>
+      <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span>🌤️</span>날씨</button>
+      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>할 일</button>
+      <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
+      <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
+      <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
+      <button class="tab" role="tab" data-tab="music"    aria-selected="false"><span>🎵</span>음악</button>
+      <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span>🤖</span>AI 검색</button>
+      <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span>⚙️</span>설정</button>
+    </nav>
+  </header>
+
+  <main class="app-main" id="main">
+
+    <!-- ================= 계산기 ================= -->
+    <section class="panel grid grid-2" id="panel-calc" role="tabpanel" aria-label="계산기">
+      <div class="card">
+        <div class="calc-display">
+          <input class="calc-expr" id="calc-expr" inputmode="text" autocomplete="off" spellcheck="false"
+                 placeholder="0" aria-label="수식 입력">
+          <div class="calc-result" id="calc-result">0</div>
+        </div>
+        <div class="keypad" id="keypad">
+          <button class="key key-fn" data-act="clear">AC</button>
+          <button class="key key-fn" data-act="paren">( )</button>
+          <button class="key key-fn" data-ins="%">%</button>
+          <button class="key key-op" data-ins="÷">÷</button>
+          <button class="key" data-ins="7">7</button>
+          <button class="key" data-ins="8">8</button>
+          <button class="key" data-ins="9">9</button>
+          <button class="key key-op" data-ins="×">×</button>
+          <button class="key" data-ins="4">4</button>
+          <button class="key" data-ins="5">5</button>
+          <button class="key" data-ins="6">6</button>
+          <button class="key key-op" data-ins="-">−</button>
+          <button class="key" data-ins="1">1</button>
+          <button class="key" data-ins="2">2</button>
+          <button class="key" data-ins="3">3</button>
+          <button class="key key-op" data-ins="+">+</button>
+          <button class="key" data-ins="0">0</button>
+          <button class="key" data-ins=".">.</button>
+          <button class="key key-fn" data-act="back">⌫</button>
+          <button class="key key-eq" data-act="equals">=</button>
+        </div>
+        <p class="card-sub" style="margin-top:10px">키보드로도 입력할 수 있어요. Enter = 계산, Esc = 초기화</p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">계산 기록</h2>
+          <button class="btn btn-sm btn-ghost" id="calc-clear-hist" type="button">기록 지우기</button>
+        </div>
+        <ul class="hist-list" id="calc-history"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 날씨 ================= -->
+    <section class="panel grid grid-2" id="panel-weather" role="tabpanel" aria-label="날씨" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title" id="wx-place">현재 날씨</h2>
+          <button class="btn btn-sm" id="wx-locate" type="button">📍 내 위치</button>
+        </div>
+        <form class="row" id="wx-search-form" style="margin-bottom:14px">
+          <input class="field grow" id="wx-query" placeholder="도시 검색 (예: 서울, Busan, Tokyo)" autocomplete="off">
+          <button class="btn btn-primary" type="submit">검색</button>
+        </form>
+        <div id="wx-now"><p class="empty">날씨를 불러오는 중…</p></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">주간 예보 (7일)</h2></div>
+        <ul class="wx-week" id="wx-week"><li class="empty">—</li></ul>
+        <p class="card-sub" style="margin-top:12px">데이터: Open-Meteo (CC BY 4.0)</p>
+      </div>
+    </section>
+
+    <!-- ================= 할 일 ================= -->
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="할 일" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">할 일</h2>
+          <span class="card-sub" id="todo-count"></span>
+        </div>
+        <form class="row" id="todo-form" style="margin-bottom:12px">
+          <input class="field grow" id="todo-input" placeholder="할 일을 입력하고 Enter" maxlength="200" autocomplete="off">
+          <button class="btn btn-primary" type="submit">추가</button>
+        </form>
+        <div class="row" style="margin-bottom:6px">
+          <button class="chip" data-filter="all" aria-pressed="true">전체</button>
+          <button class="chip" data-filter="active" aria-pressed="false">진행 중</button>
+          <button class="chip" data-filter="done" aria-pressed="false">완료</button>
+          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" style="margin-left:auto">완료 항목 삭제</button>
+        </div>
+        <ul class="todo-list" id="todo-list"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 시계 · 타이머 ================= -->
+    <section class="panel grid grid-2" id="panel-time" role="tabpanel" aria-label="시계와 타이머" hidden>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">시계</h2></div>
+        <div class="clock-time" id="clock-time">--:--:--</div>
+        <div class="clock-date" id="clock-date">—</div>
+        <ul class="world-list" id="world-clocks"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">타이머 · 뽀모도로</h2>
+          <button class="btn btn-sm btn-ghost" id="notify-enable" type="button">🔔 알림 허용</button>
+        </div>
+        <div class="timer-display" id="timer-display">25:00</div>
+        <div class="preset-row" style="margin:12px 0">
+          <button class="chip" data-min="25">뽀모도로 25분</button>
+          <button class="chip" data-min="5">휴식 5분</button>
+          <button class="chip" data-min="15">15분</button>
+          <button class="chip" data-min="50">50분</button>
+        </div>
+        <div class="row" style="justify-content:center;margin-bottom:12px">
+          <input class="field" id="timer-min" type="number" min="0" max="600" step="1" value="25" style="width:82px" aria-label="분">
+          <span class="card-sub">분</span>
+          <input class="field" id="timer-sec" type="number" min="0" max="59" step="1" value="0" style="width:72px" aria-label="초">
+          <span class="card-sub">초</span>
+        </div>
+        <div class="row" style="justify-content:center">
+          <button class="btn btn-primary" id="timer-start" type="button">시작</button>
+          <button class="btn" id="timer-pause" type="button">일시정지</button>
+          <button class="btn" id="timer-reset" type="button">초기화</button>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <div class="card-head"><h3 class="card-title">알람 (특정 시각)</h3></div>
+        <div class="row">
+          <input class="field" id="alarm-time" type="time" style="width:130px" aria-label="알람 시각">
+          <button class="btn btn-primary btn-sm" id="alarm-set" type="button">알람 설정</button>
+          <button class="btn btn-sm btn-danger" id="alarm-clear" type="button">해제</button>
+        </div>
+        <p class="card-sub" id="alarm-status" style="margin-top:8px">설정된 알람 없음</p>
+        <p class="note" style="margin-top:12px">
+          <strong>주의:</strong> 알람·타이머는 <strong>이 탭이 열려 있을 때만</strong> 울립니다.
+          브라우저가 완전히 종료되면 동작하지 않습니다. 백그라운드 알람은 앱으로 패키징한 뒤 네이티브 알람 기능을 붙여야 합니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= 메모 · 낙서 ================= -->
+    <section class="panel grid grid-2" id="panel-memo" role="tabpanel" aria-label="메모와 낙서판" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">낙서판</h2>
+          <span class="card-sub">손가락·마우스·펜</span>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <div class="row-tight" id="pen-colors"></div>
+          <input type="range" id="pen-size" min="1" max="24" value="3" style="width:96px" aria-label="펜 굵기">
+          <button class="btn btn-sm" id="pen-eraser" type="button" aria-pressed="false">지우개</button>
+          <button class="btn btn-sm" id="draw-undo" type="button">되돌리기</button>
+          <button class="btn btn-sm btn-danger" id="draw-clear" type="button">전체 지우기</button>
+        </div>
+        <div class="draw-wrap"><canvas id="draw-canvas"></canvas></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn btn-sm" id="draw-save" type="button">💾 저장</button>
+          <button class="btn btn-sm" id="draw-download" type="button">⬇️ PNG 내려받기</button>
+          <span class="card-sub" id="draw-status"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">간단 메모</h2>
+          <span class="card-sub" id="memo-count"></span>
+        </div>
+        <form id="memo-form" style="margin-bottom:12px">
+          <textarea class="field" id="memo-input" placeholder="메모를 입력하세요. Ctrl/⌘ + Enter 로 저장" maxlength="2000"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn btn-primary btn-sm" type="submit">메모 저장</button>
+          </div>
+        </form>
+        <ul class="memo-list" id="memo-list"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 글귀 ================= -->
+    <section class="panel grid grid-2" id="panel-quote" role="tabpanel" aria-label="글귀" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">오늘의 글귀</h2>
+          <button class="btn btn-sm" id="quote-next" type="button">🔄 다른 글귀</button>
+        </div>
+        <div class="quote-box">
+          <div class="quote-text" id="quote-text">—</div>
+          <div class="quote-author" id="quote-author"></div>
+        </div>
+        <p class="card-sub" style="margin-top:10px">내가 등록한 글귀가 있으면 우선 보여줍니다.</p>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">내 글귀</h2>
+          <span class="card-sub" id="quote-count"></span>
+        </div>
+        <form id="quote-form" style="margin-bottom:12px">
+          <textarea class="field" id="quote-input" placeholder="간직하고 싶은 문장을 적어보세요" maxlength="500"></textarea>
+          <div class="row" style="margin-top:8px">
+            <input class="field grow" id="quote-author-input" placeholder="출처 / 작성자 (선택)" maxlength="60">
+            <button class="btn btn-primary btn-sm" type="submit">등록</button>
+          </div>
+        </form>
+        <ul class="memo-list" id="quote-list"></ul>
+      </div>
+    </section>
+
+    <!-- ================= 음악 ================= -->
+    <section class="panel grid" id="panel-music" role="tabpanel" aria-label="음악" hidden>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">YouTube 플레이어</h2></div>
+        <form class="row" id="yt-form" style="margin-bottom:12px">
+          <input class="field grow" id="yt-input" placeholder="YouTube 영상/재생목록 URL 또는 ID 붙여넣기" autocomplete="off">
+          <button class="btn btn-primary" type="submit">재생</button>
+        </form>
+        <div id="yt-holder"><p class="empty">URL 을 넣으면 여기에서 재생됩니다.</p></div>
+        <div class="row" style="margin-top:10px">
+          <input class="field grow" id="yt-search" placeholder="유튜브에서 검색할 곡·아티스트" autocomplete="off">
+          <button class="btn" id="yt-search-btn" type="button">🔎 유튜브 검색</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">음악 서비스 바로가기</h2></div>
+        <p class="note" style="margin-bottom:12px">
+          <strong>기술적 한계 안내:</strong> 멜론·지니·유튜브뮤직은 외부 앱에서 <strong>계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.</strong>
+          Spotify 는 API 가 있지만 2026년 2월부터 개발 모드 앱은 소유자 Premium 필수 + 테스터 5명 제한이며,
+          확장 쿼터는 법인 + 월 활성사용자 25만 이상만 신청할 수 있어 개인 앱은 사실상 불가합니다.
+          따라서 아래는 <strong>검색어를 들고 각 서비스로 이동하는 바로가기</strong>이며, 재생은 해당 앱/사이트에서 이뤄집니다.
+        </p>
+        <div class="row" style="margin-bottom:12px">
+          <input class="field grow" id="svc-query" placeholder="검색할 곡 또는 아티스트" autocomplete="off">
+        </div>
+        <div class="svc-grid" id="svc-grid"></div>
+      </div>
+    </section>
+
+    <!-- ================= AI 검색 ================= -->
+    <section class="panel grid" id="panel-ai" role="tabpanel" aria-label="AI 검색" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">AI 검색 · 질문</h2>
+          <span class="card-sub" id="ai-mode">키 미설정</span>
+        </div>
+        <div class="chat-log" id="ai-log"></div>
+        <form class="row" id="ai-form" style="margin-top:12px">
+          <input class="field grow" id="ai-input" placeholder="무엇이든 물어보세요" autocomplete="off">
+          <button class="btn btn-primary" type="submit" id="ai-send">전송</button>
+        </form>
+        <div class="row" style="margin-top:10px">
+          <span class="card-sub">키가 없으면 외부 검색으로:</span>
+          <button class="btn btn-sm" data-ext="google" type="button">Google</button>
+          <button class="btn btn-sm" data-ext="naver" type="button">네이버</button>
+          <button class="btn btn-sm" data-ext="perplexity" type="button">Perplexity</button>
+        </div>
+        <p class="note" style="margin-top:12px">
+          <strong>보안 주의:</strong> 이 기능은 <strong>본인 API 키를 브라우저에 직접 저장</strong>하는 BYOK 방식입니다.
+          키는 이 기기의 localStorage 에만 저장되지만, <strong>개발자 도구로 열람이 가능</strong>합니다.
+          본인 기기에서만 쓰고, <strong>남에게 배포하는 서비스라면 반드시 서버 프록시를 두세요.</strong>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= 설정 ================= -->
+    <section class="panel grid grid-2" id="panel-settings" role="tabpanel" aria-label="설정" hidden>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">표시 설정</h2></div>
+        <div class="row" style="margin-bottom:14px">
+          <span class="card-sub grow">테마</span>
+          <select class="field" id="set-theme" style="width:150px">
+            <option value="auto">시스템 설정</option>
+            <option value="light">라이트</option>
+            <option value="dark">다크</option>
+          </select>
+        </div>
+        <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
+        <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
+        <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-primary btn-sm" id="set-banner-save" type="button">배너 저장</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">AI 연동 (BYOK)</h2></div>
+        <p class="card-sub" style="margin-bottom:8px">
+          Anthropic API 키를 입력하면 AI 검색 탭이 활성화됩니다.
+          키 발급: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>
+        </p>
+        <div class="row">
+          <input class="field grow" id="set-apikey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+          <button class="btn btn-primary btn-sm" id="set-apikey-save" type="button">저장</button>
+          <button class="btn btn-sm btn-danger" id="set-apikey-clear" type="button">삭제</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <span class="card-sub grow">모델</span>
+          <select class="field" id="set-model" style="width:200px">
+            <option value="claude-opus-5">Claude Opus 5 (고성능)</option>
+            <option value="claude-sonnet-5">Claude Sonnet 5 (균형)</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5 (저렴·빠름)</option>
+          </select>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <div class="card-head"><h3 class="card-title">데이터</h3></div>
+        <div class="row">
+          <button class="btn btn-sm" id="set-export" type="button">⬇️ 백업 내려받기</button>
+          <button class="btn btn-sm" id="set-import" type="button">⬆️ 백업 복원</button>
+          <button class="btn btn-sm btn-danger" id="set-reset" type="button">전체 초기화</button>
+        </div>
+        <input type="file" id="set-import-file" accept="application/json" class="sr-only">
+        <p class="card-sub" id="set-storage-note" style="margin-top:10px"></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script>
+/* 단일 파일 빌드 — scripts/build-standalone.mjs 가 생성합니다. 직접 수정하지 마세요. */
+"use strict";
+// 웹서버 없이 여는 버전이므로 서비스 워커 등록을 건너뜁니다.
+window.__DK_DISABLE_SW = true;
+(function () {
+/* ===== js/lib/dom.js ===== */
+const __m_js_lib_dom_js = (function () {
+/**
+ * dom.js
+ * DOM 조작을 짧게 쓰기 위한 최소 헬퍼 모음.
+ */
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+/** 요소를 생성합니다. el('div', {class:'x'}, '텍스트') */
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([key, value]) => {
+    if (value == null || value === false) return;
+    if (key === 'class') node.className = value;
+    else if (key === 'dataset') Object.assign(node.dataset, value);
+    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2).toLowerCase(), value);
+    else if (key === 'text') node.textContent = value;
+    else node.setAttribute(key, value === true ? '' : String(value));
+  });
+  children.flat().forEach((child) => {
+    if (child == null || child === false) return;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  });
+  return node;
+}
+
+/** 숫자를 2자리로 0 채움 */
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** 화면 우측 하단에 잠깐 뜨는 알림 */
+let toastTimer = null;
+function toast(message, type = 'info') {
+  let box = $('#toast');
+  if (!box) {
+    box = el('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' });
+    document.body.append(box);
+  }
+  box.textContent = message;
+  box.dataset.type = type;
+  box.classList.add('is-visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.remove('is-visible'), 2600);
+}
+
+/** HTML 문자열을 안전하게 텍스트로 이스케이프 */
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+/**
+ * 고유 ID 를 만듭니다.
+ * crypto.randomUUID 는 보안 컨텍스트에서만 동작하므로, 없으면 대체 방식을 씁니다.
+ * (예: file:// 로 연 단일 파일 버전, 구형 브라우저)
+ */
+function uid() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch { /* 아래 대체 방식으로 내려갑니다 */ }
+  // 마지막 대체: 시각 + 증가 카운터 (같은 세션 안에서 충돌하지 않으면 충분합니다)
+  uidCounter += 1;
+  return `id-${Date.now().toString(36)}-${uidCounter.toString(36)}`;
+}
+let uidCounter = 0;
+  return { el, toast, escapeHtml, uid, $, $$, pad2 };
+})();
+
+/* ===== js/lib/store.js ===== */
+const __m_js_lib_store_js = (function () {
+/**
+ * store.js
+ * localStorage 래퍼. 사생활 보호 모드나 용량 초과로 접근이 실패해도 앱이 죽지 않도록 방어합니다.
+ */
+
+const PREFIX = 'daily-kit:';
+// localStorage 가 막힌 환경(시크릿 모드 등)을 위한 메모리 대체 저장소
+const memoryFallback = new Map();
+let storageAvailable = null;
+
+function checkStorage() {
+  if (storageAvailable !== null) return storageAvailable;
+  try {
+    const probe = `${PREFIX}__probe__`;
+    window.localStorage.setItem(probe, '1');
+    window.localStorage.removeItem(probe);
+    storageAvailable = true;
+  } catch {
+    storageAvailable = false;
+  }
+  return storageAvailable;
+}
+
+/** 저장된 값을 읽습니다. 없거나 파싱 실패 시 fallback 을 반환합니다. */
+function load(key, fallback) {
+  const fullKey = PREFIX + key;
+  try {
+    const raw = checkStorage() ? window.localStorage.getItem(fullKey) : memoryFallback.get(fullKey);
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+/** 값을 저장합니다. 성공 여부를 boolean 으로 반환합니다. */
+function save(key, value) {
+  const fullKey = PREFIX + key;
+  try {
+    const raw = JSON.stringify(value);
+    if (checkStorage()) window.localStorage.setItem(fullKey, raw);
+    else memoryFallback.set(fullKey, raw);
+    return true;
+  } catch (err) {
+    // 용량 초과(QuotaExceededError) 등은 조용히 실패시키되 콘솔에 남깁니다.
+    console.warn('[store] 저장 실패:', key, err?.name || err);
+    return false;
+  }
+}
+
+/** 키를 삭제합니다. */
+function remove(key) {
+  const fullKey = PREFIX + key;
+  try {
+    if (checkStorage()) window.localStorage.removeItem(fullKey);
+    else memoryFallback.delete(fullKey);
+  } catch { /* 무시 */ }
+}
+
+/** 이 앱이 저장한 모든 키를 삭제합니다. */
+function clearAll() {
+  try {
+    if (checkStorage()) {
+      const keys = Object.keys(window.localStorage).filter((k) => k.startsWith(PREFIX));
+      keys.forEach((k) => window.localStorage.removeItem(k));
+    }
+    memoryFallback.clear();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 이 앱이 저장한 데이터 전체를 객체로 내보냅니다. (백업용) */
+function exportAll() {
+  const result = {};
+  try {
+    if (checkStorage()) {
+      Object.keys(window.localStorage)
+        .filter((k) => k.startsWith(PREFIX))
+        .forEach((k) => { result[k.slice(PREFIX.length)] = JSON.parse(window.localStorage.getItem(k)); });
+    } else {
+      memoryFallback.forEach((v, k) => { result[k.slice(PREFIX.length)] = JSON.parse(v); });
+    }
+  } catch { /* 무시 */ }
+  return result;
+}
+
+/** 백업 객체를 복원합니다. */
+function importAll(data) {
+  if (!data || typeof data !== 'object') return false;
+  let ok = true;
+  Object.entries(data).forEach(([k, v]) => { if (!save(k, v)) ok = false; });
+  return ok;
+}
+
+/** localStorage 사용 가능 여부 */
+function isPersistent() { return checkStorage(); }
+
+/**
+ * 저장소가 다른 문서와 공유되는 환경인지 판정합니다.
+ * Chromium 계열은 file:// 문서의 localStorage 를 "모든 로컬 파일이 공유하는 하나의 저장소" 로 다룹니다.
+ * 즉 바탕화면에 있는 다른 .html 파일이 여기에 저장한 값을 그대로 읽을 수 있습니다.
+ */
+function isSharedStorage() {
+  try {
+    return window.location.protocol === 'file:';
+  } catch {
+    return false;
+  }
+}
+
+// 공유 저장소 환경에서 비밀값을 담아 두는 메모리 전용 보관소 (탭을 닫으면 사라집니다)
+const secretMemory = new Map();
+
+/** API 키처럼 유출되면 안 되는 값을 저장합니다. 공유 저장소 환경에서는 메모리에만 둡니다. */
+function saveSecret(key, value) {
+  if (isSharedStorage()) {
+    secretMemory.set(key, value);
+    return true;
+  }
+  return save(key, value);
+}
+
+/** saveSecret 으로 저장한 값을 읽습니다. */
+function loadSecret(key, fallback) {
+  if (isSharedStorage()) {
+    return secretMemory.has(key) ? secretMemory.get(key) : fallback;
+  }
+  return load(key, fallback);
+}
+
+/** saveSecret 으로 저장한 값을 지웁니다. */
+function removeSecret(key) {
+  secretMemory.delete(key);
+  remove(key);
+}
+  return { load, save, remove, clearAll, exportAll, importAll, isPersistent, isSharedStorage, saveSecret, loadSecret, removeSecret };
+})();
+
+/* ===== js/lib/calc-engine.js ===== */
+const __m_js_lib_calc_engine_js = (function () {
+/**
+ * calc-engine.js
+ * 계산기 수식 파서/평가기. eval() 을 쓰지 않고 Shunting-yard 알고리즘으로 직접 구현합니다.
+ * 지원: + - * / ( ) 소수점, 단항 부호(-5), 후위 퍼센트(50% -> 0.5), 지수표기(1e3)
+ */
+
+// 연산자 우선순위와 결합 방향 정의
+const OPERATORS = {
+  '+': { precedence: 1, assoc: 'left', apply: (a, b) => a + b },
+  '-': { precedence: 1, assoc: 'left', apply: (a, b) => a - b },
+  '*': { precedence: 2, assoc: 'left', apply: (a, b) => a * b },
+  '/': { precedence: 2, assoc: 'left', apply: (a, b) => a / b },
+};
+
+// 표시용 기호를 내부 연산자로 정규화
+function normalize(expression) {
+  return String(expression)
+    .replace(/[×✕✖]/g, '*')
+    .replace(/[÷∕]/g, '/')
+    .replace(/[−–—]/g, '-')
+    .replace(/,/g, '')
+    .replace(/\s+/g, '');
+}
+
+/**
+ * 수식 문자열을 토큰 배열로 분해합니다.
+ * @throws {Error} 허용되지 않은 문자가 있을 때
+ */
+function tokenize(expression) {
+  const src = normalize(expression);
+  const tokens = [];
+  let i = 0;
+
+  while (i < src.length) {
+    const ch = src[i];
+
+    // 숫자 (소수점, 지수표기 포함)
+    if (/[0-9.]/.test(ch)) {
+      let numText = '';
+      let dotSeen = false;
+      while (i < src.length && /[0-9.]/.test(src[i])) {
+        if (src[i] === '.') {
+          // 소수점이 두 번 나오면 잘못된 숫자
+          if (dotSeen) throw new Error('잘못된 숫자 형식입니다');
+          dotSeen = true;
+        }
+        numText += src[i];
+        i += 1;
+      }
+      // 지수표기: 1e3, 2.5e-4
+      if (i < src.length && /[eE]/.test(src[i])) {
+        const save = i;
+        let expText = src[i];
+        i += 1;
+        if (i < src.length && /[+-]/.test(src[i])) { expText += src[i]; i += 1; }
+        if (i < src.length && /[0-9]/.test(src[i])) {
+          while (i < src.length && /[0-9]/.test(src[i])) { expText += src[i]; i += 1; }
+          numText += expText;
+        } else {
+          i = save; // 지수부가 불완전하면 되돌림
+        }
+      }
+      const value = Number(numText);
+      if (!Number.isFinite(value)) throw new Error('잘못된 숫자 형식입니다');
+      tokens.push({ type: 'number', value });
+      continue;
+    }
+
+    if (ch in OPERATORS) { tokens.push({ type: 'op', value: ch }); i += 1; continue; }
+    if (ch === '(') { tokens.push({ type: 'lparen' }); i += 1; continue; }
+    if (ch === ')') { tokens.push({ type: 'rparen' }); i += 1; continue; }
+    if (ch === '%') { tokens.push({ type: 'percent' }); i += 1; continue; }
+
+    throw new Error(`사용할 수 없는 문자입니다: ${ch}`);
+  }
+  return tokens;
+}
+
+/**
+ * 토큰 배열을 후위표기(RPN)로 변환합니다.
+ * 단항 부호는 'u-' / 'u+' 로 표시하여 이항 연산자와 구분합니다.
+ */
+function toRPN(tokens) {
+  const output = [];
+  const stack = [];
+  // 직전 토큰이 피연산자(숫자/닫는괄호/퍼센트)였는지 여부 -> 단항 및 암묵적 곱셈 판별에 사용
+  let prevWasValue = false;
+
+  // 이항 연산자를 우선순위 규칙에 따라 스택에 밀어 넣습니다.
+  const pushBinaryOp = (opChar) => {
+    const o1 = OPERATORS[opChar];
+    while (stack.length) {
+      const top = stack[stack.length - 1];
+      if (top.type === 'unary') { output.push(stack.pop()); continue; }
+      if (top.type !== 'op') break;
+      const o2 = OPERATORS[top.value];
+      const shouldPop = o2.precedence > o1.precedence
+        || (o2.precedence === o1.precedence && o1.assoc === 'left');
+      if (!shouldPop) break;
+      output.push(stack.pop());
+    }
+    stack.push({ type: 'op', value: opChar });
+  };
+
+  for (const token of tokens) {
+    if (token.type === 'number') {
+      // 2(3+4) 뒤의 숫자처럼 값이 연속되면 곱셈으로 해석합니다. 예: (1+2)3 -> (1+2)*3
+      if (prevWasValue) pushBinaryOp('*');
+      output.push(token);
+      prevWasValue = true;
+    } else if (token.type === 'percent') {
+      if (!prevWasValue) throw new Error('% 앞에 숫자가 필요합니다');
+      output.push({ type: 'percent' });
+      prevWasValue = true;
+    } else if (token.type === 'op') {
+      if (!prevWasValue) {
+        // 단항 연산자: -5, +3, 2*(-3)
+        if (token.value === '-') stack.push({ type: 'unary', value: 'u-' });
+        else if (token.value === '+') stack.push({ type: 'unary', value: 'u+' });
+        else throw new Error(`연산자 ${token.value} 앞에 숫자가 필요합니다`);
+      } else {
+        pushBinaryOp(token.value);
+      }
+      prevWasValue = false;
+    } else if (token.type === 'lparen') {
+      // 2(3+4) 처럼 값 뒤에 여는 괄호가 오면 곱셈으로 해석합니다.
+      if (prevWasValue) pushBinaryOp('*');
+      stack.push(token);
+      prevWasValue = false;
+    } else if (token.type === 'rparen') {
+      let found = false;
+      while (stack.length) {
+        const top = stack.pop();
+        if (top.type === 'lparen') { found = true; break; }
+        output.push(top);
+      }
+      if (!found) throw new Error('괄호의 짝이 맞지 않습니다');
+      // 괄호 바로 앞에 붙어 있던 단항 연산자를 꺼냄
+      while (stack.length && stack[stack.length - 1].type === 'unary') output.push(stack.pop());
+      prevWasValue = true;
+    }
+  }
+
+  while (stack.length) {
+    const top = stack.pop();
+    if (top.type === 'lparen') throw new Error('괄호의 짝이 맞지 않습니다');
+    output.push(top);
+  }
+  return output;
+}
+
+/** 후위표기 토큰열을 계산합니다. */
+function evalRPN(rpn) {
+  const stack = [];
+  for (const token of rpn) {
+    if (token.type === 'number') {
+      stack.push(token.value);
+    } else if (token.type === 'percent') {
+      if (stack.length < 1) throw new Error('수식이 올바르지 않습니다');
+      stack.push(stack.pop() / 100);
+    } else if (token.type === 'unary') {
+      if (stack.length < 1) throw new Error('수식이 올바르지 않습니다');
+      const v = stack.pop();
+      stack.push(token.value === 'u-' ? -v : v);
+    } else if (token.type === 'op') {
+      if (stack.length < 2) throw new Error('수식이 올바르지 않습니다');
+      const b = stack.pop();
+      const a = stack.pop();
+      if (token.value === '/' && b === 0) throw new Error('0으로 나눌 수 없습니다');
+      stack.push(OPERATORS[token.value].apply(a, b));
+    }
+  }
+  if (stack.length !== 1) throw new Error('수식이 올바르지 않습니다');
+  const result = stack[0];
+  if (!Number.isFinite(result)) throw new Error('계산할 수 없는 값입니다');
+  return result;
+}
+
+/**
+ * 부동소수점 오차를 제거합니다. (0.1 + 0.2 -> 0.3)
+ * 유효숫자 12자리로 반올림한 뒤 불필요한 0을 제거합니다.
+ */
+function roundResult(value) {
+  if (!Number.isFinite(value)) return value;
+  if (value === 0) return 0;
+  const rounded = Number(value.toPrecision(12));
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+/** 수식 문자열을 계산하여 숫자를 반환합니다. */
+function evaluate(expression) {
+  const text = normalize(expression);
+  if (!text) throw new Error('수식이 비어 있습니다');
+  return roundResult(evalRPN(toRPN(tokenize(text))));
+}
+
+/** 결과를 천단위 구분 기호가 들어간 문자열로 포맷합니다. */
+function formatNumber(value) {
+  if (!Number.isFinite(value)) return String(value);
+  const abs = Math.abs(value);
+  // 너무 크거나 작은 값은 지수표기로
+  if (abs !== 0 && (abs >= 1e15 || abs < 1e-9)) return value.toExponential(6).replace(/e([+-])/, 'e$1');
+  const [intPart, decPart] = String(value).split('.');
+  const withComma = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return decPart ? `${withComma}.${decPart}` : withComma;
+}
+
+/** 입력 중인 수식이 계산 가능한 상태인지 가볍게 검사합니다. */
+function isEvaluable(expression) {
+  try { evaluate(expression); return true; } catch { return false; }
+}
+  return { normalize, tokenize, toRPN, evalRPN, roundResult, evaluate, formatNumber, isEvaluable };
+})();
+
+/* ===== js/modules/calculator.js ===== */
+const __m_js_modules_calculator_js = (function () {
+  const { $, el, toast } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+  const { evaluate, formatNumber, normalize } = __m_js_lib_calc_engine_js;
+/** 계산기 모듈: 키패드 + 키보드 입력 + 계산 기록 */
+
+
+
+const HISTORY_KEY = 'calc.history';
+const MAX_HISTORY = 40;
+
+let history = [];
+let exprInput, resultBox, historyList;
+
+// 입력 중인 수식의 미리보기 결과를 갱신합니다.
+function updatePreview() {
+  const raw = exprInput.value.trim();
+  resultBox.classList.remove('is-error');
+  if (!raw) { resultBox.textContent = '0'; return; }
+  try {
+    resultBox.textContent = formatNumber(evaluate(raw));
+  } catch {
+    // 입력 도중(예: "1+")에는 에러를 띄우지 않고 이전 결과 유지 대신 흐리게 표시
+    resultBox.textContent = '…';
+  }
+}
+
+// 커서 위치에 문자열을 삽입합니다.
+function insert(text) {
+  const start = exprInput.selectionStart ?? exprInput.value.length;
+  const end = exprInput.selectionEnd ?? exprInput.value.length;
+  exprInput.value = exprInput.value.slice(0, start) + text + exprInput.value.slice(end);
+  const caret = start + text.length;
+  exprInput.setSelectionRange(caret, caret);
+  exprInput.focus();
+  updatePreview();
+}
+
+// 여는/닫는 괄호 중 문맥에 맞는 쪽을 넣습니다.
+function insertParen() {
+  const text = normalize(exprInput.value);
+  const opened = (text.match(/\(/g) || []).length;
+  const closed = (text.match(/\)/g) || []).length;
+  const lastChar = text.slice(-1);
+  const afterValue = /[0-9).%]/.test(lastChar);
+  insert(opened > closed && afterValue ? ')' : '(');
+}
+
+function backspace() {
+  const start = exprInput.selectionStart ?? exprInput.value.length;
+  const end = exprInput.selectionEnd ?? exprInput.value.length;
+  if (start !== end) {
+    exprInput.value = exprInput.value.slice(0, start) + exprInput.value.slice(end);
+    exprInput.setSelectionRange(start, start);
+  } else if (start > 0) {
+    exprInput.value = exprInput.value.slice(0, start - 1) + exprInput.value.slice(start);
+    exprInput.setSelectionRange(start - 1, start - 1);
+  }
+  exprInput.focus();
+  updatePreview();
+}
+
+function clearAll() {
+  exprInput.value = '';
+  resultBox.classList.remove('is-error');
+  resultBox.textContent = '0';
+  exprInput.focus();
+}
+
+function renderHistory() {
+  historyList.replaceChildren();
+  if (!history.length) {
+    historyList.append(el('li', { class: 'empty' }, '아직 계산 기록이 없습니다.'));
+    return;
+  }
+  history.forEach((item) => {
+    historyList.append(el('li', {
+      class: 'hist-item',
+      title: '클릭하면 결과를 수식에 넣습니다',
+      onclick: () => { insert(String(item.value)); },
+    },
+      el('span', { class: 'hist-expr' }, item.expr),
+      el('span', { class: 'hist-val' }, formatNumber(item.value)),
+    ));
+  });
+}
+
+function equals() {
+  const raw = exprInput.value.trim();
+  if (!raw) return;
+  try {
+    const value = evaluate(raw);
+    resultBox.classList.remove('is-error');
+    resultBox.textContent = formatNumber(value);
+    history.unshift({ expr: raw, value, at: Date.now() });
+    history = history.slice(0, MAX_HISTORY);
+    save(HISTORY_KEY, history);
+    renderHistory();
+    // 결과를 이어서 계산할 수 있도록 수식 자리에 결과를 넣습니다.
+    exprInput.value = String(value);
+    exprInput.setSelectionRange(exprInput.value.length, exprInput.value.length);
+  } catch (err) {
+    resultBox.classList.add('is-error');
+    resultBox.textContent = err.message || '계산할 수 없습니다';
+  }
+}
+
+function initCalculator() {
+  exprInput = $('#calc-expr');
+  resultBox = $('#calc-result');
+  historyList = $('#calc-history');
+  history = load(HISTORY_KEY, []);
+  if (!Array.isArray(history)) history = [];
+  renderHistory();
+
+  $('#keypad').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.ins) { insert(btn.dataset.ins); return; }
+    switch (btn.dataset.act) {
+      case 'clear': clearAll(); break;
+      case 'back': backspace(); break;
+      case 'paren': insertParen(); break;
+      case 'equals': equals(); break;
+      default: break;
+    }
+  });
+
+  exprInput.addEventListener('input', updatePreview);
+  exprInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); equals(); }
+    else if (e.key === 'Escape') { e.preventDefault(); clearAll(); }
+  });
+
+  $('#calc-clear-hist').addEventListener('click', () => {
+    history = [];
+    save(HISTORY_KEY, history);
+    renderHistory();
+    toast('계산 기록을 지웠습니다');
+  });
+
+  // 계산기 탭이 활성화된 상태에서 전역 키보드 입력을 수식창으로 흘려보냅니다.
+  document.addEventListener('keydown', (e) => {
+    const calcVisible = !$('#panel-calc').hidden;
+    const typingElsewhere = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+    if (!calcVisible || typingElsewhere || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (/^[0-9+\-*/().%]$/.test(e.key)) { e.preventDefault(); insert(e.key); }
+    else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); equals(); }
+    else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
+    else if (e.key === 'Escape') { e.preventDefault(); clearAll(); }
+  });
+}
+  return { initCalculator };
+})();
+
+/* ===== js/modules/weather.js ===== */
+const __m_js_modules_weather_js = (function () {
+  const { $, el } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+/**
+ * 날씨 모듈 — Open-Meteo (API 키 불필요, CORS 허용)
+ * 현재 날씨 + 7일 예보. 데이터 출처 표기 필요 (CC BY 4.0)
+ */
+
+
+const PLACE_KEY = 'weather.place';
+const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+const DEFAULT_PLACE = { name: '서울', country: '대한민국', latitude: 37.5665, longitude: 126.978 };
+
+// WMO 날씨 해석 코드 -> 한국어 설명 + 이모지
+const WMO = {
+  0: ['맑음', '☀️'],
+  1: ['대체로 맑음', '🌤️'], 2: ['부분적으로 흐림', '⛅'], 3: ['흐림', '☁️'],
+  45: ['안개', '🌫️'], 48: ['서리 안개', '🌫️'],
+  51: ['약한 이슬비', '🌦️'], 53: ['이슬비', '🌦️'], 55: ['강한 이슬비', '🌧️'],
+  56: ['약한 어는 이슬비', '🌧️'], 57: ['어는 이슬비', '🌧️'],
+  61: ['약한 비', '🌦️'], 63: ['비', '🌧️'], 65: ['강한 비', '🌧️'],
+  66: ['약한 어는 비', '🌧️'], 67: ['어는 비', '🌧️'],
+  71: ['약한 눈', '🌨️'], 73: ['눈', '❄️'], 75: ['강한 눈', '❄️'], 77: ['싸락눈', '🌨️'],
+  80: ['약한 소나기', '🌦️'], 81: ['소나기', '🌧️'], 82: ['강한 소나기', '⛈️'],
+  85: ['약한 소낙눈', '🌨️'], 86: ['소낙눈', '❄️'],
+  95: ['뇌우', '⛈️'], 96: ['우박 동반 뇌우', '⛈️'], 99: ['강한 우박 뇌우', '⛈️'],
+};
+const describe = (code) => WMO[code] || ['정보 없음', '🌡️'];
+
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+
+// 숫자를 안전하게 표시 (null/undefined 방어)
+const num = (value, unit = '', digits = 0) => (
+  typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(digits)}${unit}` : '—'
+);
+
+/** 타임아웃이 걸린 fetch. 네트워크가 죽었을 때 무한 대기하지 않도록 합니다. */
+async function fetchJson(url, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
+    return await res.json();
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('요청 시간이 초과되었습니다');
+    throw new Error(err.message || '네트워크에 연결할 수 없습니다');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function showError(message) {
+  $('#wx-now').replaceChildren(
+    el('p', { class: 'empty' }, `날씨를 불러오지 못했습니다. ${message}`),
+    el('div', { class: 'row', style: 'justify-content:center' },
+      el('button', { class: 'btn btn-sm', onclick: () => loadWeather(load(PLACE_KEY, DEFAULT_PLACE)) }, '다시 시도')),
+  );
+  $('#wx-week').replaceChildren(el('li', { class: 'empty' }, '—'));
+}
+
+function renderCurrent(place, data) {
+  const cur = data?.current || {};
+  const [desc, icon] = describe(cur.weather_code);
+  $('#wx-place').textContent = place.admin1 && place.admin1 !== place.name
+    ? `${place.name}, ${place.admin1}`
+    : `${place.name}${place.country ? `, ${place.country}` : ''}`;
+
+  $('#wx-now').replaceChildren(
+    el('div', { class: 'wx-now' },
+      el('div', { class: 'wx-icon' }, icon),
+      el('div', {},
+        el('div', { class: 'wx-temp' }, num(cur.temperature_2m, '°', 1)),
+        el('div', { class: 'wx-desc' }, `${desc} · 체감 ${num(cur.apparent_temperature, '°', 1)}`),
+      ),
+    ),
+    el('dl', { class: 'wx-meta' },
+      el('div', {}, el('dt', {}, '습도'), el('dd', {}, num(cur.relative_humidity_2m, '%'))),
+      el('div', {}, el('dt', {}, '강수'), el('dd', {}, num(cur.precipitation, 'mm', 1))),
+      el('div', {}, el('dt', {}, '바람'), el('dd', {}, num(cur.wind_speed_10m, ' km/h', 1))),
+      el('div', {}, el('dt', {}, '기준 시각'), el('dd', {}, (cur.time || '—').replace('T', ' '))),
+    ),
+  );
+}
+
+function renderWeek(data) {
+  const daily = data?.daily;
+  const weekEl = $('#wx-week');
+  if (!daily || !Array.isArray(daily.time) || !daily.time.length) {
+    weekEl.replaceChildren(el('li', { class: 'empty' }, '주간 예보 데이터가 없습니다.'));
+    return;
+  }
+
+  // 주간 최저/최고를 모아 막대 길이 계산에 사용
+  const mins = (daily.temperature_2m_min || []).filter(Number.isFinite);
+  const maxs = (daily.temperature_2m_max || []).filter(Number.isFinite);
+  const weekMin = mins.length ? Math.min(...mins) : 0;
+  const weekMax = maxs.length ? Math.max(...maxs) : 1;
+  const span = Math.max(weekMax - weekMin, 1); // 0 division 방지
+
+  weekEl.replaceChildren();
+  daily.time.forEach((iso, i) => {
+    const date = new Date(`${iso}T00:00:00`);
+    const isToday = i === 0;
+    const lo = daily.temperature_2m_min?.[i];
+    const hi = daily.temperature_2m_max?.[i];
+    const [, icon] = describe(daily.weather_code?.[i]);
+    const pop = daily.precipitation_probability_max?.[i];
+
+    // 막대의 좌측 여백과 길이를 주간 온도 범위에 맞춰 비율로 계산
+    const left = Number.isFinite(lo) ? ((lo - weekMin) / span) * 100 : 0;
+    const width = Number.isFinite(lo) && Number.isFinite(hi) ? Math.max(((hi - lo) / span) * 100, 6) : 6;
+
+    weekEl.append(el('li', { class: 'wx-day' },
+      el('span', { class: 'wx-day-name', style: isToday ? 'color:var(--accent);font-weight:700' : '' },
+        isToday ? '오늘' : `${date.getMonth() + 1}/${date.getDate()} ${WEEKDAY[date.getDay()]}`),
+      el('span', { title: describe(daily.weather_code?.[i])[0] }, icon),
+      el('span', { style: 'position:relative;height:5px' },
+        el('span', { class: 'wx-bar', style: `position:absolute;left:${left}%;width:${width}%` })),
+      el('span', { class: 'wx-range' },
+        el('span', { class: 'lo' }, num(lo, '°')), ' / ', num(hi, '°'),
+        Number.isFinite(pop) && pop > 0 ? el('span', { class: 'lo' }, `  ☂${pop}%`) : null),
+    ));
+  });
+}
+
+async function loadWeather(place) {
+  $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 불러오는 중…'));
+  const params = new URLSearchParams({
+    latitude: String(place.latitude),
+    longitude: String(place.longitude),
+    current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    timezone: 'auto',
+    forecast_days: '7',
+  });
+  try {
+    const data = await fetchJson(`${FORECAST_URL}?${params}`);
+    renderCurrent(place, data);
+    renderWeek(data);
+    save(PLACE_KEY, place);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function searchPlace(query) {
+  const params = new URLSearchParams({ name: query, count: '1', language: 'ko', format: 'json' });
+  const data = await fetchJson(`${GEOCODE_URL}?${params}`);
+  const hit = data?.results?.[0];
+  if (!hit) throw new Error('해당 지역을 찾지 못했습니다');
+  return {
+    name: hit.name,
+    country: hit.country || '',
+    admin1: hit.admin1 || '',
+    latitude: hit.latitude,
+    longitude: hit.longitude,
+  };
+}
+
+function initWeather() {
+  const saved = load(PLACE_KEY, DEFAULT_PLACE);
+  loadWeather(saved && Number.isFinite(saved.latitude) ? saved : DEFAULT_PLACE);
+
+  $('#wx-search-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = $('#wx-query').value.trim();
+    if (!query) return;
+    $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 검색 중…'));
+    try {
+      const place = await searchPlace(query);
+      $('#wx-query').value = '';
+      await loadWeather(place);
+    } catch (err) {
+      showError(err.message);
+    }
+  });
+
+  $('#wx-locate').addEventListener('click', () => {
+    if (!navigator.geolocation) { showError('이 브라우저는 위치 기능을 지원하지 않습니다.'); return; }
+    $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 위치 확인 중…'));
+
+    // getCurrentPosition 의 timeout 은 '권한이 확정된 뒤'부터 계산됩니다.
+    // 권한 창이 뜨지 않거나 사용자가 응답하지 않으면 두 콜백 모두 호출되지 않아
+    // 스피너가 영구히 멈추므로, 별도 감시 타이머를 둡니다.
+    let settled = false;
+    const watchdog = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      showError('위치 확인에 응답이 없습니다. 브라우저 주소창의 위치 권한을 확인하거나 도시 이름으로 검색해 주세요.');
+    }, 20000);
+
+    const finish = (fn) => (arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      fn(arg);
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      finish((pos) => loadWeather({
+        name: '내 위치', country: '',
+        latitude: Number(pos.coords.latitude.toFixed(4)),
+        longitude: Number(pos.coords.longitude.toFixed(4)),
+      })),
+      finish((err) => showError(
+        err.code === 1 ? '위치 권한이 거부되었습니다. 도시 이름으로 검색해 주세요.' : '위치를 확인하지 못했습니다.',
+      )),
+      { timeout: 10000, maximumAge: 300000 },
+    );
+  });
+}
+  return { initWeather };
+})();
+
+/* ===== js/modules/todo.js ===== */
+const __m_js_modules_todo_js = (function () {
+  const { $, el, toast, uid } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+/** 할 일 모듈: 추가/완료/삭제/필터, localStorage 저장 */
+
+
+const KEY = 'todo.items';
+let items = [];
+let filter = 'all';
+let listEl, countEl;
+
+function persist() { save(KEY, items); }
+
+function visible() {
+  if (filter === 'active') return items.filter((t) => !t.done);
+  if (filter === 'done') return items.filter((t) => t.done);
+  return items;
+}
+
+function render() {
+  listEl.replaceChildren();
+  const rows = visible();
+  const remain = items.filter((t) => !t.done).length;
+  countEl.textContent = items.length ? `${remain}개 남음 / 전체 ${items.length}개` : '';
+
+  if (!rows.length) {
+    listEl.append(el('li', { class: 'empty' },
+      filter === 'all' ? '할 일을 추가해보세요.' : '해당하는 항목이 없습니다.'));
+    return;
+  }
+
+  rows.forEach((item) => {
+    const checkbox = el('input', { type: 'checkbox', 'aria-label': '완료 표시' });
+    checkbox.checked = item.done;
+    checkbox.addEventListener('change', () => {
+      item.done = checkbox.checked;
+      item.doneAt = checkbox.checked ? Date.now() : null;
+      persist();
+      render();
+    });
+    listEl.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
+      checkbox,
+      el('span', { class: 'todo-text' }, item.text),
+      el('button', {
+        class: 'btn btn-sm btn-ghost',
+        title: '삭제',
+        'aria-label': '삭제',
+        onclick: () => {
+          items = items.filter((t) => t.id !== item.id);
+          persist();
+          render();
+        },
+      }, '✕'),
+    ));
+  });
+}
+
+function initTodo() {
+  listEl = $('#todo-list');
+  countEl = $('#todo-count');
+  items = load(KEY, []);
+  if (!Array.isArray(items)) items = [];
+
+  $('#todo-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#todo-input');
+    const text = input.value.trim();
+    if (!text) return;
+    items.unshift({ id: uid(), text, done: false, at: Date.now(), doneAt: null });
+    input.value = '';
+    persist();
+    render();
+  });
+
+  document.querySelectorAll('[data-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      filter = btn.dataset.filter;
+      document.querySelectorAll('[data-filter]').forEach((b) => {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      render();
+    });
+  });
+
+  $('#todo-clear-done').addEventListener('click', () => {
+    const before = items.length;
+    items = items.filter((t) => !t.done);
+    persist();
+    render();
+    toast(before === items.length ? '삭제할 완료 항목이 없습니다' : `완료 항목 ${before - items.length}개를 삭제했습니다`);
+  });
+
+  render();
+}
+  return { initTodo };
+})();
+
+/* ===== js/modules/time.js ===== */
+const __m_js_modules_time_js = (function () {
+  const { $, el, pad2, toast } = __m_js_lib_dom_js;
+  const { load, save, remove } = __m_js_lib_store_js;
+/**
+ * 시계 · 타이머 · 알람 모듈
+ * 주의: 브라우저 탭이 열려 있을 때만 동작합니다. (백그라운드 알람은 네이티브 앱 기능 필요)
+ */
+
+
+const ALARM_KEY = 'time.alarm';
+const TIMER_KEY = 'time.lastPreset';
+
+const WORLD = [
+  { label: '뉴욕', tz: 'America/New_York' },
+  { label: '런던', tz: 'Europe/London' },
+  { label: '도쿄', tz: 'Asia/Tokyo' },
+  { label: 'LA', tz: 'America/Los_Angeles' },
+];
+
+let timerTotal = 25 * 60;     // 설정된 총 시간(초)
+let timerRemain = 25 * 60;    // 남은 시간(초)
+let timerRunning = false;
+let timerEndAt = 0;           // 실행 중일 때의 종료 시각(ms). setInterval 누적 오차를 피하려고 절대시각 기준으로 계산합니다.
+let alarmAt = null;           // 'HH:MM'
+let alarmFiredKey = '';       // 같은 분에 중복으로 울리지 않도록 하는 키
+
+// --- 알림음: 외부 파일 없이 WebAudio 로 생성 ---
+let audioCtx = null;
+function beep(times = 3) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    for (let i = 0; i < times; i += 1) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const start = audioCtx.currentTime + i * 0.45;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.28, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.38);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    }
+  } catch {
+    // 자동재생 정책 등으로 실패해도 앱은 계속 동작해야 합니다.
+  }
+}
+
+function notify(title, body) {
+  toast(`${title} — ${body}`);
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // 단일 파일로 배포하면 assets/ 폴더가 없으므로, 아이콘 파일이 있는 경우에만 지정합니다.
+      const options = { body };
+      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+        options.icon = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzYjZlZjYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YzVjZjYiLz4KICA8L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjE4IiB5PSIyNCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSIxOCIgeT0iMzQuNSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KPC9zdmc+Cg==';
+      }
+      new Notification(title, options);
+    }
+  } catch { /* 무시 */ }
+}
+
+// --- 시계 ---
+// 세계시계 DOM 은 한 번만 만들고 이후에는 텍스트만 갱신합니다. (매초 DOM 재생성 방지)
+let worldNodes = null;
+
+function buildWorldClocks() {
+  const list = $('#world-clocks');
+  list.replaceChildren();
+  worldNodes = WORLD.map(({ label }) => {
+    const valueEl = el('span', { style: 'font-family:var(--mono)' }, '—');
+    list.append(el('li', { class: 'world-item' },
+      el('span', { style: 'color:var(--text-dim)' }, label), valueEl));
+    return valueEl;
+  });
+}
+
+function renderClock() {
+  const now = new Date();
+  $('#clock-time').textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  $('#clock-date').textContent = now.toLocaleDateString('ko-KR', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  });
+
+  if (!worldNodes) buildWorldClocks();
+  WORLD.forEach(({ tz }, i) => {
+    try {
+      worldNodes[i].textContent = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', month: 'numeric', day: 'numeric',
+      }).format(now);
+    } catch { /* 지원하지 않는 타임존은 건너뜁니다 */ }
+  });
+}
+
+// --- 타이머 ---
+function formatTimer(totalSeconds) {
+  const s = Math.max(0, Math.ceil(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(sec)}` : `${pad2(m)}:${pad2(sec)}`;
+}
+
+function renderTimer() {
+  const display = $('#timer-display');
+  display.textContent = formatTimer(timerRemain);
+  display.classList.toggle('is-done', timerRemain <= 0 && timerTotal > 0);
+  $('#timer-start').textContent = timerRunning ? '실행 중' : '시작';
+  $('#timer-start').disabled = timerRunning;
+}
+
+function readInputSeconds() {
+  const min = Math.min(Math.max(parseInt($('#timer-min').value, 10) || 0, 0), 600);
+  const sec = Math.min(Math.max(parseInt($('#timer-sec').value, 10) || 0, 0), 59);
+  return min * 60 + sec;
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  // 일시정지 상태가 아니면 입력값에서 새로 읽습니다.
+  if (timerRemain <= 0 || timerRemain === timerTotal) {
+    const seconds = readInputSeconds();
+    if (seconds <= 0) { toast('시간을 1초 이상으로 설정해 주세요', 'error'); return; }
+    timerTotal = seconds;
+    timerRemain = seconds;
+    save(TIMER_KEY, seconds);
+  }
+  timerEndAt = Date.now() + timerRemain * 1000;
+  timerRunning = true;
+  beep(1); // 오디오 컨텍스트를 사용자 제스처 시점에 깨워 둡니다.
+  renderTimer();
+}
+
+function pauseTimer() {
+  if (!timerRunning) return;
+  timerRemain = Math.max(0, (timerEndAt - Date.now()) / 1000);
+  timerRunning = false;
+  renderTimer();
+}
+
+function resetTimer() {
+  timerRunning = false;
+  timerTotal = readInputSeconds();
+  timerRemain = timerTotal;
+  renderTimer();
+}
+
+function tickTimer() {
+  if (!timerRunning) return;
+  const remain = (timerEndAt - Date.now()) / 1000;
+  if (remain <= 0) {
+    timerRemain = 0;
+    timerRunning = false;
+    renderTimer();
+    beep(4);
+    notify('⏰ 타이머 종료', `${formatTimer(timerTotal)} 이 끝났습니다`);
+    return;
+  }
+  timerRemain = remain;
+  renderTimer();
+}
+
+// --- 알람 ---
+function renderAlarm() {
+  $('#alarm-status').textContent = alarmAt ? `매일 ${alarmAt} 에 알람 (탭이 열려 있을 때만)` : '설정된 알람 없음';
+}
+
+function tickAlarm() {
+  if (!alarmAt) return;
+  const now = new Date();
+  const nowKey = `${now.toDateString()} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  const target = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  if (target === alarmAt && alarmFiredKey !== nowKey) {
+    alarmFiredKey = nowKey;
+    beep(5);
+    notify('⏰ 알람', `설정하신 ${alarmAt} 입니다`);
+  }
+}
+
+function initTime() {
+  // 저장된 값 복원
+  const lastPreset = load(TIMER_KEY, 25 * 60);
+  if (Number.isFinite(lastPreset) && lastPreset > 0) {
+    timerTotal = lastPreset;
+    timerRemain = lastPreset;
+    $('#timer-min').value = Math.floor(lastPreset / 60);
+    $('#timer-sec').value = lastPreset % 60;
+  }
+  alarmAt = load(ALARM_KEY, null);
+  if (alarmAt) $('#alarm-time').value = alarmAt;
+
+  renderClock();
+  renderTimer();
+  renderAlarm();
+
+  // 루프는 250ms 주기로 돌립니다.
+  // 타이머는 매번 갱신해 "시작을 눌렀는데 최대 1초간 숫자가 안 바뀌는" 지연을 없애고,
+  // 시계와 알람은 초가 바뀔 때만 처리해 불필요한 작업을 줄입니다.
+  let wasHidden = true;
+  let lastSecond = -1;
+  setInterval(() => {
+    const hidden = $('#panel-time').hidden;
+    const second = new Date().getSeconds();
+    if (second !== lastSecond) {
+      lastSecond = second;
+      // 탭이 숨겨져 있으면 시계는 그리지 않되, 다시 보이는 순간에는 즉시 갱신합니다.
+      if (!hidden || wasHidden !== hidden) renderClock();
+      tickAlarm();
+    } else if (wasHidden && !hidden) {
+      renderClock();
+    }
+    wasHidden = hidden;
+    tickTimer();
+  }, 250);
+
+  $('#timer-start').addEventListener('click', startTimer);
+  $('#timer-pause').addEventListener('click', pauseTimer);
+  $('#timer-reset').addEventListener('click', resetTimer);
+
+  document.querySelectorAll('[data-min]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      $('#timer-min').value = btn.dataset.min;
+      $('#timer-sec').value = 0;
+      resetTimer();
+    });
+  });
+
+  ['#timer-min', '#timer-sec'].forEach((sel) => {
+    $(sel).addEventListener('change', () => { if (!timerRunning) resetTimer(); });
+  });
+
+  $('#alarm-set').addEventListener('click', () => {
+    const value = $('#alarm-time').value;
+    if (!value) { toast('알람 시각을 선택해 주세요', 'error'); return; }
+    alarmAt = value;
+    alarmFiredKey = '';
+    save(ALARM_KEY, alarmAt);
+    renderAlarm();
+    beep(1);
+    toast(`알람을 ${value} 로 설정했습니다`);
+  });
+
+  $('#alarm-clear').addEventListener('click', () => {
+    alarmAt = null;
+    remove(ALARM_KEY);
+    renderAlarm();
+    toast('알람을 해제했습니다');
+  });
+
+  $('#notify-enable').addEventListener('click', async () => {
+    if (!('Notification' in window)) { toast('이 브라우저는 알림을 지원하지 않습니다', 'error'); return; }
+    try {
+      const result = await Notification.requestPermission();
+      toast(result === 'granted' ? '알림이 허용되었습니다' : '알림이 차단되어 있습니다. 소리로만 알립니다.',
+        result === 'granted' ? 'info' : 'error');
+    } catch {
+      toast('알림 권한을 요청하지 못했습니다', 'error');
+    }
+  });
+}
+  return { initTime };
+})();
+
+/* ===== js/modules/memo.js ===== */
+const __m_js_modules_memo_js = (function () {
+  const { $, el, toast, uid } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+/**
+ * 메모 · 낙서판 모듈
+ * 낙서판은 Pointer Events 로 마우스/터치/펜을 동일하게 처리합니다.
+ */
+
+
+const MEMO_KEY = 'memo.items';
+const DRAW_KEY = 'memo.drawing';
+const COLORS = ['#1a1d21', '#e0533d', '#3b6ef6', '#1a8f5a', '#c47b12', '#8b5cf6'];
+const MAX_UNDO = 12;
+
+let memos = [];
+let canvas, ctx;
+let drawing = false;
+let penColor = COLORS[0];
+let penSize = 3;
+let eraser = false;
+let undoStack = [];
+
+// --- 메모 ---
+function renderMemos() {
+  const list = $('#memo-list');
+  $('#memo-count').textContent = memos.length ? `${memos.length}개` : '';
+  list.replaceChildren();
+  if (!memos.length) {
+    list.append(el('li', { class: 'empty' }, '저장된 메모가 없습니다.'));
+    return;
+  }
+  memos.forEach((memo) => {
+    list.append(el('li', { class: 'memo-item' },
+      el('div', { class: 'memo-body' }, memo.text),
+      el('div', { class: 'row', style: 'margin-top:5px' },
+        el('span', { class: 'memo-time grow' }, new Date(memo.at).toLocaleString('ko-KR')),
+        el('button', {
+          class: 'btn btn-sm btn-ghost',
+          onclick: async () => {
+            try { await navigator.clipboard.writeText(memo.text); toast('복사했습니다'); }
+            catch { toast('복사를 지원하지 않는 환경입니다', 'error'); }
+          },
+        }, '복사'),
+        el('button', {
+          class: 'btn btn-sm btn-ghost',
+          onclick: () => { memos = memos.filter((m) => m.id !== memo.id); save(MEMO_KEY, memos); renderMemos(); },
+        }, '삭제'),
+      ),
+    ));
+  });
+}
+
+// --- 낙서판 ---
+// 캔버스를 컨테이너 너비에 맞추고 devicePixelRatio 를 적용해 선명하게 그립니다.
+function resizeCanvas(preserve = true) {
+  const snapshot = preserve && canvas.width ? canvas.toDataURL('image/png') : null;
+  const cssWidth = canvas.parentElement.clientWidth || 320;
+  const cssHeight = Math.round(Math.min(Math.max(cssWidth * 0.62, 220), 420));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  canvas.style.height = `${cssHeight}px`;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+
+  ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (snapshot) restoreImage(snapshot);
+}
+
+function restoreImage(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  img.src = dataUrl;
+}
+
+function pushUndo() {
+  try {
+    undoStack.push(canvas.toDataURL('image/png'));
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+  } catch { /* 캔버스가 오염된 경우 무시 */ }
+}
+
+function pointFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function onPointerDown(e) {
+  if (!ctx) return;
+  e.preventDefault();
+  pushUndo();
+  drawing = true;
+  canvas.setPointerCapture?.(e.pointerId);
+  const p = pointFromEvent(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  // 점 하나만 찍는 경우도 보이도록 아주 짧은 선을 그립니다.
+  ctx.lineTo(p.x + 0.01, p.y);
+  applyStroke();
+}
+
+function applyStroke() {
+  ctx.lineWidth = eraser ? Math.max(penSize * 3, 12) : penSize;
+  ctx.strokeStyle = eraser ? '#ffffff' : penColor;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.stroke();
+}
+
+function onPointerMove(e) {
+  if (!drawing || !ctx) return;
+  e.preventDefault();
+  const p = pointFromEvent(e);
+  ctx.lineTo(p.x, p.y);
+  applyStroke();
+}
+
+function onPointerUp() {
+  if (!drawing) return;
+  drawing = false;
+  ctx?.closePath();
+}
+
+function clearCanvas() {
+  pushUndo();
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function renderPenColors() {
+  const box = $('#pen-colors');
+  box.replaceChildren();
+  COLORS.forEach((color) => {
+    const btn = el('button', {
+      class: 'pen-dot',
+      type: 'button',
+      style: `background:${color}`,
+      'aria-label': `펜 색 ${color}`,
+      'aria-pressed': String(color === penColor && !eraser),
+      onclick: () => {
+        penColor = color;
+        eraser = false;
+        $('#pen-eraser').setAttribute('aria-pressed', 'false');
+        renderPenColors();
+      },
+    });
+    box.append(btn);
+  });
+}
+
+function initMemo() {
+  memos = load(MEMO_KEY, []);
+  if (!Array.isArray(memos)) memos = [];
+  renderMemos();
+
+  $('#memo-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#memo-input');
+    const text = input.value.trim();
+    if (!text) return;
+    memos.unshift({ id: uid(), text, at: Date.now() });
+    input.value = '';
+    save(MEMO_KEY, memos);
+    renderMemos();
+    toast('메모를 저장했습니다');
+  });
+
+  $('#memo-input').addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      $('#memo-form').requestSubmit();
+    }
+  });
+
+  // --- 캔버스 준비 ---
+  canvas = $('#draw-canvas');
+  resizeCanvas(false);
+  renderPenColors();
+
+  const savedDrawing = load(DRAW_KEY, null);
+  if (typeof savedDrawing === 'string' && savedDrawing.startsWith('data:image')) {
+    restoreImage(savedDrawing);
+    $('#draw-status').textContent = '저장된 그림을 불러왔습니다';
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
+  canvas.addEventListener('pointerleave', onPointerUp);
+
+  $('#pen-size').addEventListener('input', (e) => { penSize = Number(e.target.value) || 3; });
+
+  $('#pen-eraser').addEventListener('click', (e) => {
+    eraser = !eraser;
+    e.currentTarget.setAttribute('aria-pressed', String(eraser));
+    renderPenColors();
+  });
+
+  $('#draw-undo').addEventListener('click', () => {
+    const prev = undoStack.pop();
+    if (!prev) { toast('되돌릴 작업이 없습니다'); return; }
+    restoreImage(prev);
+  });
+
+  $('#draw-clear').addEventListener('click', clearCanvas);
+
+  $('#draw-save').addEventListener('click', () => {
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      // localStorage 용량(보통 5MB)을 넘기지 않도록 크기를 확인합니다.
+      if (dataUrl.length > 4_000_000) {
+        toast('그림이 너무 커서 저장할 수 없습니다. PNG 로 내려받아 주세요.', 'error');
+        return;
+      }
+      if (save(DRAW_KEY, dataUrl)) {
+        $('#draw-status').textContent = `저장됨 · ${new Date().toLocaleTimeString('ko-KR')}`;
+        toast('그림을 저장했습니다');
+      } else {
+        toast('저장 공간이 부족합니다', 'error');
+      }
+    } catch {
+      toast('그림을 저장하지 못했습니다', 'error');
+    }
+  });
+
+  $('#draw-download').addEventListener('click', () => {
+    try {
+      const link = document.createElement('a');
+      link.download = `낙서_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch {
+      toast('내려받기에 실패했습니다', 'error');
+    }
+  });
+
+  // 창 크기가 바뀌면 캔버스를 다시 맞춥니다. (연속 호출 방지를 위해 디바운스)
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => resizeCanvas(true), 200);
+  });
+}
+  return { initMemo };
+})();
+
+/* ===== js/modules/quote.js ===== */
+const __m_js_modules_quote_js = (function () {
+  const { $, el, toast, uid } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+/** 글귀 모듈: 사용자가 등록한 글귀를 우선 표시하고, 없으면 기본 격언을 보여줍니다. */
+
+
+const KEY = 'quote.items';
+
+// 저작권 문제가 없는 공개 격언 (출처 표기 포함)
+const DEFAULTS = [
+  { text: '시작이 반이다.', author: '한국 속담' },
+  { text: '천 리 길도 한 걸음부터.', author: '한국 속담' },
+  { text: '오늘 할 수 있는 일에 전력을 다하라.', author: '아이작 뉴턴' },
+  { text: '아는 것을 안다고 하고, 모르는 것을 모른다고 하는 것이 곧 아는 것이다.', author: '공자' },
+  { text: '실패란 넘어지는 것이 아니라, 넘어진 자리에 머무는 것이다.', author: '서양 격언' },
+  { text: '가장 어두운 밤도 끝나고 해는 떠오른다.', author: '빅토르 위고' },
+  { text: '작은 일에 최선을 다하면 큰 일도 이루어진다.', author: '서양 격언' },
+  { text: '급할수록 돌아가라.', author: '한국 속담' },
+];
+
+let items = [];
+let lastIndex = -1;
+
+function pool() {
+  return items.length ? items : DEFAULTS;
+}
+
+function showRandom() {
+  const list = pool();
+  let index = Math.floor(Math.random() * list.length);
+  // 항목이 2개 이상이면 직전과 다른 글귀를 고릅니다.
+  if (list.length > 1 && index === lastIndex) index = (index + 1) % list.length;
+  lastIndex = index;
+  const quote = list[index];
+  $('#quote-text').textContent = quote.text;
+  $('#quote-author').textContent = quote.author ? `— ${quote.author}` : '';
+}
+
+function render() {
+  const list = $('#quote-list');
+  $('#quote-count').textContent = items.length ? `${items.length}개` : '기본 격언 사용 중';
+  list.replaceChildren();
+  if (!items.length) {
+    list.append(el('li', { class: 'empty' }, '내 글귀를 등록하면 여기에 표시됩니다.'));
+    return;
+  }
+  items.forEach((quote) => {
+    list.append(el('li', { class: 'memo-item' },
+      el('div', { class: 'memo-body' }, quote.text),
+      el('div', { class: 'row', style: 'margin-top:4px' },
+        el('span', { class: 'memo-time grow' }, quote.author ? `— ${quote.author}` : ''),
+        el('button', {
+          class: 'btn btn-sm btn-ghost',
+          onclick: () => { items = items.filter((q) => q.id !== quote.id); save(KEY, items); render(); showRandom(); },
+        }, '삭제'),
+      ),
+    ));
+  });
+}
+
+function initQuote() {
+  items = load(KEY, []);
+  if (!Array.isArray(items)) items = [];
+  render();
+  showRandom();
+
+  $('#quote-next').addEventListener('click', showRandom);
+
+  $('#quote-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const textEl = $('#quote-input');
+    const authorEl = $('#quote-author-input');
+    const text = textEl.value.trim();
+    if (!text) return;
+    items.unshift({ id: uid(), text, author: authorEl.value.trim(), at: Date.now() });
+    textEl.value = '';
+    authorEl.value = '';
+    save(KEY, items);
+    render();
+    showRandom();
+    toast('글귀를 등록했습니다');
+  });
+}
+  return { initQuote };
+})();
+
+/* ===== js/modules/music.js ===== */
+const __m_js_modules_music_js = (function () {
+  const { $, el, toast } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+/**
+ * 음악 모듈
+ *
+ * [중요] 멜론/지니/유튜브뮤직은 외부 앱에서 계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.
+ * Spotify 는 API 가 있으나 2026-02 정책 변경으로 개발 모드 앱은 소유자 Premium 필수 + 테스터 5명 제한,
+ * 확장 쿼터는 법인/MAU 25만 이상만 신청 가능하여 개인 앱에서는 사실상 사용할 수 없습니다.
+ * 따라서 실제 재생은 공식 임베드가 허용된 YouTube 만 지원하고, 나머지는 검색 딥링크로 처리합니다.
+ */
+
+
+const LAST_KEY = 'music.last';
+
+// 각 서비스의 웹 검색 URL (공개된 검색 페이지 주소)
+const SERVICES = [
+  { id: 'melon', name: '멜론', icon: '🍈', url: (q) => `https://www.melon.com/search/total/index.htm?q=${encodeURIComponent(q)}` },
+  { id: 'genie', name: '지니', icon: '🧞', url: (q) => `https://www.genie.co.kr/search/searchMain?query=${encodeURIComponent(q)}` },
+  { id: 'ytmusic', name: 'YouTube Music', icon: '▶️', url: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}` },
+  { id: 'spotify', name: 'Spotify', icon: '🟢', url: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+  { id: 'bugs', name: '벅스', icon: '🐞', url: (q) => `https://music.bugs.co.kr/search/integrated?q=${encodeURIComponent(q)}` },
+  { id: 'flo', name: 'FLO', icon: '🌊', url: (q) => `https://www.music-flo.com/search/all?keyword=${encodeURIComponent(q)}` },
+];
+
+/**
+ * YouTube URL 또는 ID 를 파싱해 임베드 정보를 만듭니다.
+ * @returns {{type:'video'|'playlist', id:string}|null}
+ */
+function parseYouTube(input) {
+  const text = String(input || '').trim();
+  if (!text) return null;
+
+  // 재생목록 URL (list= 파라미터)
+  const listMatch = text.match(/[?&]list=([A-Za-z0-9_-]{10,})/);
+  // 영상 URL 의 여러 형태: watch?v=, youtu.be/, /embed/, /shorts/, /live/
+  const videoMatch = text.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+
+  if (videoMatch) return { type: 'video', id: videoMatch[1] };
+  if (listMatch) return { type: 'playlist', id: listMatch[1] };
+
+  // URL 이 아닌 순수 ID 입력
+  if (/^[A-Za-z0-9_-]{11}$/.test(text)) return { type: 'video', id: text };
+  if (/^(PL|UU|LL|OL|RD)[A-Za-z0-9_-]{10,}$/.test(text)) return { type: 'playlist', id: text };
+
+  return null;
+}
+
+function embedUrl(parsed) {
+  return parsed.type === 'playlist'
+    ? `https://www.youtube-nocookie.com/embed/videoseries?list=${parsed.id}`
+    : `https://www.youtube-nocookie.com/embed/${parsed.id}`;
+}
+
+function mount(parsed) {
+  $('#yt-holder').replaceChildren(el('iframe', {
+    class: 'yt-frame',
+    src: embedUrl(parsed),
+    title: 'YouTube 플레이어',
+    allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+    allowfullscreen: true,
+    referrerpolicy: 'strict-origin-when-cross-origin',
+    loading: 'lazy',
+  }));
+  save(LAST_KEY, parsed);
+}
+
+function renderServices() {
+  const grid = $('#svc-grid');
+  grid.replaceChildren();
+  SERVICES.forEach((svc) => {
+    grid.append(el('a', {
+      class: 'svc-btn',
+      href: '#',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      onclick: (e) => {
+        e.preventDefault();
+        const query = $('#svc-query').value.trim();
+        if (!query) { toast('검색할 곡이나 아티스트를 입력해 주세요', 'error'); return; }
+        window.open(svc.url(query), '_blank', 'noopener');
+      },
+    }, el('span', {}, svc.icon), el('span', {}, svc.name)));
+  });
+}
+
+function initMusic() {
+  renderServices();
+
+  const last = load(LAST_KEY, null);
+  if (last && last.id && (last.type === 'video' || last.type === 'playlist')) mount(last);
+
+  $('#yt-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const parsed = parseYouTube($('#yt-input').value);
+    if (!parsed) {
+      toast('YouTube 영상/재생목록 주소를 확인해 주세요', 'error');
+      return;
+    }
+    mount(parsed);
+    $('#yt-input').value = '';
+  });
+
+  $('#yt-search-btn').addEventListener('click', () => {
+    const query = $('#yt-search').value.trim();
+    if (!query) { toast('검색어를 입력해 주세요', 'error'); return; }
+    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank', 'noopener');
+  });
+}
+  return { parseYouTube, initMusic };
+})();
+
+/* ===== js/modules/ai.js ===== */
+const __m_js_modules_ai_js = (function () {
+  const { $, el, toast } = __m_js_lib_dom_js;
+  const { loadSecret, load, isSharedStorage } = __m_js_lib_store_js;
+/**
+ * AI 검색 모듈 — BYOK(Bring Your Own Key) 방식
+ *
+ * [보안 경고] 브라우저에서 Anthropic API 를 직접 호출하려면
+ * 'anthropic-dangerous-direct-browser-access: true' 헤더가 필요합니다.
+ * 이 방식은 키가 개발자 도구에 그대로 노출되므로 "본인 기기 전용"으로만 안전합니다.
+ * 불특정 다수에게 배포하는 서비스라면 반드시 서버 프록시를 두고 키를 서버에 보관해야 합니다.
+ */
+
+
+const API_URL = 'https://api.anthropic.com/v1/messages';
+const API_VERSION = '2023-06-01';
+const APIKEY_KEY = 'ai.apiKey';
+const MODEL_KEY = 'ai.model';
+const DEFAULT_MODEL = 'claude-opus-5';
+
+// effort 파라미터를 지원하지 않는 모델 (Haiku 4.5 는 400 에러)
+const NO_EFFORT_MODELS = new Set(['claude-haiku-4-5']);
+// 최신 web_search 도구를 지원하지 않는 모델은 구버전 도구 타입을 사용합니다.
+const LEGACY_SEARCH_MODELS = new Set(['claude-haiku-4-5']);
+
+const SYSTEM_PROMPT = [
+  '당신은 한국어 사용자를 돕는 간결한 검색 도우미입니다.',
+  '최신 정보나 사실 확인이 필요한 질문에는 반드시 web_search 도구를 사용하세요.',
+  '추측하지 말고, 확인된 사실만 답하세요. 모르면 모른다고 말하세요.',
+  '답변은 핵심부터 3~6문장으로 짧게 쓰고, 출처가 있으면 마지막에 URL 을 나열하세요.',
+].join(' ');
+
+let history = [];   // Anthropic messages 배열 (role/content)
+let busy = false;
+
+function getKey() { return loadSecret(APIKEY_KEY, ''); }
+function getModel() { return load(MODEL_KEY, DEFAULT_MODEL) || DEFAULT_MODEL; }
+
+function refreshAiMode() {
+  const badge = $('#ai-mode');
+  if (!badge) return;
+  const key = getKey();
+  if (key) {
+    // 파일로 직접 연 경우 키는 이 탭 메모리에만 있으므로 창을 닫으면 지워집니다.
+    badge.textContent = isSharedStorage() ? `${getModel()} 사용 중 (이 창에서만)` : `${getModel()} 사용 중`;
+    badge.style.color = 'var(--success)';
+  } else {
+    badge.textContent = '키 미설정 — 설정 탭에서 등록';
+    badge.style.color = 'var(--text-faint)';
+  }
+}
+
+function appendMessage(role, text) {
+  const log = $('#ai-log');
+  const node = el('div', {
+    class: `msg ${role === 'user' ? 'msg-user' : role === 'error' ? 'msg-err' : 'msg-ai'}`,
+  }, text);
+  log.append(node);
+  log.scrollTop = log.scrollHeight;
+  return node;
+}
+
+/** 응답 content 배열에서 텍스트와 검색 출처를 뽑아냅니다. */
+function extractAnswer(data) {
+  const parts = [];
+  const sources = new Map();
+
+  (data?.content || []).forEach((block) => {
+    if (block.type === 'text' && block.text) {
+      parts.push(block.text);
+      // 인용이 붙어 있으면 출처를 모읍니다.
+      (block.citations || []).forEach((c) => {
+        if (c?.url) sources.set(c.url, c.title || c.url);
+      });
+    } else if (block.type === 'web_search_tool_result') {
+      // 성공 시 content 는 배열, 오류 시 객체입니다.
+      if (Array.isArray(block.content)) {
+        block.content.forEach((r) => { if (r?.url) sources.set(r.url, r.title || r.url); });
+      }
+    }
+  });
+
+  let text = parts.join('\n').trim();
+  if (sources.size) {
+    const list = [...sources.entries()].slice(0, 5).map(([url, title]) => `• ${title}\n  ${url}`);
+    text += `\n\n[출처]\n${list.join('\n')}`;
+  }
+  return text || '(응답이 비어 있습니다)';
+}
+
+function buildRequestBody(model) {
+  const searchToolType = LEGACY_SEARCH_MODELS.has(model) ? 'web_search_20250305' : 'web_search_20260209';
+  const body = {
+    model,
+    max_tokens: 2048,
+    system: SYSTEM_PROMPT,
+    messages: history,
+    tools: [{ type: searchToolType, name: 'web_search', max_uses: 5 }],
+  };
+  // 응답 속도를 위해 낮은 effort 를 사용합니다. (지원하지 않는 모델은 생략)
+  if (!NO_EFFORT_MODELS.has(model)) body.output_config = { effort: 'low' };
+  return body;
+}
+
+/** 에러 응답을 사람이 읽을 수 있는 한국어 메시지로 바꿉니다. */
+async function toFriendlyError(res) {
+  let detail = '';
+  try {
+    const err = await res.json();
+    detail = err?.error?.message || '';
+  } catch { /* 본문이 JSON 이 아닐 수 있음 */ }
+
+  if (res.status === 401) return 'API 키가 올바르지 않습니다. 설정 탭에서 키를 다시 확인해 주세요.';
+  if (res.status === 403) return 'API 키에 이 요청을 수행할 권한이 없습니다.';
+  if (res.status === 429) return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
+  if (res.status === 400) return `요청이 거부되었습니다: ${detail || '알 수 없는 오류'}`;
+  if (res.status >= 500) return 'Anthropic 서버에 일시적인 문제가 있습니다. 잠시 후 다시 시도해 주세요.';
+  return `오류가 발생했습니다 (HTTP ${res.status}) ${detail}`;
+}
+
+async function ask(question) {
+  const key = getKey();
+  if (!key) {
+    appendMessage('error', 'API 키가 설정되지 않았습니다. 설정 탭에서 Anthropic API 키를 등록하거나, 아래 외부 검색 버튼을 이용하세요.');
+    return;
+  }
+  if (busy) return;
+  busy = true;
+  $('#ai-send').disabled = true;
+
+  history.push({ role: 'user', content: question });
+  const placeholder = appendMessage('ai', '');
+  placeholder.append(el('span', { class: 'spinner' }), ' 검색하고 생각하는 중…');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000); // 웹 검색 포함 시 오래 걸릴 수 있음
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': API_VERSION,
+        // 브라우저에서 직접 호출하기 위한 필수 헤더 (CORS 허용)
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(buildRequestBody(getModel())),
+    });
+
+    if (!res.ok) {
+      placeholder.remove();
+      history.pop();
+      appendMessage('error', await toFriendlyError(res));
+      return;
+    }
+
+    const data = await res.json();
+
+    // 안전 분류기가 거절한 경우 content 를 읽기 전에 먼저 확인해야 합니다.
+    if (data?.stop_reason === 'refusal') {
+      placeholder.remove();
+      history.pop();
+      appendMessage('error', '모델이 이 요청에 대한 답변을 거절했습니다. 질문을 바꿔서 다시 시도해 주세요.');
+      return;
+    }
+
+    const answer = extractAnswer(data);
+    placeholder.textContent = answer;
+    history.push({ role: 'assistant', content: answer });
+
+    // 대화가 길어지면 앞부분을 잘라 토큰 사용량을 억제합니다.
+    if (history.length > 12) history = history.slice(-12);
+  } catch (err) {
+    placeholder.remove();
+    history.pop();
+    const message = err.name === 'AbortError'
+      ? '응답 시간이 초과되었습니다. 다시 시도해 주세요.'
+      : '네트워크 오류입니다. 인터넷 연결 또는 브라우저 확장 프로그램(광고 차단 등)을 확인해 주세요.';
+    appendMessage('error', message);
+  } finally {
+    clearTimeout(timer);
+    busy = false;
+    $('#ai-send').disabled = false;
+  }
+}
+
+const EXTERNAL = {
+  google: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+  naver: (q) => `https://search.naver.com/search.naver?query=${encodeURIComponent(q)}`,
+  perplexity: (q) => `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`,
+};
+
+function initAi() {
+  refreshAiMode();
+  $('#ai-log').replaceChildren(
+    el('div', { class: 'msg msg-ai' },
+      '안녕하세요! 설정 탭에 Anthropic API 키를 등록하면 웹 검색을 포함한 AI 답변을 받을 수 있습니다.\n키 없이도 아래 외부 검색 버튼은 바로 쓸 수 있어요.'),
+  );
+
+  $('#ai-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#ai-input');
+    const question = input.value.trim();
+    if (!question) return;
+    appendMessage('user', question);
+    input.value = '';
+    ask(question);
+  });
+
+  document.querySelectorAll('[data-ext]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const query = $('#ai-input').value.trim();
+      if (!query) { toast('검색어를 입력해 주세요', 'error'); return; }
+      window.open(EXTERNAL[btn.dataset.ext](query), '_blank', 'noopener');
+    });
+  });
+}
+  return { refreshAiMode, initAi, APIKEY_KEY, MODEL_KEY };
+})();
+
+/* ===== js/modules/banner.js ===== */
+const __m_js_modules_banner_js = (function () {
+  const { $, el } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+/** 배너 모듈: 설정에서 등록한 문구를 6초마다 순환 표시합니다. */
+
+
+const BANNER_KEY = 'banner.items';
+const ROTATE_MS = 6000;
+
+const DEFAULTS = [
+  { title: '환영합니다 👋', text: '계산기 · 날씨 · 할 일 · 타이머를 한 화면에서' },
+  { title: '설정에서 바꿔보세요', text: '이 배너 문구는 설정 탭에서 직접 편집할 수 있습니다' },
+];
+
+// 웹 주소로 접속했을 때만 설치 안내가 의미가 있습니다.
+// 파일을 직접 연 경우(file://)에는 매니페스트가 없어 '홈 화면에 추가' 가 동작하지 않습니다.
+function installHint() {
+  const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+  return isWeb
+    ? { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' }
+    : { title: '오프라인으로 실행 중', text: '인터넷 없이도 계산기 · 타이머 · 메모를 쓸 수 있습니다' };
+}
+
+let items = DEFAULTS;
+let index = 0;
+let timer = null;
+
+function render() {
+  const item = items[index] || DEFAULTS[0];
+  $('#banner-title').textContent = item.title || '';
+  $('#banner-text').textContent = item.text || '';
+
+  const dots = $('#banner-dots');
+  dots.replaceChildren();
+  if (items.length <= 1) return;
+  items.forEach((_, i) => {
+    dots.append(el('button', {
+      class: 'banner-dot',
+      type: 'button',
+      'aria-label': `배너 ${i + 1}`,
+      'aria-current': String(i === index),
+      onclick: () => { index = i; render(); restart(); },
+    }));
+  });
+}
+
+function restart() {
+  clearInterval(timer);
+  if (items.length <= 1) return;
+  timer = setInterval(() => { index = (index + 1) % items.length; render(); }, ROTATE_MS);
+}
+
+/**
+ * 여러 줄 텍스트를 배너 항목 배열로 변환합니다.
+ * "제목 | 내용" 형식이면 나누고, 아니면 전체를 내용으로 씁니다.
+ */
+function parseBannerText(raw) {
+  return String(raw || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const pipe = line.indexOf('|');
+      if (pipe === -1) return { title: '', text: line };
+      return { title: line.slice(0, pipe).trim(), text: line.slice(pipe + 1).trim() };
+    });
+}
+
+function applyBanner(list) {
+  items = Array.isArray(list) && list.length ? list : [...DEFAULTS, installHint()];
+  index = 0;
+  render();
+  restart();
+}
+
+function initBanner() {
+  applyBanner(load(BANNER_KEY, null));
+}
+
+function saveBanner(list) {
+  save(BANNER_KEY, list);
+  applyBanner(list);
+}
+  return { parseBannerText, applyBanner, initBanner, saveBanner, BANNER_KEY };
+})();
+
+/* ===== js/modules/settings.js ===== */
+const __m_js_modules_settings_js = (function () {
+  const { $, toast } = __m_js_lib_dom_js;
+  const { load, save, remove, clearAll, exportAll, importAll, isPersistent,
+  saveSecret, loadSecret, removeSecret, isSharedStorage } = __m_js_lib_store_js;
+  const { BANNER_KEY, parseBannerText, saveBanner } = __m_js_modules_banner_js;
+  const { APIKEY_KEY, MODEL_KEY, refreshAiMode } = __m_js_modules_ai_js;
+/** 설정 모듈: 테마, 배너 편집, API 키 관리, 데이터 백업/복원/초기화 */
+
+
+
+
+const THEME_KEY = 'ui.theme';
+
+/** 테마를 문서에 적용합니다. 'auto' 는 data-theme 속성을 제거해 시스템 설정을 따릅니다. */
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
+  else root.removeAttribute('data-theme');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const dark = theme === 'dark'
+      || (theme !== 'light' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+    meta.setAttribute('content', dark ? '#0f1216' : '#3b6ef6');
+  }
+}
+
+function initTheme() {
+  applyTheme(load(THEME_KEY, 'auto'));
+  $('#theme-toggle').addEventListener('click', () => {
+    // 토글은 라이트 -> 다크 -> 시스템 순으로 순환합니다.
+    const order = ['auto', 'light', 'dark'];
+    const current = load(THEME_KEY, 'auto');
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    save(THEME_KEY, next);
+    applyTheme(next);
+    const label = { auto: '시스템 설정', light: '라이트', dark: '다크' }[next];
+    const select = $('#set-theme');
+    if (select) select.value = next;
+    toast(`테마: ${label}`);
+  });
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function initSettings() {
+  // --- 테마 선택 ---
+  const themeSelect = $('#set-theme');
+  themeSelect.value = load(THEME_KEY, 'auto');
+  themeSelect.addEventListener('change', () => {
+    save(THEME_KEY, themeSelect.value);
+    applyTheme(themeSelect.value);
+  });
+
+  // --- 배너 ---
+  const bannerBox = $('#set-banner');
+  const savedBanner = load(BANNER_KEY, null);
+  if (Array.isArray(savedBanner)) {
+    bannerBox.value = savedBanner
+      .map((b) => (b.title ? `${b.title} | ${b.text}` : b.text))
+      .join('\n');
+  }
+  $('#set-banner-save').addEventListener('click', () => {
+    const list = parseBannerText(bannerBox.value);
+    saveBanner(list);
+    toast(list.length ? `배너 ${list.length}개를 저장했습니다` : '기본 배너로 되돌렸습니다');
+  });
+
+  // --- API 키 ---
+  const keyInput = $('#set-apikey');
+  const savedKey = loadSecret(APIKEY_KEY, '');
+  if (savedKey) keyInput.placeholder = `저장됨 (${savedKey.slice(0, 7)}…${savedKey.slice(-4)})`;
+
+  $('#set-apikey-save').addEventListener('click', () => {
+    const value = keyInput.value.trim();
+    if (!value) { toast('키를 입력해 주세요', 'error'); return; }
+    if (!value.startsWith('sk-ant-')) {
+      toast('Anthropic 키는 보통 sk-ant- 로 시작합니다. 다시 확인해 주세요.', 'error');
+      return;
+    }
+    saveSecret(APIKEY_KEY, value);
+    keyInput.value = '';
+    keyInput.placeholder = `저장됨 (${value.slice(0, 7)}…${value.slice(-4)})`;
+    refreshAiMode();
+    toast(isSharedStorage()
+      ? 'API 키를 이 창에만 보관합니다 (창을 닫으면 지워집니다)'
+      : 'API 키를 저장했습니다 (이 기기에만 저장됨)');
+  });
+
+  $('#set-apikey-clear').addEventListener('click', () => {
+    removeSecret(APIKEY_KEY);
+    keyInput.value = '';
+    keyInput.placeholder = 'sk-ant-...';
+    refreshAiMode();
+    toast('API 키를 삭제했습니다');
+  });
+
+  const modelSelect = $('#set-model');
+  modelSelect.value = load(MODEL_KEY, 'claude-opus-5');
+  modelSelect.addEventListener('change', () => {
+    save(MODEL_KEY, modelSelect.value);
+    refreshAiMode();
+  });
+
+  // --- 데이터 백업 / 복원 / 초기화 ---
+  $('#set-export').addEventListener('click', () => {
+    const data = exportAll();
+    // 백업 파일에 API 키가 그대로 들어가면 위험하므로 제외합니다.
+    delete data[APIKEY_KEY];
+    downloadJson(`데일리킷_백업_${new Date().toISOString().slice(0, 10)}.json`, data);
+    toast('백업 파일을 내려받았습니다 (API 키는 제외)');
+  });
+
+  $('#set-import').addEventListener('click', () => $('#set-import-file').click());
+  $('#set-import-file').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('형식 오류');
+      importAll(parsed);
+      toast('복원했습니다. 새로고침합니다…');
+      setTimeout(() => window.location.reload(), 900);
+    } catch {
+      toast('백업 파일을 읽지 못했습니다', 'error');
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  $('#set-reset').addEventListener('click', () => {
+    // 되돌릴 수 없는 작업이므로 두 번 확인합니다.
+    if (!window.confirm('저장된 모든 데이터(할 일, 메모, 그림, 글귀, 설정, API 키)를 삭제합니다. 계속할까요?')) return;
+    if (!window.confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    clearAll();
+    toast('초기화했습니다. 새로고침합니다…');
+    setTimeout(() => window.location.reload(), 900);
+  });
+
+  if (!isPersistent()) {
+    $('#set-storage-note').textContent = '⚠️ 이 브라우저는 저장소가 차단되어 있습니다. 새로고침하면 데이터가 사라집니다.';
+  } else if (isSharedStorage()) {
+    // file:// 로 연 경우 Chromium 은 모든 로컬 html 이 같은 저장소를 쓰게 합니다.
+    $('#set-storage-note').textContent = '⚠️ 파일로 직접 연 상태입니다. 저장 공간이 이 컴퓨터의 다른 로컬 HTML 파일과 공유되므로, '
+      + 'API 키는 디스크에 저장하지 않고 이 창에만 보관합니다(창을 닫으면 지워집니다). '
+      + '할 일·메모 등 나머지 데이터는 정상 저장됩니다.';
+  } else {
+    $('#set-storage-note').textContent = '데이터는 이 브라우저(localStorage)에만 저장됩니다. 기기 간 동기화는 되지 않습니다.';
+  }
+}
+  return { applyTheme, initTheme, initSettings, THEME_KEY };
+})();
+
+/* ===== js/main.js ===== */
+const __m_js_main_js = (function () {
+  const { $, $$, toast } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+  const { initCalculator } = __m_js_modules_calculator_js;
+  const { initWeather } = __m_js_modules_weather_js;
+  const { initTodo } = __m_js_modules_todo_js;
+  const { initTime } = __m_js_modules_time_js;
+  const { initMemo } = __m_js_modules_memo_js;
+  const { initQuote } = __m_js_modules_quote_js;
+  const { initMusic } = __m_js_modules_music_js;
+  const { initAi } = __m_js_modules_ai_js;
+  const { initBanner } = __m_js_modules_banner_js;
+  const { initTheme, initSettings } = __m_js_modules_settings_js;
+/**
+ * main.js — 앱 부트스트랩
+ * 탭 전환, 각 모듈 초기화, 서비스 워커 등록을 담당합니다.
+ */
+
+
+
+
+
+
+
+
+
+
+
+
+const TAB_KEY = 'ui.activeTab';
+const TABS = ['calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
+
+// 날씨는 네트워크 호출이 있으므로 탭을 처음 열 때 초기화합니다.
+const lazyInit = { weather: initWeather };
+const lazyDone = new Set();
+
+function activate(name) {
+  const tab = TABS.includes(name) ? name : 'calc';
+  TABS.forEach((id) => {
+    const panel = $(`#panel-${id}`);
+    if (panel) panel.hidden = id !== tab;
+  });
+  $$('.tab').forEach((btn) => btn.setAttribute('aria-selected', String(btn.dataset.tab === tab)));
+  save(TAB_KEY, tab);
+
+  if (lazyInit[tab] && !lazyDone.has(tab)) {
+    lazyDone.add(tab);
+    try { lazyInit[tab](); } catch (err) { console.error(`[${tab}] 초기화 실패`, err); }
+  }
+  // 선택한 탭 버튼이 가로 스크롤 밖에 있으면 보이게 합니다.
+  document.querySelector(`.tab[data-tab="${tab}"]`)
+    ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+}
+
+function initTabs() {
+  $('#tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (btn) activate(btn.dataset.tab);
+  });
+  activate(load(TAB_KEY, 'calc'));
+}
+
+/** 모듈 하나가 실패해도 나머지 앱은 살아 있도록 개별적으로 감쌉니다. */
+function safeInit(name, fn) {
+  try {
+    fn();
+  } catch (err) {
+    console.error(`[${name}] 초기화 실패`, err);
+    toast(`${name} 기능을 불러오지 못했습니다`, 'error');
+  }
+}
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  // sw.js 를 함께 배포하지 않는 환경(미리보기 등)에서는 등록을 건너뜁니다.
+  if (window.__DK_DISABLE_SW) return;
+  // file:// 로 열면 서비스 워커를 쓸 수 없습니다.
+  if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('[sw] 등록 실패', err);
+    });
+  });
+}
+
+function boot() {
+  safeInit('테마', initTheme);
+  safeInit('배너', initBanner);
+  safeInit('계산기', initCalculator);
+  safeInit('할 일', initTodo);
+  safeInit('시계·타이머', initTime);
+  safeInit('메모', initMemo);
+  safeInit('글귀', initQuote);
+  safeInit('음악', initMusic);
+  safeInit('AI', initAi);
+  safeInit('설정', initSettings);
+  safeInit('탭', initTabs);
+  registerServiceWorker();
+  document.body.dataset.ready = 'true'; // 자동화 테스트용 준비 완료 신호
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+  return {  };
+})();
+})();
+</script>
+</body>
+</html>

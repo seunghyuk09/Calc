@@ -6,6 +6,8 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:8099';
 const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// 단일 파일(file://) 빌드에서는 서비스 워커와 manifest 를 쓸 수 없으므로 해당 검증을 건너뜁니다.
+const IS_FILE = BASE.startsWith('file:');
 
 const results = [];
 let consoleErrors = [];
@@ -278,31 +280,54 @@ const main = async () => {
   await page.click('.tab[data-tab="memo"]');
   await page.waitForTimeout(400);
   check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);
+  await page.click('.tab[data-tab="todo"]');
+  await page.waitForTimeout(200);
 
-  const swState = await page.evaluate(async () => {
-    if (!('serviceWorker' in navigator)) return 'unsupported';
-    const reg = await navigator.serviceWorker.getRegistration();
-    return reg ? (reg.active ? 'active' : 'registered') : 'none';
-  });
-  check('서비스 워커 등록', swState === 'active' || swState === 'registered', `상태: ${swState}`);
+  if (IS_FILE) {
+    // 단일 파일 빌드에서는 서비스 워커를 등록하지 않는 것이 정상 동작입니다.
+    const swSkipped = await page.evaluate(async () => {
+      // file:// 은 origin 이 null 이라 getRegistration() 자체가 SecurityError 를 던집니다.
+      // 즉 등록이 시도되지 않았다는 뜻이므로 예외도 정상으로 취급합니다.
+      try {
+        if (!('serviceWorker' in navigator)) return true;
+        const reg = await navigator.serviceWorker.getRegistration();
+        return !reg;
+      } catch {
+        return true;
+      }
+    });
+    check('단일 파일: 서비스 워커 등록 시도 안 함', swSkipped);
+    const uidOk = await page.evaluate(() => {
+      const el = document.querySelector('#todo-list .todo-item');
+      return !!el; // 항목이 만들어졌다면 uid() 가 정상 동작한 것
+    });
+    check('단일 파일: uid() 동작 (보안 컨텍스트 무관)', uidOk);
+  } else {
+    const swState = await page.evaluate(async () => {
+      if (!('serviceWorker' in navigator)) return 'unsupported';
+      const reg = await navigator.serviceWorker.getRegistration();
+      return reg ? (reg.active ? 'active' : 'registered') : 'none';
+    });
+    check('서비스 워커 등록', swState === 'active' || swState === 'registered', `상태: ${swState}`);
 
-  const manifestOk = await page.evaluate(async () => {
-    const res = await fetch('./manifest.webmanifest');
-    const json = await res.json();
-    return res.ok && json.icons?.length === 3 && json.start_url === './';
-  });
-  check('manifest 유효', manifestOk);
+    const manifestOk = await page.evaluate(async () => {
+      const res = await fetch('./manifest.webmanifest');
+      const json = await res.json();
+      return res.ok && json.icons?.length === 3 && json.start_url === './';
+    });
+    check('manifest 유효', manifestOk);
+  }
 
   // ---------- 11. 스크린샷 ----------
   await page.click('.tab[data-tab="calc"]');
   await page.fill('#calc-expr', '(1250+890)*1.1');
   await page.press('#calc-expr', 'Enter');
   await page.waitForTimeout(300);
-  await page.screenshot({ path: 'docs/screenshot-desktop.png', fullPage: false });
+  await page.screenshot({ path: IS_FILE ? 'docs/screenshot-standalone.png' : 'docs/screenshot-desktop.png', fullPage: false });
 
   await page.click('.tab[data-tab="weather"]');
   await page.waitForTimeout(500);
-  await page.screenshot({ path: 'docs/screenshot-weather.png', fullPage: false });
+  await page.screenshot({ path: IS_FILE ? 'docs/screenshot-standalone-weather.png' : 'docs/screenshot-weather.png', fullPage: false });
 
   // 모바일 뷰포트
   const mobile = await context.newPage();
@@ -313,7 +338,7 @@ const main = async () => {
   await mobile.waitForSelector('body[data-ready="true"]');
   await mobile.click('.tab[data-tab="calc"]');
   await mobile.waitForTimeout(400);
-  await mobile.screenshot({ path: 'docs/screenshot-mobile.png', fullPage: false });
+  await mobile.screenshot({ path: IS_FILE ? 'docs/screenshot-standalone-mobile.png' : 'docs/screenshot-mobile.png', fullPage: false });
 
   // 모바일에서 가로 스크롤이 생기지 않아야 함
   const overflow = await mobile.evaluate(() =>

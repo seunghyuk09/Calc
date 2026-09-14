@@ -7,7 +7,7 @@
  * 불특정 다수에게 배포하는 서비스라면 반드시 서버 프록시를 두고 키를 서버에 보관해야 합니다.
  */
 import { $, el, toast } from '../lib/dom.js';
-import { load } from '../lib/store.js';
+import { loadSecret, load, isSharedStorage } from '../lib/store.js';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
@@ -30,15 +30,21 @@ const SYSTEM_PROMPT = [
 let history = [];   // Anthropic messages 배열 (role/content)
 let busy = false;
 
-function getKey() { return load(APIKEY_KEY, ''); }
+function getKey() { return loadSecret(APIKEY_KEY, ''); }
 function getModel() { return load(MODEL_KEY, DEFAULT_MODEL) || DEFAULT_MODEL; }
 
 export function refreshAiMode() {
   const badge = $('#ai-mode');
   if (!badge) return;
   const key = getKey();
-  badge.textContent = key ? `${getModel()} 사용 중` : '키 미설정 — 설정 탭에서 등록';
-  badge.style.color = key ? 'var(--success)' : 'var(--text-faint)';
+  if (key) {
+    // 파일로 직접 연 경우 키는 이 탭 메모리에만 있으므로 창을 닫으면 지워집니다.
+    badge.textContent = isSharedStorage() ? `${getModel()} 사용 중 (이 창에서만)` : `${getModel()} 사용 중`;
+    badge.style.color = 'var(--success)';
+  } else {
+    badge.textContent = '키 미설정 — 설정 탭에서 등록';
+    badge.style.color = 'var(--text-faint)';
+  }
 }
 
 function appendMessage(role, text) {

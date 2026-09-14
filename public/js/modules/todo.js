@@ -1,5 +1,5 @@
 /** 할 일 모듈: 추가/완료/삭제/필터, localStorage 저장 */
-import { $, el, toast } from '../lib/dom.js';
+import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 
 const KEY = 'todo.items';
@@ -64,7 +64,7 @@ export function initTodo() {
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
-    items.unshift({ id: crypto.randomUUID(), text, done: false, at: Date.now(), doneAt: null });
+    items.unshift({ id: uid(), text, done: false, at: Date.now(), doneAt: null });
     input.value = '';
     persist();
     render();
