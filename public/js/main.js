@@ -14,6 +14,7 @@ import { initMusic } from './modules/music.js';
 import { initAi } from './modules/ai.js';
 import { initBanner } from './modules/banner.js';
 import { initTheme, initSettings } from './modules/settings.js';
+import { initLang } from './lib/i18n.js';
 
 const TAB_KEY = 'ui.activeTab';
 const TABS = ['calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
@@ -72,6 +73,7 @@ function registerServiceWorker() {
 }
 
 function boot() {
+  safeInit('언어', initLang);
   safeInit('테마', initTheme);
   safeInit('배너', initBanner);
   safeInit('계산기', initCalculator);

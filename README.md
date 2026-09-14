@@ -26,7 +26,7 @@ npm test                 # 전부
 | 시계 / 세계시계 | ✅ 완전 동작 | `Intl.DateTimeFormat` 기반 |
 | 타이머 / 뽀모도로 | ✅ 완전 동작 | 절대시각 기준이라 `setInterval` 누적 오차 없음 |
 | 알람 | ⚠️ 제한적 | **탭이 열려 있을 때만** 울림 ([아래 참고](#알려진-제약)) |
-| Planner (할 일) | ✅ 완전 동작 | **UI 영문.** 일/주/월/연 4단위 계획표, 기간 이동, 진행률, 이월 |
+| TO DO (계획표) | ✅ 완전 동작 | 일/주/월/연 4단위, 기간 이동, 진행률, 이월. **문구 한/영 전환** |
 | 날씨 / 주간예보 | ✅ 완전 동작 | Open-Meteo (키 불필요) |
 | 메모 / 낙서판 | ✅ 완전 동작 | Pointer Events — 마우스·터치·펜 |
 | 글귀 | ✅ 완전 동작 | 사용자 등록 글귀 우선, 없으면 기본 격언 |
@@ -79,6 +79,7 @@ public/
     lib/
       calc-engine.js      수식 파서/평가기 (테스트 대상)
       period.js           일/주/월/연 기간 키 계산 (ISO 8601 주차)
+      i18n.js             TO DO 기능의 한/영 문구 사전
       store.js            localStorage 래퍼 (차단 환경 대비 폴백 포함)
       dom.js              DOM 헬퍼
     modules/              기능별 모듈 9개
@@ -86,6 +87,7 @@ public/
 tests/
   calc-engine.test.mjs    계산 엔진 단위 테스트
   period.test.mjs         기간 계산 단위 테스트
+  i18n.test.mjs           다국어 사전 단위 테스트
   e2e.mjs                 Chromium E2E 테스트
   build-artifact.mjs      미리보기용 페이지 생성
   build-standalone.mjs    단일 HTML 파일 생성 (서버 없이 실행용)

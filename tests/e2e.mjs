@@ -171,10 +171,32 @@ const main = async () => {
   const histCount = await page.locator('#calc-history .hist-item').count();
   check('계산 기록이 쌓임', histCount >= 4, `${histCount}건`);
 
-  // ---------- 2. Planner (일/주/월/연) ----------
-  console.log('\n▶ Planner');
+  // ---------- 2. TO DO (일/주/월/연 계획표, 한/영) ----------
+  console.log('\n▶ TO DO');
+  check('탭 이름이 TO DO', (await page.textContent('.tab[data-tab="todo"]')).includes('TO DO'),
+    await page.textContent('.tab[data-tab="todo"]'));
   await page.click('.tab[data-tab="todo"]');
   await page.waitForSelector('#scope-tabs', { timeout: 5000 });
+
+  // 기본 언어는 한국어
+  check('기본 언어 한국어', (await page.getAttribute('.lang-btn[data-lang="ko"]', 'aria-pressed')) === 'true');
+  check('한국어 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간',
+    await page.textContent('.scope-tab[data-scope="day"]'));
+  check('한국어 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === '추가');
+  check('한국어 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === '계획을 입력하고 Enter');
+  check('한국어 기간 표기', /^\d{4}년 \d{1,2}월 \d{1,2}일 \(.\)$/.test(await page.textContent('#period-label')),
+    await page.textContent('#period-label'));
+
+  // 영어로 전환
+  await page.click('.lang-btn[data-lang="en"]');
+  await page.waitForTimeout(200);
+  check('영어 전환 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
+  check('영어 전환 — 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === 'Add');
+  check('영어 전환 — 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === 'Add a plan and press Enter');
+  check('영어 전환 — 기간 표기', /^\w{3}, \w{3} \d{1,2}, \d{4}$/.test(await page.textContent('#period-label')),
+    await page.textContent('#period-label'));
+  check('영어 전환 — 필터 라벨', (await page.textContent('.chip[data-filter="active"]')) === 'Active');
+  check('영어 전환 — 이월 버튼', (await page.textContent('#todo-carry')).includes('Carry over'));
 
   check('기본 단위는 Day', (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
   const dayLabel = await page.textContent('#period-label');
@@ -203,6 +225,8 @@ const main = async () => {
   await page.click('#period-next');
   check('다음 날은 빈 목록', (await page.locator('#todo-list .todo-item').count()) === 0,
     await page.textContent('#period-label'));
+  check('빈 목록 안내가 영어', (await page.textContent('#todo-list .empty')) === 'No plans for this period yet.',
+    await page.textContent('#todo-list .empty'));
   check('다음 날은 현재 기간 아님', !(await page.evaluate(() =>
     document.querySelector('#period-label').classList.contains('is-current'))));
 
@@ -401,6 +425,9 @@ const main = async () => {
   check('새로고침 후 Planner 단위/기간 복원',
     (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
   check('새로고침 후 Day 계획 유지', (await page.locator('#todo-list .todo-item').count()) === 1);
+  check('새로고침 후 선택한 언어(영어) 유지',
+    (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'true'
+    && (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
   await page.click('.tab[data-tab="memo"]');
   await page.waitForTimeout(400);
   check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);

@@ -70,13 +70,29 @@ test('월 이동 시 말일 넘침 없음', () => {
   assert.equal(shift('month', '2026-03', -1), '2026-02');
 });
 
-test('표시 이름은 영문', () => {
+test('표시 이름 — 영문 (기본값)', () => {
   assert.equal(label('day', '2026-09-14'), 'Mon, Sep 14, 2026');
   assert.equal(label('month', '2026-09'), 'Sep 2026');
   assert.equal(label('year', '2026'), '2026');
-  assert.match(label('week', '2026-W38'), /^Week 38 · Sep 14–20$/);
+  assert.equal(label('week', '2026-W38'), 'Week 38 · Sep 14–20');
   // 달을 걸치는 주
   assert.match(label('week', '2026-W01'), /Dec 29 – Jan 4/);
+});
+
+test('표시 이름 — 한국어', () => {
+  assert.equal(label('day', '2026-09-14', 'ko'), '2026년 9월 14일 (월)');
+  assert.equal(label('month', '2026-09', 'ko'), '2026년 9월');
+  assert.equal(label('year', '2026', 'ko'), '2026년');
+  assert.equal(label('week', '2026-W38', 'ko'), '38주차 · 9월 14–20일');
+  assert.equal(label('week', '2026-W01', 'ko'), '1주차 · 12월 29일 – 1월 4일');
+});
+
+test('요일 표기가 한/영 모두 정확', () => {
+  // 2026-09-14 는 월요일, 2026-09-20 은 일요일
+  assert.match(label('day', '2026-09-14', 'ko'), /\(월\)$/);
+  assert.match(label('day', '2026-09-20', 'ko'), /\(일\)$/);
+  assert.match(label('day', '2026-09-14'), /^Mon,/);
+  assert.match(label('day', '2026-09-20'), /^Sun,/);
 });
 
 test('현재 기간 판별', () => {
