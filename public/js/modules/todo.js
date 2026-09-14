@@ -1,34 +1,82 @@
-/** 할 일 모듈: 추가/완료/삭제/필터, localStorage 저장 */
+/**
+ * Planner 모듈 (UI 는 영문)
+ * 일(day) · 주(week) · 월(month) · 연(year) 단위로 계획을 나눠 관리합니다.
+ * 각 항목은 { scope, period } 로 어느 기간에 속하는지 기록합니다.
+ */
 import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
+import { keyOf, shift, label, isCurrent, SCOPES } from '../lib/period.js';
 
 const KEY = 'todo.items';
-let items = [];
-let filter = 'all';
-let listEl, countEl;
+const VIEW_KEY = 'todo.view';
 
-function persist() { save(KEY, items); }
+let items = [];
+let scope = 'day';
+let period = keyOf('day');
+let filter = 'all';
+
+const persist = () => save(KEY, items);
+const saveView = () => save(VIEW_KEY, { scope, period });
+
+/**
+ * 예전 버전(기간 개념이 없던 시절)의 데이터를 현재 구조로 옮깁니다.
+ * 사라지면 곤란하므로 전부 '오늘' 계획으로 넣어 바로 보이게 합니다.
+ */
+function migrate(raw) {
+  if (!Array.isArray(raw)) return [];
+  const today = keyOf('day');
+  let moved = 0;
+  const result = raw.map((item) => {
+    if (item && SCOPES.includes(item.scope) && typeof item.period === 'string') return item;
+    moved += 1;
+    return { ...item, scope: 'day', period: today };
+  });
+  if (moved) console.info(`[planner] 이전 형식의 할 일 ${moved}건을 오늘 계획으로 옮겼습니다.`);
+  return result;
+}
+
+const inPeriod = (item) => item.scope === scope && item.period === period;
 
 function visible() {
-  if (filter === 'active') return items.filter((t) => !t.done);
-  if (filter === 'done') return items.filter((t) => t.done);
-  return items;
+  const rows = items.filter(inPeriod);
+  if (filter === 'active') return rows.filter((t) => !t.done);
+  if (filter === 'done') return rows.filter((t) => t.done);
+  return rows;
+}
+
+function renderHeader() {
+  const labelEl = $('#period-label');
+  labelEl.textContent = label(scope, period);
+  labelEl.classList.toggle('is-current', isCurrent(scope, period));
+
+  const rows = items.filter(inPeriod);
+  const done = rows.filter((t) => t.done).length;
+  const ratio = rows.length ? (done / rows.length) * 100 : 0;
+
+  const fill = $('#todo-progress-fill');
+  fill.style.width = `${ratio}%`;
+  fill.classList.toggle('is-complete', rows.length > 0 && done === rows.length);
+  $('#todo-progress-text').textContent = `${done} / ${rows.length}`;
+
+  // 전체 통계 (모든 기간 합계)
+  const total = items.length;
+  $('#todo-count').textContent = total ? `${total} plan${total === 1 ? '' : 's'} total` : '';
 }
 
 function render() {
-  listEl.replaceChildren();
-  const rows = visible();
-  const remain = items.filter((t) => !t.done).length;
-  countEl.textContent = items.length ? `${remain}개 남음 / 전체 ${items.length}개` : '';
+  renderHeader();
+  const list = $('#todo-list');
+  list.replaceChildren();
 
+  const rows = visible();
   if (!rows.length) {
-    listEl.append(el('li', { class: 'empty' },
-      filter === 'all' ? '할 일을 추가해보세요.' : '해당하는 항목이 없습니다.'));
+    list.append(el('li', { class: 'empty' },
+      filter === 'all' ? 'No plans for this period yet.' : 'Nothing matches this filter.'));
     return;
   }
 
   rows.forEach((item) => {
-    const checkbox = el('input', { type: 'checkbox', 'aria-label': '완료 표시' });
+    const checkbox = el('input', { type: 'checkbox', 'aria-label': 'Mark as done' });
     checkbox.checked = item.done;
     checkbox.addEventListener('change', () => {
       item.done = checkbox.checked;
@@ -36,35 +84,84 @@ function render() {
       persist();
       render();
     });
-    listEl.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
+    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
       checkbox,
       el('span', { class: 'todo-text' }, item.text),
       el('button', {
         class: 'btn btn-sm btn-ghost',
-        title: '삭제',
-        'aria-label': '삭제',
-        onclick: () => {
-          items = items.filter((t) => t.id !== item.id);
-          persist();
-          render();
-        },
+        title: 'Delete',
+        'aria-label': 'Delete',
+        onclick: () => { items = items.filter((t) => t.id !== item.id); persist(); render(); },
       }, '✕'),
     ));
   });
 }
 
+function setScope(next) {
+  scope = next;
+  period = keyOf(scope); // 단위를 바꾸면 현재 기간으로 맞춥니다
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
+  });
+  saveView();
+  render();
+}
+
+function movePeriod(delta) {
+  period = shift(scope, period, delta);
+  saveView();
+  render();
+}
+
+/** 직전 기간의 미완료 항목을 현재 기간으로 옮깁니다. */
+function carryOver() {
+  const from = shift(scope, period, -1);
+  const pending = items.filter((t) => t.scope === scope && t.period === from && !t.done);
+  if (!pending.length) {
+    toast('Nothing to carry over from the previous period');
+    return;
+  }
+  pending.forEach((t) => { t.period = period; });
+  persist();
+  render();
+  toast(`Moved ${pending.length} unfinished item${pending.length === 1 ? '' : 's'} here`);
+}
+
 export function initTodo() {
-  listEl = $('#todo-list');
-  countEl = $('#todo-count');
-  items = load(KEY, []);
-  if (!Array.isArray(items)) items = [];
+  items = migrate(load(KEY, []));
+
+  const view = load(VIEW_KEY, null);
+  if (view && SCOPES.includes(view.scope)) {
+    scope = view.scope;
+    // 저장된 기간이 손상됐을 수 있으므로 검증 후 사용합니다.
+    try { shift(scope, view.period, 0); period = view.period; }
+    catch { period = keyOf(scope); }
+  } else {
+    period = keyOf(scope);
+  }
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
+  });
+
+  $('#scope-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.scope-tab');
+    if (btn) setScope(btn.dataset.scope);
+  });
+
+  $('#period-prev').addEventListener('click', () => movePeriod(-1));
+  $('#period-next').addEventListener('click', () => movePeriod(1));
+  $('#period-today').addEventListener('click', () => {
+    period = keyOf(scope);
+    saveView();
+    render();
+  });
 
   $('#todo-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
-    items.unshift({ id: uid(), text, done: false, at: Date.now(), doneAt: null });
+    items.unshift({ id: uid(), text, done: false, scope, period, at: Date.now(), doneAt: null });
     input.value = '';
     persist();
     render();
@@ -80,12 +177,16 @@ export function initTodo() {
     });
   });
 
+  $('#todo-carry').addEventListener('click', carryOver);
+
   $('#todo-clear-done').addEventListener('click', () => {
     const before = items.length;
-    items = items.filter((t) => !t.done);
+    // 지금 보고 있는 기간의 완료 항목만 지웁니다.
+    items = items.filter((t) => !(inPeriod(t) && t.done));
     persist();
     render();
-    toast(before === items.length ? '삭제할 완료 항목이 없습니다' : `완료 항목 ${before - items.length}개를 삭제했습니다`);
+    const removed = before - items.length;
+    toast(removed ? `Cleared ${removed} completed item${removed === 1 ? '' : 's'}` : 'No completed items in this period');
   });
 
   render();

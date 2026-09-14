@@ -9,7 +9,7 @@ PWA 로 동작해 모바일 홈 화면에 설치할 수 있습니다.
 ```bash
 npm start          # http://127.0.0.1:8099
 npm run build            # 단일 파일(dist/) + 미리보기 페이지 생성
-npm run test:unit        # 계산 엔진 단위 테스트 (node --test, 9종)
+npm run test:unit        # 단위 테스트 (계산 엔진 9종 + 기간 계산 10종)
 npm run test:assets      # 정적 파일 참조 무결성 검사 (sw.js / manifest / index.html)
 npm run test:e2e         # 실제 Chromium E2E 테스트 (47종, http 모드)
 npm run test:standalone  # 단일 파일을 file:// 로 열어 같은 47종 실행
@@ -26,7 +26,7 @@ npm test                 # 전부
 | 시계 / 세계시계 | ✅ 완전 동작 | `Intl.DateTimeFormat` 기반 |
 | 타이머 / 뽀모도로 | ✅ 완전 동작 | 절대시각 기준이라 `setInterval` 누적 오차 없음 |
 | 알람 | ⚠️ 제한적 | **탭이 열려 있을 때만** 울림 ([아래 참고](#알려진-제약)) |
-| 할 일 | ✅ 완전 동작 | localStorage 저장, 필터 |
+| Planner (할 일) | ✅ 완전 동작 | **UI 영문.** 일/주/월/연 4단위 계획표, 기간 이동, 진행률, 이월 |
 | 날씨 / 주간예보 | ✅ 완전 동작 | Open-Meteo (키 불필요) |
 | 메모 / 낙서판 | ✅ 완전 동작 | Pointer Events — 마우스·터치·펜 |
 | 글귀 | ✅ 완전 동작 | 사용자 등록 글귀 우선, 없으면 기본 격언 |
@@ -78,12 +78,14 @@ public/
     main.js               부트스트랩 · 탭 전환
     lib/
       calc-engine.js      수식 파서/평가기 (테스트 대상)
+      period.js           일/주/월/연 기간 키 계산 (ISO 8601 주차)
       store.js            localStorage 래퍼 (차단 환경 대비 폴백 포함)
       dom.js              DOM 헬퍼
     modules/              기능별 모듈 9개
   assets/                 아이콘 (PNG 192/512/maskable, SVG)
 tests/
-  calc-engine.test.mjs    단위 테스트
+  calc-engine.test.mjs    계산 엔진 단위 테스트
+  period.test.mjs         기간 계산 단위 테스트
   e2e.mjs                 Chromium E2E 테스트
   build-artifact.mjs      미리보기용 페이지 생성
   build-standalone.mjs    단일 HTML 파일 생성 (서버 없이 실행용)

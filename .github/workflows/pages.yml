@@ -30,8 +30,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: 단위 테스트 (계산 엔진)
-        run: node --test tests/calc-engine.test.mjs
+      - name: 단위 테스트 (계산 엔진 + 기간 계산)
+        run: node --test tests/calc-engine.test.mjs tests/period.test.mjs
 
       - name: 정적 파일 무결성 검사
         run: node scripts/verify-assets.mjs
