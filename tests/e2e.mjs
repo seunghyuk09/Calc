@@ -3,11 +3,67 @@
  * 실행: node tests/e2e.mjs  (public/ 를 http 로 서빙한 상태여야 함)
  */
 import { chromium } from 'playwright';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { extname, join, normalize, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const BASE = process.env.BASE_URL || 'http://127.0.0.1:8099';
-const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// 크롬 실행 파일 경로.
+// 개발 컨테이너에는 미리 설치된 크로미움이 있고, CI 에서는 Playwright 가 설치한 것을 씁니다.
+// 둘 다 없으면 executablePath 를 생략해 Playwright 기본 해석에 맡깁니다.
+const PINNED_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const CHROME = process.env.CHROME_PATH
+  || (existsSync(PINNED_CHROME) ? PINNED_CHROME : null);
+
 // 단일 파일(file://) 빌드에서는 서비스 워커와 manifest 를 쓸 수 없으므로 해당 검증을 건너뜁니다.
-const IS_FILE = BASE.startsWith('file:');
+const EXTERNAL_BASE = process.env.BASE_URL || '';
+const IS_FILE = EXTERNAL_BASE.startsWith('file:');
+
+// ---------- 내장 정적 파일 서버 ----------
+// 외부에서 서버를 띄워 둘 필요가 없도록 테스트가 직접 서빙합니다.
+// (CI 와 로컬이 동일하게 동작하고, 서버가 죽어서 테스트가 실패하는 일이 없습니다)
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+
+function startStaticServer(dir) {
+  const server = createServer(async (req, res) => {
+    try {
+      const urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+      // 상위 디렉터리 탈출 방지
+      const safePath = normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
+      let filePath = join(dir, safePath);
+      if (safePath === '/' || safePath.endsWith('/')) filePath = join(filePath, 'index.html');
+      if (!filePath.startsWith(dir)) { res.writeHead(403).end('forbidden'); return; }
+
+      const body = await readFile(filePath);
+      res.writeHead(200, {
+        'Content-Type': MIME[extname(filePath).toLowerCase()] || 'application/octet-stream',
+        // 서비스 워커가 등록되려면 같은 출처에서 제공되어야 합니다. 캐시는 끕니다.
+        'Cache-Control': 'no-store',
+      }).end(body);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('not found');
+    }
+  });
+  return new Promise((resolveServer) => {
+    // 포트 0 을 쓰면 비어 있는 포트를 OS 가 골라 줍니다. (포트 충돌 없음)
+    server.listen(0, '127.0.0.1', () => {
+      resolveServer({ server, port: server.address().port });
+    });
+  });
+}
 
 const results = [];
 let consoleErrors = [];
@@ -38,7 +94,18 @@ const MOCK_GEO = {
 };
 
 const main = async () => {
-  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  // 외부에서 BASE_URL 을 주지 않으면 내장 서버로 public/ 을 서빙합니다.
+  let httpServer = null;
+  let BASE = EXTERNAL_BASE;
+  if (!BASE) {
+    const started = await startStaticServer(resolve(ROOT, 'public'));
+    httpServer = started.server;
+    BASE = `http://127.0.0.1:${started.port}`;
+  }
+
+  const launchOptions = { args: ['--no-sandbox'] };
+  if (CHROME) launchOptions.executablePath = CHROME;
+  const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     locale: 'ko-KR',
@@ -354,6 +421,7 @@ const main = async () => {
   check('콘솔 에러 없음', realErrors.length === 0, realErrors.slice(0, 3).join(' | ') || '없음');
 
   await browser.close();
+  if (httpServer) await new Promise((done) => httpServer.close(done));
 
   // ---------- 요약 ----------
   const passed = results.filter((r) => r.ok).length;
