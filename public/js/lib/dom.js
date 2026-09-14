@@ -29,12 +29,19 @@ export const pad2 = (n) => String(n).padStart(2, '0');
 
 /** 화면 우측 하단에 잠깐 뜨는 알림 */
 let toastTimer = null;
+
+/**
+ * 토스트용 라이브 리전을 미리 만들어 둡니다.
+ * 내용과 동시에 삽입된 라이브 리전은 첫 안내가 낭독되지 않을 수 있어, 앱 시작 시 빈 채로 등록합니다.
+ */
+export function initToastRegion() {
+  if ($('#toast')) return;
+  document.body.append(el('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' }));
+}
+
 export function toast(message, type = 'info') {
-  let box = $('#toast');
-  if (!box) {
-    box = el('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' });
-    document.body.append(box);
-  }
+  initToastRegion();
+  const box = $('#toast');
   box.textContent = message;
   box.dataset.type = type;
   box.classList.add('is-visible');

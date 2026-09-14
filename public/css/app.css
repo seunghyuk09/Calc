@@ -535,7 +535,8 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .lang-btn {
   border: 0;
   background: transparent;
-  color: var(--text-faint);
+  /* --text-faint 는 이 배경에서 대비가 2.72:1 로 WCAG AA(4.5:1) 에 못 미칩니다 */
+  color: var(--text-dim);
   font-size: 11.5px;
   font-weight: 600;
   padding: 4px 10px;
@@ -543,4 +544,9 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   white-space: nowrap;
   transition: background .15s, color .15s;
 }
-.lang-btn[aria-pressed="true"] { background: var(--surface); color: var(--accent); }
+/* 선택 상태를 색뿐 아니라 테두리로도 드러냅니다 */
+.lang-btn[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}

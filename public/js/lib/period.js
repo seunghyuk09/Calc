@@ -123,17 +123,18 @@ export function label(scope, key, lang = 'en') {
     const end = new Date(d);
     end.setDate(end.getDate() + 6);
     const week = Number(key.split('-W')[1]);
+    const isoYear = Number(key.split('-W')[0]);
     const sameMonth = d.getMonth() === end.getMonth();
     if (ko) {
       const range = sameMonth
         ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
         : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
-      return `${week}주차 · ${range}`;
+      return `${isoYear}년 ${week}주차 · ${range}`;
     }
     const range = sameMonth
       ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
       : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
-    return `Week ${week} · ${range}`;
+    return `Week ${week}, ${isoYear} · ${range}`;
   }
 
   if (scope === 'month') {

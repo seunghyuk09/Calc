@@ -544,7 +544,8 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .lang-btn {
   border: 0;
   background: transparent;
-  color: var(--text-faint);
+  /* --text-faint 는 이 배경에서 대비가 2.72:1 로 WCAG AA(4.5:1) 에 못 미칩니다 */
+  color: var(--text-dim);
   font-size: 11.5px;
   font-weight: 600;
   padding: 4px 10px;
@@ -552,7 +553,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   white-space: nowrap;
   transition: background .15s, color .15s;
 }
-.lang-btn[aria-pressed="true"] { background: var(--surface); color: var(--accent); }
+/* 선택 상태를 색뿐 아니라 테두리로도 드러냅니다 */
+.lang-btn[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 
 </style>
 </head>
@@ -651,15 +657,15 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
     </section>
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
-    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" hidden>
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko" hidden>
       <div class="card">
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
           <!-- 이 기능의 표시 언어 -->
           <div class="lang-switch" id="lang-switch" role="group" data-i18n-aria="todo.lang.label">
-            <button class="lang-btn" data-lang="ko" type="button" aria-pressed="true">한국어</button>
-            <button class="lang-btn" data-lang="en" type="button" aria-pressed="false">English</button>
+            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
+            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
           </div>
         </div>
 
@@ -674,7 +680,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         <!-- 기간 이동 -->
         <div class="period-nav">
           <button class="icon-btn" id="period-prev" type="button" data-i18n-aria="todo.nav.prev">‹</button>
-          <div class="period-label" id="period-label">—</div>
+          <div class="period-label" id="period-label" aria-live="polite" aria-atomic="true">—</div>
           <button class="icon-btn" id="period-next" type="button" data-i18n-aria="todo.nav.next">›</button>
           <button class="btn btn-sm" id="period-today" type="button" data-i18n="todo.nav.today">오늘</button>
         </div>
@@ -695,10 +701,10 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
           <button class="chip" data-filter="all" aria-pressed="true" data-i18n="todo.filter.all">전체</button>
           <button class="chip" data-filter="active" aria-pressed="false" data-i18n="todo.filter.active">진행 중</button>
           <button class="chip" data-filter="done" aria-pressed="false" data-i18n="todo.filter.done">완료</button>
-          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n="todo.btn.carry">↩ 이월</button>
+          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n-title="todo.btn.carryHint"><span aria-hidden="true">↩ </span><span data-i18n="todo.btn.carry">이월</span></button>
           <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
         </div>
-        <ul class="todo-list" id="todo-list"></ul>
+        <ul class="todo-list" id="todo-list" lang="ko"></ul>
       </div>
     </section>
 
@@ -964,12 +970,19 @@ const pad2 = (n) => String(n).padStart(2, '0');
 
 /** 화면 우측 하단에 잠깐 뜨는 알림 */
 let toastTimer = null;
+
+/**
+ * 토스트용 라이브 리전을 미리 만들어 둡니다.
+ * 내용과 동시에 삽입된 라이브 리전은 첫 안내가 낭독되지 않을 수 있어, 앱 시작 시 빈 채로 등록합니다.
+ */
+function initToastRegion() {
+  if ($('#toast')) return;
+  document.body.append(el('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' }));
+}
+
 function toast(message, type = 'info') {
-  let box = $('#toast');
-  if (!box) {
-    box = el('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' });
-    document.body.append(box);
-  }
+  initToastRegion();
+  const box = $('#toast');
   box.textContent = message;
   box.dataset.type = type;
   box.classList.add('is-visible');
@@ -1002,7 +1015,7 @@ function uid() {
   return `id-${Date.now().toString(36)}-${uidCounter.toString(36)}`;
 }
 let uidCounter = 0;
-  return { el, toast, escapeHtml, uid, $, $$, pad2 };
+  return { el, initToastRegion, toast, escapeHtml, uid, $, $$, pad2 };
 })();
 
 /* ===== js/lib/store.js ===== */
@@ -1863,17 +1876,18 @@ function label(scope, key, lang = 'en') {
     const end = new Date(d);
     end.setDate(end.getDate() + 6);
     const week = Number(key.split('-W')[1]);
+    const isoYear = Number(key.split('-W')[0]);
     const sameMonth = d.getMonth() === end.getMonth();
     if (ko) {
       const range = sameMonth
         ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
         : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
-      return `${week}주차 · ${range}`;
+      return `${isoYear}년 ${week}주차 · ${range}`;
     }
     const range = sameMonth
       ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
       : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
-    return `Week ${week} · ${range}`;
+    return `Week ${week}, ${isoYear} · ${range}`;
   }
 
   if (scope === 'month') {
@@ -1921,14 +1935,15 @@ const DICT = {
     'todo.filter.all': '전체',
     'todo.filter.active': '진행 중',
     'todo.filter.done': '완료',
-    'todo.btn.carry': '↩ 이월',
+    'todo.btn.carry': '이월',
+    'todo.btn.carryHint': '직전 기간의 미완료 항목을 이 기간으로 가져옵니다',
     'todo.btn.clearDone': '완료 삭제',
     'todo.empty.none': '이 기간에 등록된 계획이 없습니다.',
     'todo.empty.filter': '해당하는 항목이 없습니다.',
     'todo.aria.done': '완료 표시',
     'todo.aria.delete': '삭제',
     'todo.aria.scopeTabs': '계획 단위',
-    'todo.count.total': (n) => `전체 ${n}건`,
+    'todo.count.total': (n) => `누적 ${n}건`,
     'todo.toast.nothingToCarry': '직전 기간에 이월할 항목이 없습니다',
     'todo.toast.carried': (n) => `미완료 ${n}건을 이 기간으로 옮겼습니다`,
     'todo.toast.nothingToClear': '이 기간에 완료된 항목이 없습니다',
@@ -1949,14 +1964,15 @@ const DICT = {
     'todo.filter.all': 'All',
     'todo.filter.active': 'Active',
     'todo.filter.done': 'Done',
-    'todo.btn.carry': '↩ Carry over',
+    'todo.btn.carry': 'Carry over',
+    'todo.btn.carryHint': 'Move unfinished items from the previous period here',
     'todo.btn.clearDone': 'Clear done',
     'todo.empty.none': 'No plans for this period yet.',
     'todo.empty.filter': 'Nothing matches this filter.',
     'todo.aria.done': 'Mark as done',
     'todo.aria.delete': 'Delete',
     'todo.aria.scopeTabs': 'Planning scope',
-    'todo.count.total': (n) => `${n} plan${n === 1 ? '' : 's'} total`,
+    'todo.count.total': (n) => `${n} plan${n === 1 ? '' : 's'} all-time`,
     'todo.toast.nothingToCarry': 'Nothing to carry over from the previous period',
     'todo.toast.carried': (n) => `Moved ${n} unfinished item${n === 1 ? '' : 's'} here`,
     'todo.toast.nothingToClear': 'No completed items in this period',
@@ -2124,19 +2140,41 @@ function render() {
       item.done = checkbox.checked;
       item.doneAt = checkbox.checked ? Date.now() : null;
       persist();
-      render();
+      // 다시 그리면 DOM 이 교체되어 포커스가 body 로 날아갑니다. 같은 자리로 되돌립니다.
+      renderKeepingFocus({ id: item.id, kind: 'check' });
     });
-    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
+    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
       checkbox,
       el('span', { class: 'todo-text' }, item.text),
       el('button', {
         class: 'btn btn-sm btn-ghost',
         title: t('todo.aria.delete'),
         'aria-label': t('todo.aria.delete'),
-        onclick: () => { items = items.filter((t) => t.id !== item.id); persist(); render(); },
+        onclick: () => {
+          // 삭제 후에는 다음 항목의 삭제 버튼으로, 없으면 입력창으로 포커스를 넘깁니다.
+          const rest = visible().filter((t) => t.id !== item.id);
+          const idx = rows.findIndex((t) => t.id === item.id);
+          const nextId = rest[Math.min(idx, rest.length - 1)]?.id;
+          items = items.filter((t) => t.id !== item.id);
+          persist();
+          renderKeepingFocus(nextId ? { id: nextId, kind: 'delete' } : null);
+        },
       }, '✕'),
     ));
   });
+}
+
+/**
+ * 목록을 다시 그린 뒤 포커스를 복원합니다.
+ * 항목이 필터로 사라졌으면 입력창으로 보냅니다. (포커스가 사라지면 키보드 사용자가 길을 잃습니다)
+ */
+function renderKeepingFocus(hint) {
+  render();
+  if (!hint) { $('#todo-input').focus(); return; }
+  const li = [...$('#todo-list').children].find((n) => n.dataset?.id === hint.id);
+  if (!li) { $('#todo-input').focus(); return; }
+  const target = hint.kind === 'check' ? li.querySelector('input') : li.querySelector('button');
+  target?.focus();
 }
 
 function setScope(next) {
@@ -2169,6 +2207,15 @@ function carryOver() {
   toast(t('todo.toast.carried', pending.length));
 }
 
+/**
+ * 패널의 lang 속성을 현재 언어로 맞춥니다.
+ * 이게 없으면 스크린리더가 영어 문구를 한국어 발음으로 읽습니다. (WCAG 3.1.2)
+ * 사용자가 입력한 항목은 #todo-list 에 lang="ko" 가 고정돼 있어 영향받지 않습니다.
+ */
+function applyPanelLang() {
+  $('#panel-todo').setAttribute('lang', getLang());
+}
+
 /** 언어 전환 버튼의 눌림 상태를 현재 언어에 맞춥니다. */
 function renderLangSwitch() {
   document.querySelectorAll('.lang-btn').forEach((b) => {
@@ -2199,10 +2246,12 @@ function initTodo() {
   });
   onLangChange(() => {
     applyStatic($('#panel-todo'));
+    applyPanelLang();
     renderLangSwitch();
     render();
   });
   applyStatic($('#panel-todo'));
+  applyPanelLang();
   renderLangSwitch();
 
   $('#scope-tabs').addEventListener('click', (e) => {
@@ -3456,7 +3505,7 @@ function initSettings() {
 
 /* ===== js/main.js ===== */
 const __m_js_main_js = (function () {
-  const { $, $$, toast } = __m_js_lib_dom_js;
+  const { $, $$, toast, initToastRegion } = __m_js_lib_dom_js;
   const { load, save } = __m_js_lib_store_js;
   const { initCalculator } = __m_js_modules_calculator_js;
   const { initWeather } = __m_js_modules_weather_js;
@@ -3543,6 +3592,7 @@ function registerServiceWorker() {
 }
 
 function boot() {
+  safeInit('알림영역', initToastRegion);
   safeInit('언어', initLang);
   safeInit('테마', initTheme);
   safeInit('배너', initBanner);

@@ -74,7 +74,7 @@ test('표시 이름 — 영문 (기본값)', () => {
   assert.equal(label('day', '2026-09-14'), 'Mon, Sep 14, 2026');
   assert.equal(label('month', '2026-09'), 'Sep 2026');
   assert.equal(label('year', '2026'), '2026');
-  assert.equal(label('week', '2026-W38'), 'Week 38 · Sep 14–20');
+  assert.equal(label('week', '2026-W38'), 'Week 38, 2026 · Sep 14–20');
   // 달을 걸치는 주
   assert.match(label('week', '2026-W01'), /Dec 29 – Jan 4/);
 });
@@ -83,8 +83,8 @@ test('표시 이름 — 한국어', () => {
   assert.equal(label('day', '2026-09-14', 'ko'), '2026년 9월 14일 (월)');
   assert.equal(label('month', '2026-09', 'ko'), '2026년 9월');
   assert.equal(label('year', '2026', 'ko'), '2026년');
-  assert.equal(label('week', '2026-W38', 'ko'), '38주차 · 9월 14–20일');
-  assert.equal(label('week', '2026-W01', 'ko'), '1주차 · 12월 29일 – 1월 4일');
+  assert.equal(label('week', '2026-W38', 'ko'), '2026년 38주차 · 9월 14–20일');
+  assert.equal(label('week', '2026-W01', 'ko'), '2026년 1주차 · 12월 29일 – 1월 4일');
 });
 
 test('요일 표기가 한/영 모두 정확', () => {
@@ -101,4 +101,16 @@ test('현재 기간 판별', () => {
     assert.equal(isCurrent(scope, keyOf(scope, now)), true, `${scope} 현재`);
   }
   assert.equal(isCurrent('year', '1999'), false);
+});
+
+test('주 표기는 ISO 연도를 포함해 다른 해와 구분됨', () => {
+  // 연도가 없으면 2020-W53 과 2026-W53 이 같은 문자열이 되어 구분이 불가능했습니다.
+  const a = label('week', '2020-W53', 'ko');
+  const b = label('week', '2026-W53', 'ko');
+  assert.notEqual(a, b, '다른 해의 같은 주차가 같은 문자열이면 안 됩니다');
+  assert.match(a, /^2020년 53주차/);
+  assert.match(b, /^2026년 53주차/);
+  // 연말에 걸친 주는 달력 연도가 아니라 ISO 연도를 써야 합니다 (2025-12-29 는 2026-W01)
+  assert.match(label('week', '2026-W01', 'ko'), /^2026년 1주차/);
+  assert.match(label('week', '2026-W01', 'en'), /^Week 1, 2026/);
 });

@@ -109,15 +109,15 @@
     </section>
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
-    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" hidden>
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko" hidden>
       <div class="card">
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
           <!-- 이 기능의 표시 언어 -->
           <div class="lang-switch" id="lang-switch" role="group" data-i18n-aria="todo.lang.label">
-            <button class="lang-btn" data-lang="ko" type="button" aria-pressed="true">한국어</button>
-            <button class="lang-btn" data-lang="en" type="button" aria-pressed="false">English</button>
+            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
+            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
           </div>
         </div>
 
@@ -132,7 +132,7 @@
         <!-- 기간 이동 -->
         <div class="period-nav">
           <button class="icon-btn" id="period-prev" type="button" data-i18n-aria="todo.nav.prev">‹</button>
-          <div class="period-label" id="period-label">—</div>
+          <div class="period-label" id="period-label" aria-live="polite" aria-atomic="true">—</div>
           <button class="icon-btn" id="period-next" type="button" data-i18n-aria="todo.nav.next">›</button>
           <button class="btn btn-sm" id="period-today" type="button" data-i18n="todo.nav.today">오늘</button>
         </div>
@@ -153,10 +153,10 @@
           <button class="chip" data-filter="all" aria-pressed="true" data-i18n="todo.filter.all">전체</button>
           <button class="chip" data-filter="active" aria-pressed="false" data-i18n="todo.filter.active">진행 중</button>
           <button class="chip" data-filter="done" aria-pressed="false" data-i18n="todo.filter.done">완료</button>
-          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n="todo.btn.carry">↩ 이월</button>
+          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n-title="todo.btn.carryHint"><span aria-hidden="true">↩ </span><span data-i18n="todo.btn.carry">이월</span></button>
           <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
         </div>
-        <ul class="todo-list" id="todo-list"></ul>
+        <ul class="todo-list" id="todo-list" lang="ko"></ul>
       </div>
     </section>
 

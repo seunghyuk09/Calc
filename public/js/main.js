@@ -2,7 +2,7 @@
  * main.js — 앱 부트스트랩
  * 탭 전환, 각 모듈 초기화, 서비스 워커 등록을 담당합니다.
  */
-import { $, $$, toast } from './lib/dom.js';
+import { $, $$, toast, initToastRegion } from './lib/dom.js';
 import { load, save } from './lib/store.js';
 import { initCalculator } from './modules/calculator.js';
 import { initWeather } from './modules/weather.js';
@@ -73,6 +73,7 @@ function registerServiceWorker() {
 }
 
 function boot() {
+  safeInit('알림영역', initToastRegion);
   safeInit('언어', initLang);
   safeInit('테마', initTheme);
   safeInit('배너', initBanner);
