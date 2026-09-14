@@ -1,0 +1,19 @@
+{
+  "name": "daily-kit",
+  "version": "1.0.0",
+  "description": "계산기 중심의 종합 유틸리티 PWA",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8099 --directory public --bind 127.0.0.1",
+    "build": "node scripts/build-standalone.mjs && node scripts/build-artifact.mjs",
+    "test:unit": "node --test tests/calc-engine.test.mjs",
+    "test:assets": "node scripts/verify-assets.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "test:standalone": "node scripts/build-standalone.mjs && BASE_URL=\"file://$PWD/dist/데일리킷.html\" node tests/e2e.mjs",
+    "test": "npm run test:unit && npm run test:assets && npm run test:e2e && npm run test:standalone"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

@@ -1,0 +1,6 @@
+# 배치 파일은 CP949 인코딩 + CRLF 줄바꿈이어야 Windows 에서 한글이 깨지지 않습니다.
+# git 의 줄바꿈 정규화를 끄고 바이트를 그대로 보존합니다.
+*.bat -text
+
+# 단일 파일 빌드 산출물은 생성물이므로 diff 를 접어 둡니다.
+dist/*.html linguist-generated=true
