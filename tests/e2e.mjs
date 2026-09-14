@@ -171,21 +171,75 @@ const main = async () => {
   const histCount = await page.locator('#calc-history .hist-item').count();
   check('계산 기록이 쌓임', histCount >= 4, `${histCount}건`);
 
-  // ---------- 2. 할 일 ----------
-  console.log('\n▶ 할 일');
+  // ---------- 2. Planner (일/주/월/연) ----------
+  console.log('\n▶ Planner');
   await page.click('.tab[data-tab="todo"]');
-  await page.fill('#todo-input', '보고서 작성');
-  await page.press('#todo-input', 'Enter');
-  await page.fill('#todo-input', '운동하기');
-  await page.press('#todo-input', 'Enter');
-  check('할 일 2개 추가', (await page.locator('#todo-list .todo-item').count()) === 2);
+  await page.waitForSelector('#scope-tabs', { timeout: 5000 });
+
+  check('기본 단위는 Day', (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
+  const dayLabel = await page.textContent('#period-label');
+  check('오늘 기간이 강조 표시', await page.evaluate(() =>
+    document.querySelector('#period-label').classList.contains('is-current')), dayLabel);
+
+  const addPlan = async (text) => {
+    await page.fill('#todo-input', text);
+    await page.press('#todo-input', 'Enter');
+  };
+
+  await addPlan('Write report');
+  await addPlan('Workout');
+  check('Day 계획 2개 추가', (await page.locator('#todo-list .todo-item').count()) === 2);
+  check('진행률 0/2', (await page.textContent('#todo-progress-text')) === '0 / 2');
 
   await page.locator('#todo-list .todo-item input[type="checkbox"]').first().check();
   check('완료 체크 반영', (await page.locator('#todo-list .todo-item.done').count()) === 1);
+  check('진행률 1/2 로 갱신', (await page.textContent('#todo-progress-text')) === '1 / 2');
 
   await page.click('.chip[data-filter="active"]');
-  check('진행 중 필터', (await page.locator('#todo-list .todo-item').count()) === 1);
+  check('Active 필터', (await page.locator('#todo-list .todo-item').count()) === 1);
   await page.click('.chip[data-filter="all"]');
+
+  // 기간 이동: 다음 날에는 항목이 없어야 함 (기간별로 분리되는지)
+  await page.click('#period-next');
+  check('다음 날은 빈 목록', (await page.locator('#todo-list .todo-item').count()) === 0,
+    await page.textContent('#period-label'));
+  check('다음 날은 현재 기간 아님', !(await page.evaluate(() =>
+    document.querySelector('#period-label').classList.contains('is-current'))));
+
+  // 이월: 직전(오늘)의 미완료 1건이 넘어와야 함
+  await page.click('#todo-carry');
+  await page.waitForTimeout(300);
+  check('이월로 미완료 1건 이동', (await page.locator('#todo-list .todo-item').count()) === 1);
+  check('완료 항목은 이월되지 않음', (await page.locator('#todo-list .todo-item.done').count()) === 0);
+
+  await page.click('#period-today');
+  check('Today 버튼으로 복귀', (await page.locator('#todo-list .todo-item').count()) === 1,
+    '이월되고 남은 완료 1건');
+
+  // 단위 전환: Week / Month / Year 는 각각 독립된 목록
+  for (const [sc, text, pattern] of [
+    ['week', 'Ship v1 beta', /^Week \d+ · /],
+    ['month', 'Hire designer', /^\w{3} \d{4}$/],
+    ['year', 'Launch product', /^\d{4}$/],
+  ]) {
+    await page.click(`.scope-tab[data-scope="${sc}"]`);
+    await page.waitForTimeout(150);
+    const lbl = await page.textContent('#period-label');
+    check(`${sc} 단위 기간 표기`, pattern.test(lbl), `실제: ${lbl}`);
+    check(`${sc} 단위는 빈 목록에서 시작`, (await page.locator('#todo-list .todo-item').count()) === 0);
+    await addPlan(text);
+    check(`${sc} 계획 추가`, (await page.locator('#todo-list .todo-item').count()) === 1);
+  }
+
+  // Day 로 돌아와도 Day 항목만 보여야 함
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.waitForTimeout(150);
+  check('Day 로 복귀 시 Day 항목만 표시', (await page.locator('#todo-list .todo-item').count()) === 1);
+  // 총합 5건: 오늘 1(완료) + 내일 1(이월됨) + week/month/year 각 1
+  // 이월은 항목을 옮기는 것이지 복제하는 것이 아니므로 총합은 늘지 않습니다.
+  check('전체 계획 수 집계 (이월은 복제가 아님)',
+    (await page.textContent('#todo-count')).includes('5 plans total'),
+    await page.textContent('#todo-count'));
 
   // ---------- 3. 날씨 (모의 응답) ----------
   console.log('\n▶ 날씨');
@@ -343,7 +397,10 @@ const main = async () => {
   await page.waitForSelector('body[data-ready="true"]');
   check('새로고침 후 설정 탭 복원', (await page.getAttribute('.tab[data-tab="settings"]', 'aria-selected')) === 'true');
   await page.click('.tab[data-tab="todo"]');
-  check('새로고침 후 할 일 유지', (await page.locator('#todo-list .todo-item').count()) === 2);
+  await page.waitForTimeout(200);
+  check('새로고침 후 Planner 단위/기간 복원',
+    (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
+  check('새로고침 후 Day 계획 유지', (await page.locator('#todo-list .todo-item').count()) === 1);
   await page.click('.tab[data-tab="memo"]');
   await page.waitForTimeout(400);
   check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);

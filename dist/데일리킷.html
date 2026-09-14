@@ -459,6 +459,78 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   .key { height: 54px; font-size: 18px; }
 }
 
+/* ---------- Planner (일/주/월/연 계획표) ---------- */
+.scope-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+.scope-tab {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 4px;
+  border-radius: 6px;
+  transition: background .15s, color .15s;
+}
+.scope-tab[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .08);
+}
+
+.period-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.period-label {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.period-label.is-current { color: var(--accent); }
+
+.progress-row { display: flex; align-items: center; gap: 9px; margin-top: 12px; }
+.progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width .25s ease;
+}
+.progress-fill.is-complete { background: var(--success); }
+.progress-text {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .scope-tab { font-size: 12.5px; padding: 7px 2px; }
+}
+
 </style>
 </head>
 <body>
@@ -482,7 +554,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
     <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
       <button class="tab" role="tab" data-tab="calc"     aria-selected="true"><span>🧮</span>계산기</button>
       <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span>🌤️</span>날씨</button>
-      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>할 일</button>
+      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>Planner</button>
       <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
       <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
       <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
@@ -555,22 +627,47 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
       </div>
     </section>
 
-    <!-- ================= 할 일 ================= -->
-    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="할 일" hidden>
+    <!-- ================= Planner (영문 UI) ================= -->
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="Planner" hidden>
       <div class="card">
         <div class="card-head">
-          <h2 class="card-title">할 일</h2>
+          <h2 class="card-title">Planner</h2>
           <span class="card-sub" id="todo-count"></span>
         </div>
-        <form class="row" id="todo-form" style="margin-bottom:12px">
-          <input class="field grow" id="todo-input" placeholder="할 일을 입력하고 Enter" maxlength="200" autocomplete="off">
-          <button class="btn btn-primary" type="submit">추가</button>
+
+        <!-- 계획 단위: 일 / 주 / 월 / 연 -->
+        <div class="scope-tabs" id="scope-tabs" role="tablist" aria-label="Planning scope">
+          <button class="scope-tab" data-scope="day"   role="tab" aria-selected="true">Day</button>
+          <button class="scope-tab" data-scope="week"  role="tab" aria-selected="false">Week</button>
+          <button class="scope-tab" data-scope="month" role="tab" aria-selected="false">Month</button>
+          <button class="scope-tab" data-scope="year"  role="tab" aria-selected="false">Year</button>
+        </div>
+
+        <!-- 기간 이동 -->
+        <div class="period-nav">
+          <button class="icon-btn" id="period-prev" type="button" aria-label="Previous period">‹</button>
+          <div class="period-label" id="period-label">—</div>
+          <button class="icon-btn" id="period-next" type="button" aria-label="Next period">›</button>
+          <button class="btn btn-sm" id="period-today" type="button">Today</button>
+        </div>
+
+        <!-- 진행률 -->
+        <div class="progress-row">
+          <div class="progress-track"><div class="progress-fill" id="todo-progress-fill"></div></div>
+          <span class="progress-text" id="todo-progress-text">0 / 0</span>
+        </div>
+
+        <form class="row" id="todo-form" style="margin:12px 0">
+          <input class="field grow" id="todo-input" placeholder="Add a plan and press Enter" maxlength="200" autocomplete="off">
+          <button class="btn btn-primary" type="submit">Add</button>
         </form>
+
         <div class="row" style="margin-bottom:6px">
-          <button class="chip" data-filter="all" aria-pressed="true">전체</button>
-          <button class="chip" data-filter="active" aria-pressed="false">진행 중</button>
-          <button class="chip" data-filter="done" aria-pressed="false">완료</button>
-          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" style="margin-left:auto">완료 항목 삭제</button>
+          <button class="chip" data-filter="all" aria-pressed="true">All</button>
+          <button class="chip" data-filter="active" aria-pressed="false">Active</button>
+          <button class="chip" data-filter="done" aria-pressed="false">Done</button>
+          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button">↩ Carry over</button>
+          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button">Clear done</button>
         </div>
         <ul class="todo-list" id="todo-list"></ul>
       </div>
@@ -1610,40 +1707,221 @@ function initWeather() {
   return { initWeather };
 })();
 
+/* ===== js/lib/period.js ===== */
+const __m_js_lib_period_js = (function () {
+/**
+ * period.js
+ * 계획표의 기간(일/주/월/연) 키를 다루는 순수 함수 모음.
+ *
+ * 키 형식
+ *   day   : 2026-09-14
+ *   week  : 2026-W38   (ISO 8601 주차 — 월요일 시작, 첫 목요일이 있는 주가 1주차)
+ *   month : 2026-09
+ *   year  : 2026
+ *
+ * 주의: 모든 계산은 로컬 시간 기준입니다.
+ * toISOString() 은 UTC 로 변환되어 한국 시간 오전에는 전날로 밀리므로 쓰지 않습니다.
+ */
+
+const SCOPES = ['day', 'week', 'month', 'year'];
+
+const pad = (n) => String(n).padStart(2, '0');
+
+/** 시/분/초를 버린 로컬 날짜를 만듭니다. */
+const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+/** 월요일을 0 으로 두는 요일 번호 (ISO 기준) */
+const isoDayIndex = (date) => (date.getDay() + 6) % 7;
+
+/**
+ * ISO 8601 주차를 계산합니다.
+ * 규칙: 그 주의 목요일이 속한 해가 그 주의 연도이고, 1월 4일이 항상 1주차에 포함됩니다.
+ */
+function isoWeekParts(date) {
+  const thursday = startOfDay(date);
+  // 해당 주의 목요일로 이동 (월=0 이므로 +3 이 목요일)
+  thursday.setDate(thursday.getDate() - isoDayIndex(thursday) + 3);
+  const isoYear = thursday.getFullYear();
+
+  // 그 해 1월 4일이 속한 주의 목요일 = 1주차의 목요일
+  const jan4 = new Date(isoYear, 0, 4);
+  const week1Thursday = new Date(isoYear, 0, 4 - isoDayIndex(jan4) + 3);
+
+  const week = 1 + Math.round((thursday - week1Thursday) / (7 * 24 * 60 * 60 * 1000));
+  return { year: isoYear, week };
+}
+
+/** ISO 주차의 월요일 날짜를 반환합니다. */
+function isoWeekStart(isoYear, week) {
+  const jan4 = new Date(isoYear, 0, 4);
+  return new Date(isoYear, 0, 4 - isoDayIndex(jan4) + (week - 1) * 7);
+}
+
+/** 날짜와 단위로부터 기간 키를 만듭니다. */
+function keyOf(scope, date = new Date()) {
+  const d = startOfDay(date);
+  switch (scope) {
+    case 'day': return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    case 'week': {
+      const { year, week } = isoWeekParts(d);
+      return `${year}-W${pad(week)}`;
+    }
+    case 'month': return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    case 'year': return String(d.getFullYear());
+    default: throw new Error(`알 수 없는 단위: ${scope}`);
+  }
+}
+
+/** 기간 키를 대표 날짜(시작일)로 되돌립니다. */
+function dateOf(scope, key) {
+  if (scope === 'day') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+    if (!m) throw new Error(`잘못된 day 키: ${key}`);
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  if (scope === 'week') {
+    const m = /^(\d{4})-W(\d{2})$/.exec(key);
+    if (!m) throw new Error(`잘못된 week 키: ${key}`);
+    return isoWeekStart(Number(m[1]), Number(m[2]));
+  }
+  if (scope === 'month') {
+    const m = /^(\d{4})-(\d{2})$/.exec(key);
+    if (!m) throw new Error(`잘못된 month 키: ${key}`);
+    return new Date(Number(m[1]), Number(m[2]) - 1, 1);
+  }
+  if (scope === 'year') {
+    const m = /^(\d{4})$/.exec(key);
+    if (!m) throw new Error(`잘못된 year 키: ${key}`);
+    return new Date(Number(m[1]), 0, 1);
+  }
+  throw new Error(`알 수 없는 단위: ${scope}`);
+}
+
+/**
+ * 기간을 앞뒤로 이동합니다.
+ * 주/월 이동은 대표 날짜를 옮긴 뒤 키를 다시 계산하므로 연말연시 경계도 정확합니다.
+ */
+function shift(scope, key, delta) {
+  const d = dateOf(scope, key);
+  if (scope === 'day') d.setDate(d.getDate() + delta);
+  else if (scope === 'week') d.setDate(d.getDate() + delta * 7);
+  else if (scope === 'month') d.setMonth(d.getMonth() + delta);
+  else if (scope === 'year') d.setFullYear(d.getFullYear() + delta);
+  return keyOf(scope, d);
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** 화면에 보여줄 기간 이름 (영문) */
+function label(scope, key) {
+  const d = dateOf(scope, key);
+  if (scope === 'day') {
+    return `${WEEKDAYS[isoDayIndex(d)]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+  if (scope === 'week') {
+    const end = new Date(d);
+    end.setDate(end.getDate() + 6);
+    const [, week] = key.split('-W');
+    const range = d.getMonth() === end.getMonth()
+      ? `${MONTHS[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
+      : `${MONTHS[d.getMonth()]} ${d.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}`;
+    return `Week ${Number(week)} · ${range}`;
+  }
+  if (scope === 'month') return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return String(d.getFullYear());
+}
+
+/** 지금이 속한 기간인지 */
+function isCurrent(scope, key) {
+  return key === keyOf(scope, new Date());
+}
+  return { isoWeekParts, isoWeekStart, keyOf, dateOf, shift, label, isCurrent, SCOPES };
+})();
+
 /* ===== js/modules/todo.js ===== */
 const __m_js_modules_todo_js = (function () {
   const { $, el, toast, uid } = __m_js_lib_dom_js;
   const { load, save } = __m_js_lib_store_js;
-/** 할 일 모듈: 추가/완료/삭제/필터, localStorage 저장 */
+  const { keyOf, shift, label, isCurrent, SCOPES } = __m_js_lib_period_js;
+/**
+ * Planner 모듈 (UI 는 영문)
+ * 일(day) · 주(week) · 월(month) · 연(year) 단위로 계획을 나눠 관리합니다.
+ * 각 항목은 { scope, period } 로 어느 기간에 속하는지 기록합니다.
+ */
+
 
 
 const KEY = 'todo.items';
-let items = [];
-let filter = 'all';
-let listEl, countEl;
+const VIEW_KEY = 'todo.view';
 
-function persist() { save(KEY, items); }
+let items = [];
+let scope = 'day';
+let period = keyOf('day');
+let filter = 'all';
+
+const persist = () => save(KEY, items);
+const saveView = () => save(VIEW_KEY, { scope, period });
+
+/**
+ * 예전 버전(기간 개념이 없던 시절)의 데이터를 현재 구조로 옮깁니다.
+ * 사라지면 곤란하므로 전부 '오늘' 계획으로 넣어 바로 보이게 합니다.
+ */
+function migrate(raw) {
+  if (!Array.isArray(raw)) return [];
+  const today = keyOf('day');
+  let moved = 0;
+  const result = raw.map((item) => {
+    if (item && SCOPES.includes(item.scope) && typeof item.period === 'string') return item;
+    moved += 1;
+    return { ...item, scope: 'day', period: today };
+  });
+  if (moved) console.info(`[planner] 이전 형식의 할 일 ${moved}건을 오늘 계획으로 옮겼습니다.`);
+  return result;
+}
+
+const inPeriod = (item) => item.scope === scope && item.period === period;
 
 function visible() {
-  if (filter === 'active') return items.filter((t) => !t.done);
-  if (filter === 'done') return items.filter((t) => t.done);
-  return items;
+  const rows = items.filter(inPeriod);
+  if (filter === 'active') return rows.filter((t) => !t.done);
+  if (filter === 'done') return rows.filter((t) => t.done);
+  return rows;
+}
+
+function renderHeader() {
+  const labelEl = $('#period-label');
+  labelEl.textContent = label(scope, period);
+  labelEl.classList.toggle('is-current', isCurrent(scope, period));
+
+  const rows = items.filter(inPeriod);
+  const done = rows.filter((t) => t.done).length;
+  const ratio = rows.length ? (done / rows.length) * 100 : 0;
+
+  const fill = $('#todo-progress-fill');
+  fill.style.width = `${ratio}%`;
+  fill.classList.toggle('is-complete', rows.length > 0 && done === rows.length);
+  $('#todo-progress-text').textContent = `${done} / ${rows.length}`;
+
+  // 전체 통계 (모든 기간 합계)
+  const total = items.length;
+  $('#todo-count').textContent = total ? `${total} plan${total === 1 ? '' : 's'} total` : '';
 }
 
 function render() {
-  listEl.replaceChildren();
-  const rows = visible();
-  const remain = items.filter((t) => !t.done).length;
-  countEl.textContent = items.length ? `${remain}개 남음 / 전체 ${items.length}개` : '';
+  renderHeader();
+  const list = $('#todo-list');
+  list.replaceChildren();
 
+  const rows = visible();
   if (!rows.length) {
-    listEl.append(el('li', { class: 'empty' },
-      filter === 'all' ? '할 일을 추가해보세요.' : '해당하는 항목이 없습니다.'));
+    list.append(el('li', { class: 'empty' },
+      filter === 'all' ? 'No plans for this period yet.' : 'Nothing matches this filter.'));
     return;
   }
 
   rows.forEach((item) => {
-    const checkbox = el('input', { type: 'checkbox', 'aria-label': '완료 표시' });
+    const checkbox = el('input', { type: 'checkbox', 'aria-label': 'Mark as done' });
     checkbox.checked = item.done;
     checkbox.addEventListener('change', () => {
       item.done = checkbox.checked;
@@ -1651,35 +1929,84 @@ function render() {
       persist();
       render();
     });
-    listEl.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
+    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
       checkbox,
       el('span', { class: 'todo-text' }, item.text),
       el('button', {
         class: 'btn btn-sm btn-ghost',
-        title: '삭제',
-        'aria-label': '삭제',
-        onclick: () => {
-          items = items.filter((t) => t.id !== item.id);
-          persist();
-          render();
-        },
+        title: 'Delete',
+        'aria-label': 'Delete',
+        onclick: () => { items = items.filter((t) => t.id !== item.id); persist(); render(); },
       }, '✕'),
     ));
   });
 }
 
+function setScope(next) {
+  scope = next;
+  period = keyOf(scope); // 단위를 바꾸면 현재 기간으로 맞춥니다
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
+  });
+  saveView();
+  render();
+}
+
+function movePeriod(delta) {
+  period = shift(scope, period, delta);
+  saveView();
+  render();
+}
+
+/** 직전 기간의 미완료 항목을 현재 기간으로 옮깁니다. */
+function carryOver() {
+  const from = shift(scope, period, -1);
+  const pending = items.filter((t) => t.scope === scope && t.period === from && !t.done);
+  if (!pending.length) {
+    toast('Nothing to carry over from the previous period');
+    return;
+  }
+  pending.forEach((t) => { t.period = period; });
+  persist();
+  render();
+  toast(`Moved ${pending.length} unfinished item${pending.length === 1 ? '' : 's'} here`);
+}
+
 function initTodo() {
-  listEl = $('#todo-list');
-  countEl = $('#todo-count');
-  items = load(KEY, []);
-  if (!Array.isArray(items)) items = [];
+  items = migrate(load(KEY, []));
+
+  const view = load(VIEW_KEY, null);
+  if (view && SCOPES.includes(view.scope)) {
+    scope = view.scope;
+    // 저장된 기간이 손상됐을 수 있으므로 검증 후 사용합니다.
+    try { shift(scope, view.period, 0); period = view.period; }
+    catch { period = keyOf(scope); }
+  } else {
+    period = keyOf(scope);
+  }
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
+  });
+
+  $('#scope-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.scope-tab');
+    if (btn) setScope(btn.dataset.scope);
+  });
+
+  $('#period-prev').addEventListener('click', () => movePeriod(-1));
+  $('#period-next').addEventListener('click', () => movePeriod(1));
+  $('#period-today').addEventListener('click', () => {
+    period = keyOf(scope);
+    saveView();
+    render();
+  });
 
   $('#todo-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
-    items.unshift({ id: uid(), text, done: false, at: Date.now(), doneAt: null });
+    items.unshift({ id: uid(), text, done: false, scope, period, at: Date.now(), doneAt: null });
     input.value = '';
     persist();
     render();
@@ -1695,12 +2022,16 @@ function initTodo() {
     });
   });
 
+  $('#todo-carry').addEventListener('click', carryOver);
+
   $('#todo-clear-done').addEventListener('click', () => {
     const before = items.length;
-    items = items.filter((t) => !t.done);
+    // 지금 보고 있는 기간의 완료 항목만 지웁니다.
+    items = items.filter((t) => !(inPeriod(t) && t.done));
     persist();
     render();
-    toast(before === items.length ? '삭제할 완료 항목이 없습니다' : `완료 항목 ${before - items.length}개를 삭제했습니다`);
+    const removed = before - items.length;
+    toast(removed ? `Cleared ${removed} completed item${removed === 1 ? '' : 's'}` : 'No completed items in this period');
   });
 
   render();
