@@ -11,9 +11,10 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(resolve(root, 'public/index.html'), 'utf-8');
 
-const title = html.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim();
+// Artifact 갤러리에서는 짧은 고유 이름이 좋으므로 index.html 의 긴 제목 대신 앱 이름만 씁니다.
+const ARTIFACT_TITLE = 'Daily Kit';
 const body = html.match(/<body[^>]*>([\s\S]*?)<\/body>/)?.[1];
-if (!title || !body) throw new Error('index.html 에서 title 또는 body 를 찾지 못했습니다');
+if (!body) throw new Error('index.html 에서 body 를 찾지 못했습니다');
 
 // 경로 앞의 "./" 를 제거합니다. (Artifact 는 상대 경로로 게시 파일을 참조)
 const content = body
@@ -21,7 +22,7 @@ const content = body
   .replace(/href="\.\//g, 'href="')
   .trim();
 
-const out = `<title>${title}</title>
+const out = `<title>${ARTIFACT_TITLE}</title>
 <link rel="stylesheet" href="css/app.css">
 <script>
   // Artifact 배포본에는 서비스 워커를 함께 올리지 않으므로 등록을 건너뜁니다.
