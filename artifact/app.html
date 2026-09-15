@@ -22,7 +22,8 @@
     </section>
 
     <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
-      <button class="tab" role="tab" data-tab="calc"     aria-selected="true"><span>🧮</span>계산기</button>
+      <button class="tab" role="tab" data-tab="today"    aria-selected="true"><span>🗓️</span>오늘</button>
+      <button class="tab" role="tab" data-tab="calc"     aria-selected="false"><span>🧮</span>계산기</button>
       <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span>🌤️</span>날씨</button>
       <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>TO DO</button>
       <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
@@ -36,8 +37,45 @@
 
   <main class="app-main" id="main">
 
+    <!-- ================= 오늘 (플래너 첫 페이지) ================= -->
+    <section class="panel grid grid-2" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
+      <div class="today-head">
+        <div class="today-date" id="today-date">—</div>
+        <div class="today-swipe-hint" aria-hidden="true">← 좌우로 쓸어 탭 이동 →</div>
+      </div>
+
+      <!-- 현재 날씨: 카드 전체가 버튼이라 어디를 눌러도 주간 예보로 갑니다 -->
+      <button class="card today-card" id="today-weather-card" type="button">
+        <div class="today-card-head">
+          <span class="card-title" data-i18n="today.weather.title">현재 날씨</span>
+          <span class="card-sub" data-i18n="today.weather.hint">눌러서 주간 예보 보기</span>
+        </div>
+        <div class="today-wx" id="today-weather">
+          <div class="today-wx-icon"><span class="spinner"></span></div>
+          <div class="today-wx-body">
+            <div class="today-wx-desc" data-i18n="today.weather.loading">날씨를 불러오는 중…</div>
+          </div>
+        </div>
+      </button>
+
+      <!-- 오늘 할 일: 미완료 항목이 천천히 순환합니다 -->
+      <div class="card today-card-static">
+        <div class="today-card-head">
+          <span class="card-title" data-i18n="today.todo.title">오늘 할 일</span>
+          <span class="card-sub" id="today-todo-count"></span>
+          <button class="icon-btn today-rot-toggle" id="today-rot-toggle" type="button"
+                  data-i18n-aria="today.rotate.pause" data-i18n-title="today.rotate.pause"
+                  aria-pressed="false" hidden>⏸</button>
+        </div>
+        <div class="today-rot" id="today-rot" tabindex="0"
+             data-i18n-aria="today.aria.rotation" aria-label="미완료 할 일 순환">
+          <div class="today-rot-empty" data-i18n="today.todo.empty">등록된 할 일이 없습니다. 눌러서 계획표를 여세요.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= 계산기 ================= -->
-    <section class="panel grid grid-2" id="panel-calc" role="tabpanel" aria-label="계산기">
+    <section class="panel grid grid-2" id="panel-calc" role="tabpanel" aria-label="계산기" hidden>
       <div class="card">
         <div class="calc-display">
           <input class="calc-expr" id="calc-expr" inputmode="text" autocomplete="off" spellcheck="false"
@@ -205,7 +243,7 @@
           <button class="btn btn-sm" id="draw-undo" type="button">되돌리기</button>
           <button class="btn btn-sm btn-danger" id="draw-clear" type="button">전체 지우기</button>
         </div>
-        <div class="draw-wrap"><canvas id="draw-canvas"></canvas></div>
+        <div class="draw-wrap" data-no-swipe><canvas id="draw-canvas"></canvas></div>
         <div class="row" style="margin-top:10px">
           <button class="btn btn-sm" id="draw-save" type="button">💾 저장</button>
           <button class="btn btn-sm" id="draw-download" type="button">⬇️ PNG 내려받기</button>

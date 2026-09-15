@@ -10,21 +10,41 @@ const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const DEFAULT_PLACE = { name: '서울', country: '대한민국', latitude: 37.5665, longitude: 126.978 };
 
-// WMO 날씨 해석 코드 -> 한국어 설명 + 이모지
+// WMO 날씨 해석 코드 -> [한국어, 영어, 이모지]
+// '오늘' 탭이 설정 언어를 따르므로 설명을 양쪽으로 둡니다.
+// (날씨 탭의 나머지 라벨은 아직 한국어 고정입니다. README 의 '알려진 제약' 참고)
 const WMO = {
-  0: ['맑음', '☀️'],
-  1: ['대체로 맑음', '🌤️'], 2: ['부분적으로 흐림', '⛅'], 3: ['흐림', '☁️'],
-  45: ['안개', '🌫️'], 48: ['서리 안개', '🌫️'],
-  51: ['약한 이슬비', '🌦️'], 53: ['이슬비', '🌦️'], 55: ['강한 이슬비', '🌧️'],
-  56: ['약한 어는 이슬비', '🌧️'], 57: ['어는 이슬비', '🌧️'],
-  61: ['약한 비', '🌦️'], 63: ['비', '🌧️'], 65: ['강한 비', '🌧️'],
-  66: ['약한 어는 비', '🌧️'], 67: ['어는 비', '🌧️'],
-  71: ['약한 눈', '🌨️'], 73: ['눈', '❄️'], 75: ['강한 눈', '❄️'], 77: ['싸락눈', '🌨️'],
-  80: ['약한 소나기', '🌦️'], 81: ['소나기', '🌧️'], 82: ['강한 소나기', '⛈️'],
-  85: ['약한 소낙눈', '🌨️'], 86: ['소낙눈', '❄️'],
-  95: ['뇌우', '⛈️'], 96: ['우박 동반 뇌우', '⛈️'], 99: ['강한 우박 뇌우', '⛈️'],
+  0: ['맑음', 'Clear', '☀️'],
+  1: ['대체로 맑음', 'Mainly clear', '🌤️'],
+  2: ['부분적으로 흐림', 'Partly cloudy', '⛅'],
+  3: ['흐림', 'Overcast', '☁️'],
+  45: ['안개', 'Fog', '🌫️'], 48: ['서리 안개', 'Rime fog', '🌫️'],
+  51: ['약한 이슬비', 'Light drizzle', '🌦️'], 53: ['이슬비', 'Drizzle', '🌦️'],
+  55: ['강한 이슬비', 'Heavy drizzle', '🌧️'],
+  56: ['약한 어는 이슬비', 'Light freezing drizzle', '🌧️'],
+  57: ['어는 이슬비', 'Freezing drizzle', '🌧️'],
+  61: ['약한 비', 'Light rain', '🌦️'], 63: ['비', 'Rain', '🌧️'], 65: ['강한 비', 'Heavy rain', '🌧️'],
+  66: ['약한 어는 비', 'Light freezing rain', '🌧️'], 67: ['어는 비', 'Freezing rain', '🌧️'],
+  71: ['약한 눈', 'Light snow', '🌨️'], 73: ['눈', 'Snow', '❄️'], 75: ['강한 눈', 'Heavy snow', '❄️'],
+  77: ['싸락눈', 'Snow grains', '🌨️'],
+  80: ['약한 소나기', 'Light showers', '🌦️'], 81: ['소나기', 'Showers', '🌧️'],
+  82: ['강한 소나기', 'Violent showers', '⛈️'],
+  85: ['약한 소낙눈', 'Light snow showers', '🌨️'], 86: ['소낙눈', 'Snow showers', '❄️'],
+  95: ['뇌우', 'Thunderstorm', '⛈️'],
+  96: ['우박 동반 뇌우', 'Thunderstorm with hail', '⛈️'],
+  99: ['강한 우박 뇌우', 'Severe hailstorm', '⛈️'],
 };
-const describe = (code) => WMO[code] || ['정보 없음', '🌡️'];
+const UNKNOWN = ['정보 없음', 'Unknown', '🌡️'];
+
+/**
+ * WMO 코드를 [설명, 이모지] 로 바꿉니다.
+ * 날씨 탭은 라벨 전체가 한국어라 여기서도 한국어가 기본입니다.
+ * 언어를 따르는 것은 '오늘' 탭뿐이고, 그쪽에서 lang 을 명시해 부릅니다.
+ */
+export function describe(code, lang = 'ko') {
+  const row = WMO[code] || UNKNOWN;
+  return [lang === 'en' ? row[1] : row[0], row[2]];
+}
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -32,6 +52,28 @@ const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 const num = (value, unit = '', digits = 0) => (
   typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(digits)}${unit}` : '—'
 );
+
+// '오늘' 탭이 현재 날씨를 함께 보여주므로, 마지막 조회 결과를 공유합니다.
+let snapshot = { status: 'loading' };
+const weatherListeners = new Set();
+
+/** 날씨 조회 결과가 바뀔 때마다 호출됩니다. 해제 함수를 돌려줍니다. */
+export function onWeatherChange(fn) {
+  weatherListeners.add(fn);
+  return () => weatherListeners.delete(fn);
+}
+
+/** 마지막 조회 결과입니다. status 는 loading / ok / error 중 하나입니다. */
+export function getWeather() {
+  return snapshot;
+}
+
+function setSnapshot(next) {
+  snapshot = next;
+  weatherListeners.forEach((fn) => {
+    try { fn(snapshot); } catch (err) { console.error('[weather] 구독자 오류', err); }
+  });
+}
 
 /** 타임아웃이 걸린 fetch. 네트워크가 죽었을 때 무한 대기하지 않도록 합니다. */
 async function fetchJson(url, timeoutMs = 12000) {
@@ -50,6 +92,7 @@ async function fetchJson(url, timeoutMs = 12000) {
 }
 
 function showError(message) {
+  setSnapshot({ status: 'error', message });
   $('#wx-now').replaceChildren(
     el('p', { class: 'empty' }, `날씨를 불러오지 못했습니다. ${message}`),
     el('div', { class: 'row', style: 'justify-content:center' },
@@ -124,6 +167,7 @@ function renderWeek(data) {
 }
 
 async function loadWeather(place) {
+  setSnapshot({ status: 'loading' });
   $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 불러오는 중…'));
   const params = new URLSearchParams({
     latitude: String(place.latitude),
@@ -138,6 +182,16 @@ async function loadWeather(place) {
     renderCurrent(place, data);
     renderWeek(data);
     save(PLACE_KEY, place);
+    setSnapshot({
+      status: 'ok',
+      place,
+      code: data?.current?.weather_code,
+      temperature: data?.current?.temperature_2m,
+      apparent: data?.current?.apparent_temperature,
+      high: data?.daily?.temperature_2m_max?.[0],
+      low: data?.daily?.temperature_2m_min?.[0],
+      pop: data?.daily?.precipitation_probability_max?.[0],
+    });
   } catch (err) {
     showError(err.message);
   }

@@ -33,4 +33,5 @@ ${content}
 
 mkdirSync(resolve(root, 'artifact'), { recursive: true });
 writeFileSync(resolve(root, 'artifact/app.html'), out, 'utf-8');
-console.log(`artifact/app.html 생성 완료 (${out.length} bytes)`);
+// out.length 는 문자 수입니다. 한글은 UTF-8 에서 3바이트이므로 바이트로 환산해 보고합니다.
+console.log(`artifact/app.html 생성 완료 (${Buffer.byteLength(out, 'utf-8')} bytes)`);

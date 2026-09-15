@@ -2,7 +2,7 @@
  * i18n.js
  * TO DO(계획표) 기능의 표시 언어를 한국어/영어 중에서 고를 수 있게 합니다.
  *
- * 범위: 현재는 TO DO 탭 안의 문구만 다룹니다.
+ * 범위: TO DO(계획표) 탭과 '오늘' 탭, 그리고 날씨 설명(WMO)까지 다룹니다.
  * 나머지 화면은 한국어 고정이며, 필요하면 같은 구조로 사전만 늘리면 됩니다.
  */
 import { load, save } from './store.js';
@@ -14,6 +14,19 @@ const DEFAULT_LANG = 'ko';
 // 값이 함수인 항목은 인자를 받아 문장을 만듭니다. (복수형 처리 등)
 const DICT = {
   ko: {
+    'today.weather.title': '현재 날씨',
+    'today.weather.loading': '날씨를 불러오는 중…',
+    'today.weather.error': '날씨를 불러오지 못했습니다',
+    'today.weather.hint': '눌러서 주간 예보 보기',
+    'today.todo.title': '오늘 할 일',
+    'today.todo.remaining': (n) => `${n}개 남음`,
+    'today.todo.empty': '등록된 할 일이 없습니다. 눌러서 계획표를 여세요.',
+    'today.todo.allDone': '오늘 할 일을 모두 마쳤습니다 🎉',
+    'today.todo.hint': '눌러서 계획표로 이동',
+    'today.rotate.pause': '순환 멈춤',
+    'today.rotate.play': '순환 시작',
+    'today.aria.rotation': '미완료 할 일 순환',
+    'today.aria.position': (i, n) => `${n}개 중 ${i}번째`,
     'todo.title': '계획표',
     'todo.scope.day': '일간',
     'todo.scope.week': '주간',
@@ -42,6 +55,19 @@ const DICT = {
     'todo.toast.cleared': (n) => `완료 항목 ${n}건을 삭제했습니다`,
   },
   en: {
+    'today.weather.title': 'Current weather',
+    'today.weather.loading': 'Loading weather…',
+    'today.weather.error': "Couldn't load the weather",
+    'today.weather.hint': 'Tap for the weekly forecast',
+    'today.todo.title': "Today's tasks",
+    'today.todo.remaining': (n) => `${n} left`,
+    'today.todo.empty': 'Nothing here yet. Tap to open the planner.',
+    'today.todo.allDone': 'All done for today 🎉',
+    'today.todo.hint': 'Tap to open the planner',
+    'today.rotate.pause': 'Pause rotation',
+    'today.rotate.play': 'Start rotation',
+    'today.aria.rotation': 'Unfinished task carousel',
+    'today.aria.position': (i, n) => `Item ${i} of ${n}`,
     'todo.title': 'Planner',
     'todo.scope.day': 'Day',
     'todo.scope.week': 'Week',

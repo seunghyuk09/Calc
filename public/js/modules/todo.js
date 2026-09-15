@@ -17,7 +17,28 @@ let scope = 'day';
 let period = keyOf('day');
 let filter = 'all';
 
-const persist = () => save(KEY, items);
+// '오늘' 탭처럼 할 일을 함께 보여주는 화면이 바뀐 내용을 바로 반영하도록 알립니다.
+const changeListeners = new Set();
+
+/** 할 일 목록이 바뀔 때마다 호출됩니다. 해제 함수를 돌려줍니다. */
+export function onTodoChange(fn) {
+  changeListeners.add(fn);
+  return () => changeListeners.delete(fn);
+}
+
+function notifyChange() {
+  // 구독자 하나가 던져도 저장과 나머지 구독자는 살아 있어야 합니다.
+  changeListeners.forEach((fn) => {
+    try { fn(); } catch (err) { console.error('[todo] 구독자 오류', err); }
+  });
+}
+
+/** 다른 모듈이 읽기 전용으로 쓰는 사본입니다. 원본을 넘기면 밖에서 망가뜨릴 수 있습니다. */
+export function getItems() {
+  return items.map((item) => ({ ...item }));
+}
+
+const persist = () => { save(KEY, items); notifyChange(); };
 const saveView = () => save(VIEW_KEY, { scope, period });
 
 /**
@@ -160,8 +181,40 @@ function applyPanelLang() {
   $('#panel-todo').setAttribute('lang', getLang());
 }
 
+/**
+ * 특정 항목이 보이도록 단위/기간/필터를 맞추고 잠깐 강조합니다.
+ * '오늘' 탭에서 할 일을 눌렀을 때 그 항목이 어디 있는지 바로 알 수 있게 합니다.
+ */
+export function revealItem(id) {
+  const target = items.find((item) => item.id === id);
+  if (!target) return false;
+
+  scope = SCOPES.includes(target.scope) ? target.scope : 'day';
+  period = target.period;
+  filter = 'all';
+  saveView();
+
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
+  });
+  document.querySelectorAll('[data-filter]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.filter === 'all'));
+  });
+  render();
+
+  const li = [...$('#todo-list').children].find((n) => n.dataset?.id === id);
+  if (li) {
+    li.classList.add('is-revealed');
+    li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // 강조는 잠깐만 둡니다. 계속 남아 있으면 '선택된 항목'처럼 오해됩니다.
+    setTimeout(() => li.classList.remove('is-revealed'), 2000);
+  }
+  return true;
+}
+
 export function initTodo() {
   items = migrate(load(KEY, []));
+  notifyChange(); // 첫 로드 결과도 '오늘' 탭에 반영합니다
 
   const view = load(VIEW_KEY, null);
   if (view && SCOPES.includes(view.scope)) {

@@ -196,11 +196,24 @@ a { color: var(--accent); }
   padding: 16px;
   padding-bottom: 32px;
 }
+/*
+ * hidden 속성은 UA 스타일시트의 display:none 이라서
+ * .icon-btn { display: grid } 같은 클래스 규칙 하나에도 밀립니다.
+ * 전역으로 한 번 못박아 두지 않으면 el.hidden = true 가 조용히 무시됩니다.
+ */
+[hidden] { display: none !important; }
 .panel[hidden] { display: none !important; }
 .panel { animation: fade .18s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 .grid { display: grid; gap: 14px; align-items: start; }
+/*
+ * 그리드 아이템의 기본 min-width 는 auto(= min-content)입니다.
+ * 안에 줄바꿈 없는 긴 글이 하나라도 있으면 칼럼이 그만큼 벌어져
+ * 화면 전체에 가로 스크롤이 생깁니다. ellipsis 를 걸어도 소용없습니다.
+ * min-width:0 으로 풀어 줘야 컨테이너 폭에 맞춰 줄어듭니다.
+ */
+.grid > * { min-width: 0; }
 @media (min-width: 760px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 980px) { .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
@@ -550,4 +563,92 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   background: var(--surface);
   color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* ---------- 오늘 (플래너 첫 페이지) ---------- */
+.today-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  /* 넓은 화면에서 카드가 두 칸으로 나뉘어도 날짜 줄은 한 줄을 다 씁니다. */
+  grid-column: 1 / -1;
+}
+.today-date { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.today-swipe-hint { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+
+/* 날씨 카드는 통째로 버튼입니다. button 기본 스타일을 지우고 카드처럼 보이게 합니다. */
+.today-card {
+  display: block; width: 100%; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+  transition: border-color .15s ease, transform .1s ease;
+}
+.today-card:hover { border-color: var(--accent); }
+.today-card:active { transform: scale(.995); }
+.today-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today-card-head { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.today-card-head .card-title { margin-right: auto; }
+
+.today-wx { display: flex; align-items: center; gap: 16px; }
+.today-wx-icon { font-size: 46px; line-height: 1; flex: none; }
+.today-wx-body { min-width: 0; flex: 1 1 auto; }
+.today-wx-temp { font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
+.today-wx-desc { font-size: 14px; color: var(--text-dim); margin-top: 2px; }
+.today-wx-sub { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+.today-wx-go { font-size: 22px; color: var(--text-faint); flex: none; }
+
+.today-rot-toggle { width: 30px; height: 30px; font-size: 12px; }
+
+/*
+ * 할 일 순환 상자.
+ * transform 이 아니라 세로 스크롤을 씁니다.
+ * 자동 순환을 멈췄을 때도 손으로 굴려 전부 볼 수 있어야 하기 때문입니다.
+ */
+.today-rot {
+  --today-rot-rows: 3;
+  max-height: calc(var(--today-rot-rows) * 46px);
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border-radius: var(--radius-sm);
+}
+.today-rot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.today-rot-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 46px; padding: 8px 10px;
+  background: transparent; border: 0; border-radius: var(--radius-sm);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  scroll-snap-align: start;
+}
+.today-rot-item:hover { background: var(--surface-2); }
+.today-rot-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.today-rot-text {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px;
+}
+/* 계획 단위를 색 점 하나로 구분합니다. 글자를 더 넣으면 할 일 자체가 안 보입니다. */
+.today-rot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent); }
+.today-rot-dot.scope-week { background: var(--success); }
+.today-rot-dot.scope-month { background: var(--warn); }
+.today-rot-dot.scope-year { background: var(--text-faint); }
+
+.today-rot-empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 46px; padding: 12px;
+  font-size: 13px; color: var(--text-faint); text-align: center;
+}
+
+/* 계획표에서 방금 찾아온 항목을 잠깐 강조합니다. */
+.todo-item.is-revealed {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/* OS 의 '동작 줄이기'가 켜져 있으면 부드러운 전환을 끕니다. */
+@media (prefers-reduced-motion: reduce) {
+  .today-card, .today-card:active { transition: none; transform: none; }
+  .today-rot { scroll-behavior: auto; }
 }

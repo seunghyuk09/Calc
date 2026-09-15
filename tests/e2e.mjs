@@ -138,9 +138,14 @@ const main = async () => {
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await page.waitForSelector('body[data-ready="true"]', { timeout: 10000 });
   check('앱 부팅 완료 (data-ready)', true);
+  check('첫 화면은 오늘 탭', (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true',
+    `실제 선택 탭: ${await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')}`);
+  check('오늘 탭에 날짜 표시', ((await page.textContent('#today-date')) || '').length > 4,
+    `실제: ${await page.textContent('#today-date')}`);
 
   // ---------- 1. 계산기 ----------
   console.log('\n▶ 계산기');
+  await page.click('.tab[data-tab="calc"]');
   const press = async (label) => { await page.click(`#keypad button:text-is("${label}")`); };
 
   await press('7'); await press('×'); await press('8'); await press('=');
@@ -380,6 +385,142 @@ const main = async () => {
   check('도시 검색 후 지역명 갱신', (await page.textContent('#wx-place')).includes('부산'),
     `실제: ${await page.textContent('#wx-place')}`);
 
+  // ---------- 3-b. 오늘 (플래너 첫 페이지) ----------
+  console.log('\n▶ 오늘');
+
+  // 순환이 돌려면 보이는 줄 수(3)보다 많은 미완료 항목이 필요합니다.
+  await page.click('.tab[data-tab="todo"]');
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.waitForTimeout(120);
+  for (const text of ['오늘 A', '오늘 B', '오늘 C', '오늘 D',
+    '월말 정산 자료 취합하고 팀 전체에 공유하기 — 줄바꿈 없는 아주 긴 제목으로 가로 넘침을 확인합니다']) {
+    await page.fill('#todo-input', text);
+    await page.press('#todo-input', 'Enter');
+  }
+
+  // 새로고침 뒤 유지되는지 확인할 때 쓸 기준값입니다. (고정 숫자를 박으면 검사 추가마다 깨집니다)
+  const dayPlanCount = await page.locator('#todo-list .todo-item').count();
+
+  await page.click('.tab[data-tab="today"]');
+  await page.waitForTimeout(200);
+
+  const rotCount = await page.locator('#today-rot .today-rot-item').count();
+  check('오늘 탭에 미완료 할 일이 모임', rotCount >= 4, `${rotCount}건`);
+  check('완료 항목은 오늘 탭에 안 나옴',
+    !(await page.textContent('#today-rot')).includes('Buy milk'),
+    await page.textContent('#today-rot'));
+  check('남은 개수 표시', ((await page.textContent('#today-todo-count')) || '').length > 0,
+    await page.textContent('#today-todo-count'));
+
+  // 현재 날씨가 아이콘 + 기온으로 요약됨 (모의 응답 기준 24.3°, WMO 2 = ⛅)
+  check('오늘 탭 기온 요약', (await page.textContent('.today-wx-temp')) === '24.3°',
+    `실제: ${await page.textContent('.today-wx-temp')}`);
+  check('오늘 탭 날씨 아이콘', (await page.textContent('.today-wx-icon')).trim() === '⛅',
+    `실제: ${await page.textContent('.today-wx-icon')}`);
+
+  // 순환 멈춤 버튼은 넘칠 때만 보입니다.
+  check('순환 버튼 노출 (항목이 넘칠 때)', await page.isVisible('#today-rot-toggle'));
+
+  // 반대 경우도 봅니다. hidden 속성이 CSS 에 밀려 무시되는 일이 실제로 있었습니다.
+  await page.evaluate(() => {
+    const btn = document.querySelector('#today-rot-toggle');
+    btn.hidden = true;
+  });
+  check('hidden 을 걸면 실제로 사라짐 (CSS 가 hidden 을 이기지 않음)',
+    !(await page.isVisible('#today-rot-toggle')));
+  await page.evaluate(() => { document.querySelector('#today-rot-toggle').hidden = false; });
+  await page.click('#today-rot-toggle');
+  check('순환 멈춤 상태 반영', (await page.getAttribute('#today-rot-toggle', 'aria-pressed')) === 'true');
+  await page.click('#today-rot-toggle');
+  check('순환 재시작 상태 반영', (await page.getAttribute('#today-rot-toggle', 'aria-pressed')) === 'false');
+
+  // 자동 순환이 실제로 도는지 확인합니다. (버튼 상태만 보면 타이머가 죽어도 통과합니다)
+  const rotTop = () => page.evaluate(() => document.querySelector('#today-rot').scrollTop);
+  await page.evaluate(() => { document.querySelector('#today-rot').scrollTop = 0; });
+  const beforeRotate = await rotTop();
+  await page.waitForTimeout(4200);   // ROTATE_MS(3500) 한 번은 지나야 합니다
+  const afterRotate = await rotTop();
+  check('자동 순환이 실제로 스크롤을 옮김', afterRotate > beforeRotate,
+    `${beforeRotate} -> ${afterRotate}`);
+
+  // 멈추면 정말 멈춰야 합니다.
+  await page.click('#today-rot-toggle');
+  const beforePause = await rotTop();
+  await page.waitForTimeout(4200);
+  const afterPause = await rotTop();
+  check('일시정지하면 순환이 멈춤', afterPause === beforePause,
+    `${beforePause} -> ${afterPause}`);
+  await page.click('#today-rot-toggle');   // 다시 켜 둡니다
+
+  // 할 일을 누르면 계획표의 그 항목으로
+  const firstTaskText = await page.locator('#today-rot .today-rot-item .today-rot-text').first().textContent();
+  await page.locator('#today-rot .today-rot-item').first().click();
+  await page.waitForTimeout(200);
+  check('할 일 클릭 -> TO DO 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true');
+  check('클릭한 항목이 강조됨',
+    (await page.locator('#todo-list .todo-item.is-revealed').count()) === 1);
+  check('강조된 항목이 누른 항목과 같음',
+    (await page.locator('#todo-list .todo-item.is-revealed .todo-text').textContent()) === firstTaskText,
+    `기대: ${firstTaskText}`);
+
+  // 날씨 카드를 누르면 날씨 탭으로
+  await page.click('.tab[data-tab="today"]');
+  await page.click('#today-weather-card');
+  await page.waitForTimeout(200);
+  check('날씨 카드 클릭 -> 날씨 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true');
+
+  // ---------- 3-c. 좌우 스와이프로 탭 이동 ----------
+  console.log('\n▶ 스와이프');
+
+  /** 요소 위에서 가로로 끌어 스와이프를 흉내냅니다. */
+  const swipe = async (selector, dx) => {
+    const box = await page.locator(selector).boundingBox();
+    if (!box) throw new Error(`${selector} 의 위치를 찾지 못했습니다`);
+    const y = box.y + box.height / 2;
+    const startX = dx < 0 ? box.x + box.width * 0.8 : box.x + box.width * 0.2;
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    await page.mouse.move(startX + dx, y, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+  };
+
+  await page.click('.tab[data-tab="today"]');
+  await page.waitForTimeout(150);
+  await swipe('.today-head', -150);
+  check('왼쪽으로 쓸면 다음 탭(계산기)',
+    (await page.getAttribute('.tab[data-tab="calc"]', 'aria-selected')) === 'true',
+    `실제 today=${await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')}`);
+
+  await swipe('#panel-calc .calc-display', 150);
+  check('오른쪽으로 쓸면 이전 탭(오늘)',
+    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+
+  // 첫 탭에서 더 오른쪽으로 쓸어도 끝으로 순환하지 않아야 합니다.
+  await swipe('.today-head', 150);
+  check('첫 탭에서 오른쪽으로 쓸어도 그대로',
+    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+
+  // 세로로 크게 움직이면 스크롤로 보고 탭을 바꾸지 않아야 합니다.
+  const headBox = await page.locator('.today-head').boundingBox();
+  await page.mouse.move(headBox.x + headBox.width / 2, headBox.y + headBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(headBox.x + headBox.width / 2 - 70, headBox.y + 200, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  check('세로가 큰 제스처는 탭을 바꾸지 않음',
+    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+
+  // 낙서판 위에서는 스와이프가 먹으면 안 됩니다 (그림이 끊깁니다).
+  await page.click('.tab[data-tab="memo"]');
+  await page.waitForTimeout(150);
+  await swipe('#draw-canvas', -150);
+  check('낙서판 위 스와이프는 탭을 바꾸지 않음',
+    (await page.getAttribute('.tab[data-tab="memo"]', 'aria-selected')) === 'true',
+    `실제 memo=${await page.getAttribute('.tab[data-tab="memo"]', 'aria-selected')}`);
+
   // ---------- 4. 시계 · 타이머 ----------
   console.log('\n▶ 시계 · 타이머');
   await page.click('.tab[data-tab="time"]');
@@ -521,7 +662,9 @@ const main = async () => {
   await page.waitForTimeout(200);
   check('새로고침 후 Planner 단위/기간 복원',
     (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
-  check('새로고침 후 Day 계획 유지', (await page.locator('#todo-list .todo-item').count()) === 1);
+  const dayPlansAfterReload = await page.locator('#todo-list .todo-item').count();
+  check('새로고침 후 Day 계획 유지', dayPlansAfterReload === dayPlanCount,
+    `새로고침 전 ${dayPlanCount}건 -> 후 ${dayPlansAfterReload}건`);
   check('새로고침 후 선택한 언어(영어) 유지',
     (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day',
     await page.textContent('.scope-tab[data-scope="day"]'));
@@ -593,10 +736,20 @@ const main = async () => {
   await mobile.waitForTimeout(400);
   await mobile.screenshot({ path: IS_FILE ? shot('screenshot-standalone-mobile.png') : shot('screenshot-mobile.png'), fullPage: false });
 
-  // 모바일에서 가로 스크롤이 생기지 않아야 함
-  const overflow = await mobile.evaluate(() =>
-    document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  check('모바일(390px) 가로 스크롤 없음', overflow <= 1, `초과 ${overflow}px`);
+  // 모바일에서 가로 스크롤이 생기지 않아야 함.
+  // 탭 하나만 보면 놓칩니다. 실제로 '오늘' 탭의 긴 할 일 제목이 그리드 칼럼을 밀어
+  // 화면 전체에 가로 스크롤을 만든 적이 있는데, 계산기 탭만 보던 검사는 통과했습니다.
+  const TABS_TO_CHECK = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
+  const overflowing = [];
+  for (const tab of TABS_TO_CHECK) {
+    await mobile.click(`.tab[data-tab="${tab}"]`);
+    await mobile.waitForTimeout(150);
+    const over = await mobile.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (over > 1) overflowing.push(`${tab}(+${over}px)`);
+  }
+  check('모바일(390px) 모든 탭에서 가로 스크롤 없음', overflowing.length === 0,
+    overflowing.length ? `넘친 탭: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
 
   // ---------- 12. 콘솔 에러 ----------
