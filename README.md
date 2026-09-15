@@ -265,20 +265,53 @@ base64 -w0 dailykit.keystore > keystore.b64
 
 ### 수기 작업 — iOS 서명
 
-**iOS 서명은 리눅스·윈도우에서 준비할 수 없습니다.** 인증서 요청(CSR)과 `.p12` 내보내기가
-macOS 키체인 기능이라, 아래 1~3번은 Mac 에서 해야 합니다. Mac 이 없으면 이 경로는 막힙니다.
+**Mac 은 없어도 됩니다.** 흔히 "iOS 배포는 Mac 이 필수" 라고 하지만, 정확히는
+*빌드* 에만 macOS 가 필요하고 그 빌드는 CI 의 macOS 러너가 대신합니다.
+인증서 발급은 키체인 접근 대신 **OpenSSL** 로 할 수 있어서 윈도우·리눅스에서도 됩니다.
 
 1. **Apple Developer Program 가입** — **$99/년**, 매년 자동 갱신. 개인/법인 모두 $99 이고
-   법인은 D-U-N-S 번호가 추가로 필요합니다.
+   법인만 D-U-N-S 번호가 추가로 필요합니다. 가입은 웹 또는 Apple Developer 앱에서 합니다.
    (무료 Apple ID 로도 Xcode 빌드는 되지만 프로비저닝이 **7일**짜리라 본인 기기 설치만 가능합니다.
    App Store 도 TestFlight 도 쓸 수 없습니다.)
-2. **Apple Distribution 인증서** 생성 → 키체인 접근에서 개인 키와 함께 `.p12` 로 내보내기
-3. **App Store 용 프로비저닝 프로파일** 생성 (`io.github.seunghyuk09.dailykit`) → `.mobileprovision` 내려받기
+
+2. **CSR 생성** — 윈도우(Git Bash)·리눅스·macOS 어디서나 됩니다.
+
+   ```bash
+   openssl req -new -newkey rsa:2048 -nodes \
+     -keyout dailykit.key \
+     -out dailykit.certSigningRequest \
+     -subj "/emailAddress=seunghyuk679@gmail.com/CN=Daily Kit/C=KR"
+   ```
+
+3. **Apple Distribution 인증서 발급** — developer.apple.com → Certificates → `+` →
+   **Apple Distribution** → 위 `.certSigningRequest` 업로드 → `distribution.cer` 내려받기
+
+4. **`.p12` 만들기** — 여기서도 Mac 이 필요 없습니다.
+
+   ```bash
+   # Apple 중간 인증서 (WWDR G4)
+   # 이 URL 은 제 작업 환경에서 apple.com 접속이 막혀 확인하지 못했습니다.
+   # 열리지 않으면 developer.apple.com → Certificates 페이지 하단의
+   # "Apple Intermediate Certificates" 에서 Worldwide Developer Relations - G4 를 받으세요.
+   curl -O https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer
+   openssl x509 -inform der -in AppleWWDRCAG4.cer -out AppleWWDRCAG4.pem
+
+   openssl x509 -inform der -in distribution.cer -out distribution.pem
+
+   # -legacy 는 OpenSSL 3.x 에서 필수입니다. 없으면 macOS 키체인이 읽지 못할 수 있습니다.
+   openssl pkcs12 -export -legacy \
+     -inkey dailykit.key -in distribution.pem -certfile AppleWWDRCAG4.pem \
+     -out distribution.p12
+   ```
+
+5. **App Store 용 프로비저닝 프로파일** 생성 (`io.github.seunghyuk09.dailykit`) →
+   `.mobileprovision` 내려받기 (웹에서 끝납니다)
 
 ```bash
-# Mac 에서 base64 로 변환 (-i 는 GNU base64 의 -w0 에 해당)
-base64 -i dist.p12 | tr -d '\n' > cert.b64
-base64 -i DailyKit_AppStore.mobileprovision | tr -d '\n' > profile.b64
+# base64 로 변환해서 시크릿에 넣습니다 (리눅스/Git Bash)
+base64 -w0 distribution.p12 > cert.b64
+base64 -w0 DailyKit_AppStore.mobileprovision > profile.b64
+# macOS 라면 base64 -i distribution.p12 | tr -d '\n' > cert.b64
 ```
 
 저장소 → Settings → Secrets and variables → Actions 에 등록합니다.
@@ -295,15 +328,24 @@ base64 -i DailyKit_AppStore.mobileprovision | tr -d '\n' > profile.b64
 
 시크릿이 없으면 해당 단계는 **건너뜁니다** (실패하지 않습니다). 서명 없는 아카이브는 계속 만들어집니다.
 
+위 2·4번 OpenSSL 명령은 리눅스(OpenSSL 3.0.13)에서 그대로 실행해, CSR 서명 검증이 통과하고
+`.p12` 안에 개인 키 1개 + 인증서 2개가 들어가는 것까지 확인했습니다.
+(Apple 포털에서 받는 실제 `.cer` 대신 자체 서명 인증서로 대체해 검증했습니다)
+
 > 이 서명 경로는 Apple 개발자 계정 없이는 CI 에서 한 번도 실행되지 않습니다.
 > 제가 검증한 것은 **시크릿이 없을 때 서명 없이 빌드가 끝까지 도는 것**까지입니다.
 > 시크릿을 등록한 첫 태그 빌드는 한 번에 성공하지 않을 수 있습니다.
+>
+> **Mac 이 정말 필요한 지점은 딱 하나, 스크린샷입니다.** App Store 는 iPhone 6.9"/6.5"
+> 스크린샷을 요구하는데, 이건 실제 아이폰(TestFlight 로 설치 후 촬영) 또는
+> Mac 의 시뮬레이터에서만 얻을 수 있습니다. 둘 다 없으면 여기서 막힙니다.
 
 ### 수기 작업 — App Store 출시
 
 1. **App Store Connect 에 앱 등록** — 번들 ID, 앱 이름, SKU 입력 (1회)
 2. **개인정보처리방침 URL** — 위치·알림 권한을 쓰므로 필수입니다
 3. **스크린샷** — iPhone 6.9" 와 6.5" 필수, iPad 는 iPad 지원 시 필수
+   (실제 아이폰 또는 Mac 시뮬레이터가 있어야 찍을 수 있습니다)
 4. **App Review** — 보통 24~48시간. 리젝 사유는 Resolution Center 로 옵니다
 5. **연령 등급 · 수출 규정(암호화 사용 여부) 설문** 작성
 
