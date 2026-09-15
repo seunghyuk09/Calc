@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// 버전은 CI 가 태그에서 주입합니다. 로컬 빌드에서는 기본값을 씁니다.
+//   ./gradlew bundleRelease -PappVersionCode=12 -PappVersionName=1.2.0
+// 주의: 아래 값을 defaultConfig 안에서 `versionCode (...).toInteger()` 처럼 한 줄로 쓰면
+// Groovy 가 versionCode(...) 를 먼저 호출하고 그 반환값(null)에 .toInteger() 를 적용해
+// "Value is null" 로 빌드가 실패합니다. 반드시 변수로 미리 계산하세요.
+def appVersionCode = (project.findProperty("appVersionCode") ?: "1").toString().toInteger()
+def appVersionName = (project.findProperty("appVersionName") ?: "1.0").toString()
+
 android {
     namespace = "io.github.seunghyuk09.dailykit"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,10 +15,8 @@ android {
         applicationId "io.github.seunghyuk09.dailykit"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // 버전은 CI 가 태그에서 주입합니다. 로컬 빌드에서는 기본값을 씁니다.
-        // 예: ./gradlew bundleRelease -PappVersionCode=12 -PappVersionName=1.2.0
-        versionCode (project.findProperty("appVersionCode") ?: "1").toString().toInteger()
-        versionName project.findProperty("appVersionName") ?: "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
