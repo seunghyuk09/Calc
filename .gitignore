@@ -16,3 +16,25 @@ android/local.properties
 *.aab
 *.keystore
 *.jks
+
+# --- Capacitor / iOS ---
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/App/Pods/
+ios/App/build/
+ios/App/.build/
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# 서명 자료는 절대 커밋하지 않습니다 (README 의 절차에서 만들어지는 파일들)
+*.p12
+*.p8
+*.mobileprovision
+*.certSigningRequest
+*.ipa
+*.xcarchive/
+cert.b64
+profile.b64
+keystore.b64

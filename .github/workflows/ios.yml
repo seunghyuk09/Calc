@@ -1,0 +1,215 @@
+name: iOS 앱 빌드
+
+# 언제 도는가
+#  - PR: iOS 빌드가 깨지지 않았는지 머지 전에 확인합니다.
+#        (리눅스 개발 컨테이너에서는 Xcode 를 쓸 수 없어 CI 가 유일한 검증 수단입니다)
+#  - main 에 푸시: 서명 없는 .xcarchive 를 만들어 Actions 아티팩트로 올립니다.
+#  - v 로 시작하는 태그 푸시 (예: v1.0.0): 시크릿이 등록돼 있으면 서명된 IPA 를 만들고,
+#        App Store Connect API 키까지 있으면 TestFlight 로 업로드합니다.
+#  - 수동 실행도 가능합니다.
+#
+# 비용 주의: macOS 러너는 공개 저장소에서는 무료지만, 비공개 저장소로 바꾸면
+#            사용 시간이 10배로 계산됩니다.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: xcarchive / IPA 빌드
+    # macos-latest 는 2026-07 부터 macOS 26(Tahoe, Xcode 26.x)입니다.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # 러너 이미지가 바뀌어 빌드가 깨졌을 때 원인을 바로 알 수 있게 버전을 남깁니다.
+      - name: Xcode 버전 확인
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: 의존성 설치
+        run: npm ci
+
+      # public/ 의 웹 자산을 iOS 프로젝트(ios/App/App/public)로 복사합니다.
+      - name: 웹 자산 동기화
+        run: npx cap sync ios
+
+      # 버전은 태그에서 뽑습니다. 빌드 번호는 실행 번호라 항상 증가합니다.
+      # (App Store Connect 는 같은 빌드 번호 재업로드를 거부합니다)
+      - name: 버전 결정
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            NAME="0.0.0"
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "::notice::MARKETING_VERSION=$NAME CURRENT_PROJECT_VERSION=${GITHUB_RUN_NUMBER}"
+
+      # --- 서명 준비: 태그를 밀었고 인증서 시크릿이 등록돼 있을 때만 ---
+      # 시크릿이 없으면 서명 없이 빌드하므로, 설정 전에도 워크플로가 실패하지 않습니다.
+      - name: 서명 인증서 준비
+        id: signing
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          CERT_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CERT_BASE64:-}" ] || [ -z "${PROFILE_BASE64:-}" ] || [ -z "${TEAM_ID:-}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::IOS_CERTIFICATE_BASE64 / IOS_PROVISIONING_PROFILE_BASE64 / IOS_TEAM_ID 시크릿이 없어 서명 빌드를 건너뜁니다."
+            exit 0
+          fi
+          # 이 잡에서만 쓰는 임시 키체인을 만듭니다 (러너는 매번 폐기되지만 명시적으로 격리합니다).
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo -n "$CERT_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "${CERT_PASSWORD:-}" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN"
+          # codesign 이 암호를 다시 묻지 않도록 접근 권한을 미리 허용합니다.
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          # 프로비저닝 프로파일을 Xcode 가 찾는 위치에 놓습니다.
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+          echo -n "$PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          UUID=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" \
+            | plutil -extract UUID raw -o - -)
+          PROFILE_NAME=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" \
+            | plutil -extract Name raw -o - -)
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$PROFILE_DIR/$UUID.mobileprovision"
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/profile.mobileprovision"
+          echo "keychain=$KEYCHAIN" >> "$GITHUB_OUTPUT"
+          echo "profile_name=$PROFILE_NAME" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::프로비저닝 프로파일 '$PROFILE_NAME' 준비 완료"
+
+      # --- 아카이브 ---
+      # 시크릿이 없으면 CODE_SIGNING_ALLOWED=NO 로 빌드합니다.
+      # 컴파일이 깨졌는지 확인하는 용도로는 충분하지만, 이 결과물은 기기에 설치할 수 없습니다.
+      - name: 아카이브 빌드
+        env:
+          SIGN_READY: ${{ steps.signing.outputs.ready }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            -project ios/App/App.xcodeproj
+            -scheme App
+            -configuration Release
+            -destination 'generic/platform=iOS'
+            -archivePath "$RUNNER_TEMP/App.xcarchive"
+            MARKETING_VERSION=${{ steps.ver.outputs.name }}
+            CURRENT_PROJECT_VERSION=${{ steps.ver.outputs.build }}
+          )
+          if [ "${SIGN_READY:-false}" = "true" ]; then
+            ARGS+=(
+              CODE_SIGN_STYLE=Manual
+              DEVELOPMENT_TEAM="$TEAM_ID"
+              PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
+              "CODE_SIGN_IDENTITY=Apple Distribution"
+            )
+          else
+            ARGS+=(CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="")
+            echo "::notice::서명 없이 빌드합니다. 이 아카이브는 기기 설치나 스토어 업로드에 쓸 수 없습니다."
+          fi
+          xcodebuild archive "${ARGS[@]}"
+
+      - name: 아카이브 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailykit-ios-xcarchive
+          path: ${{ runner.temp }}/App.xcarchive
+          retention-days: 30
+
+      # --- IPA 내보내기: 서명이 준비됐을 때만 ---
+      - name: IPA 내보내기
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
+        run: |
+          set -euo pipefail
+          # Xcode 15.3 부터 method 값이 app-store -> app-store-connect 로 바뀌었습니다.
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>io.github.seunghyuk09.dailykit</key><string>$PROFILE_NAME</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: IPA 업로드
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailykit-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 90
+
+      # --- TestFlight 업로드: App Store Connect API 키까지 있을 때만 ---
+      - name: TestFlight 업로드
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_KEY_ID:-}" ] || [ -z "${ASC_ISSUER_ID:-}" ] || [ -z "${ASC_PRIVATE_KEY:-}" ]; then
+            echo "::notice::APPSTORE_KEY_ID / APPSTORE_ISSUER_ID / APPSTORE_PRIVATE_KEY 시크릿이 없어 업로드를 건너뜁니다. IPA 는 아티팩트로 받아 Transporter 로 올리세요."
+            exit 0
+          fi
+          # altool 은 이 경로에서 .p8 키를 찾습니다.
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$ASC_PRIVATE_KEY" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
+          xcrun altool --upload-app -f "$IPA" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          rm -f "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      # 인증서와 키는 러너에 남기지 않습니다.
+      - name: 서명 자료 삭제
+        if: always()
+        run: |
+          rm -rf "$HOME/private_keys"
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision || true
+          if [ -n "${{ steps.signing.outputs.keychain }}" ]; then
+            security delete-keychain "${{ steps.signing.outputs.keychain }}" || true
+          fi
