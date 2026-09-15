@@ -794,25 +794,40 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 }
 .today-rot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/*
+ * 한 줄에 체크칸 · 분류 이모지 · 글 · 고치기가 들어갑니다.
+ * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+ */
 .today-rot-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; min-height: 46px; padding: 8px 10px;
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 46px; padding: 6px 8px;
   background: transparent; border: 0; border-radius: var(--radius-sm);
-  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
   scroll-snap-align: start;
+  /* 계획 단위는 왼쪽 띠로 구분합니다. 점을 따로 두면 체크칸과 붙어 지저분합니다. */
+  border-left: 3px solid var(--accent-fill);
 }
+.today-rot-item.scope-week { border-left-color: var(--success); }
+.today-rot-item.scope-month { border-left-color: var(--warn); }
+.today-rot-item.scope-year { border-left-color: var(--text-faint); }
 .today-rot-item:hover { background: var(--surface-2); }
-.today-rot-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.today-rot-item:focus-within { background: var(--surface-2); }
+
+/* 손가락으로 누를 수 있는 크기를 지킵니다. 기본 체크박스는 너무 작습니다. */
+.today-rot-check { flex: none; width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+.today-rot-cat { flex: none; font-size: 15px; line-height: 1; }
+
 .today-rot-text {
   flex: 1 1 auto; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 14px;
+  background: none; border: 0; padding: 4px 0;
+  font-family: inherit; color: inherit; text-align: left; cursor: pointer;
 }
-/* 계획 단위를 색 점 하나로 구분합니다. 글자를 더 넣으면 할 일 자체가 안 보입니다. */
-.today-rot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent-fill); }
-.today-rot-dot.scope-week { background: var(--success); }
-.today-rot-dot.scope-month { background: var(--warn); }
-.today-rot-dot.scope-year { background: var(--text-faint); }
+.today-rot-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.today-rot-edit { flex: none; width: 30px; height: 30px; font-size: 13px; }
+/* 그 자리에서 고칠 때 쓰는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
+.today-rot-input { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 4px 8px; font-size: 14px; }
 
 .today-rot-empty {
   display: flex; align-items: center; justify-content: center;

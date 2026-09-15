@@ -615,9 +615,78 @@ const main = async () => {
     `${beforePause} -> ${afterPause}`);
   await page.click('#today-rot-toggle');   // 다시 켜 둡니다
 
-  // 할 일을 누르면 계획표의 그 항목으로
+  /* ---------- 줄 안에서 바로 체크하고 고치기 ----------
+   *
+   * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+   * 요약을 보다가 체크하려고 탭을 옮겨야 하면 요약을 보는 의미가 없습니다.
+   */
+  const rotRows = () => page.evaluate(() => (
+    [...document.querySelectorAll('#today-rot .today-rot-item')].map((n) => ({
+      id: n.dataset.id,
+      cat: n.querySelector('.today-rot-cat')?.textContent || '',
+      text: n.querySelector('.today-rot-text')?.textContent || '',
+      hasCheck: !!n.querySelector('.today-rot-check'),
+      hasEdit: !!n.querySelector('.today-rot-edit'),
+    }))));
+  const beforeRows = await rotRows();
+  check('오늘 할 일 줄에 분류 이모지가 나옴',
+    beforeRows.length > 0 && beforeRows.every((r) => r.cat.length > 0),
+    beforeRows.map((r) => `${r.cat}${r.text}`).join(' | '));
+  check('오늘 할 일 줄에 체크칸과 고치기가 있음',
+    beforeRows.every((r) => r.hasCheck && r.hasEdit));
+
+  // 체크하면 목록에서 빠지고, 탭은 넘어가지 않아야 합니다.
+  const checkTarget = beforeRows[0];
+  await page.$eval('#today-rot .today-rot-item .today-rot-check', (n) => n.click());
+  await page.waitForTimeout(400);
+  const afterCheck = await rotRows();
+  check('줄에서 바로 체크하면 목록에서 빠짐',
+    afterCheck.length === beforeRows.length - 1
+    && !afterCheck.some((r) => r.id === checkTarget.id),
+    `${beforeRows.length} -> ${afterCheck.length}`);
+  check('체크가 저장까지 반영됨',
+    (await page.evaluate((id) => (JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .find((x) => x.id === id) || {}).done, checkTarget.id)) === true);
+  check('체크해도 탭이 넘어가지 않음',
+    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+
+  // 되돌려 놓습니다. 뒤 검사가 이 항목을 씁니다.
+  await page.evaluate((id) => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    const hit = raw.find((x) => x.id === id);
+    if (hit) { hit.done = false; hit.doneAt = null; }
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(raw));
+  }, checkTarget.id);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.waitForTimeout(400);
+
+  // 그 자리에서 글자 고치기. Enter 로 저장, Esc 로 취소.
+  const editRow = (await rotRows())[0];
+  await page.$eval('#today-rot .today-rot-item .today-rot-edit', (n) => n.click());
+  await page.waitForTimeout(250);
+  check('고치기를 누르면 그 자리에 입력칸이 생김',
+    (await page.locator('#today-rot .today-rot-input').count()) === 1);
+  await page.fill('#today-rot .today-rot-input', '고쳐 쓴 할 일');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(450);
+  check('Enter 로 고친 글이 저장됨',
+    (await rotRows())[0]?.text === '고쳐 쓴 할 일', (await rotRows())[0]?.text);
+  check('고친 글이 계획표 저장값에도 반영됨',
+    (await page.evaluate((id) => (JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .find((x) => x.id === id) || {}).text, editRow.id)) === '고쳐 쓴 할 일');
+
+  await page.$eval('#today-rot .today-rot-item .today-rot-edit', (n) => n.click());
+  await page.waitForTimeout(250);
+  await page.fill('#today-rot .today-rot-input', '버려질 글');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  check('Esc 로 고치기를 취소하면 원래 글이 남음',
+    (await rotRows())[0]?.text === '고쳐 쓴 할 일', (await rotRows())[0]?.text);
+
+  // 할 일의 '글'을 누르면 계획표의 그 항목으로
   const firstTaskText = await page.locator('#today-rot .today-rot-item .today-rot-text').first().textContent();
-  await page.locator('#today-rot .today-rot-item').first().click();
+  await page.locator('#today-rot .today-rot-item .today-rot-text').first().click();
   await page.waitForTimeout(200);
   check('할 일 클릭 -> TO DO 탭으로 이동',
     (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true');

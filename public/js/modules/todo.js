@@ -349,6 +349,41 @@ function applyPanelLang() {
  * 특정 항목이 보이도록 단위/기간/필터를 맞추고 잠깐 강조합니다.
  * '오늘' 탭에서 할 일을 눌렀을 때 그 항목이 어디 있는지 바로 알 수 있게 합니다.
  */
+/**
+ * 항목 하나의 완료 여부를 바꿉니다.
+ *
+ * '오늘' 탭의 요약에서도 바로 체크할 수 있어야 합니다. 체크하려고 계획표까지
+ * 건너가야 하면 요약을 보는 의미가 없습니다.
+ * @returns {boolean} 그 항목을 찾아 바꿨으면 true
+ */
+export function setDone(id, done) {
+  const target = items.find((item) => item.id === id);
+  if (!target) return false;
+  const next = done === undefined ? !target.done : done === true;
+  if (target.done === next) return true;
+  target.done = next;
+  target.doneAt = next ? Date.now() : null;
+  persist();
+  render();
+  return true;
+}
+
+/**
+ * 항목의 글을 고칩니다.
+ * 빈 글로는 바꾸지 않습니다. 지우고 싶으면 삭제를 써야 합니다.
+ * @returns {boolean} 실제로 바뀌었으면 true
+ */
+export function renameItem(id, text) {
+  const next = typeof text === 'string' ? text.trim() : '';
+  if (!next) return false;
+  const target = items.find((item) => item.id === id);
+  if (!target || target.text === next) return false;
+  target.text = next;
+  persist();
+  render();
+  return true;
+}
+
 export function revealItem(id) {
   const target = items.find((item) => item.id === id);
   if (!target) return false;

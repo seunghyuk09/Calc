@@ -14,7 +14,8 @@ import { t, getLang, onLangChange } from '../lib/i18n.js';
 import { isCurrent, SCOPES } from '../lib/period.js';
 import { load } from '../lib/store.js';
 import { getPrefs, onPrefsChange } from '../lib/prefs.js';
-import { getItems, onTodoChange, revealItem } from './todo.js';
+import { getItems, onTodoChange, revealItem, setDone, renameItem } from './todo.js';
+import { emojiOf, labelOf } from '../lib/categories.js';
 import { getWeather, onWeatherChange, describe } from './weather.js';
 import { getTimerState } from './time.js';
 import { goToTab, onTabChange } from '../lib/nav.js';
@@ -33,7 +34,17 @@ let rotateTimer = null;
 let clockTimer = null;
 let rotateIndex = 0;
 let paused = false;      // 사용자가 버튼으로 멈춘 상태
-let hovering = false;    // 손/포인터가 올라가 있는 동안
+let hovering = false;    // 손/포인터가 올라가 있거나, 글자를 고치는 중
+
+/**
+ * 순환을 멈출지 여부. 손이 올라가 있거나 글을 고치는 중이면 멈춥니다.
+ * initToday 안에만 두면 글자 고치기에서 부를 수가 없어 모듈 범위로 올렸습니다.
+ */
+function setHover(on) {
+  if (hovering === on) return;
+  hovering = on;
+  syncTimer();
+}
 let tabActive = false;   // '오늘' 탭이 보이는 동안만 타이머를 돌립니다
 let rows = [];           // 현재 보여주는 미완료 항목
 
@@ -146,6 +157,91 @@ function weatherBody() {
     el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'));
 }
 
+/**
+ * '오늘 할 일' 한 줄.
+ *
+ * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+ * 요약을 보다가 체크하려고 탭을 옮겨야 하면 요약을 보는 의미가 없습니다.
+ * 이제 한 줄에 체크칸 · 분류 이모지 · 글 · 고치기가 같이 있습니다.
+ *
+ * 글을 누르면 예전처럼 계획표로 갑니다. 고치기는 그 자리에서 글자만 바꿉니다.
+ */
+function todoRow(item, index, total) {
+  const check = el('input', {
+    type: 'checkbox',
+    class: 'today-rot-check',
+    checked: item.done === true,
+    'aria-label': t('today.todo.check', item.text),
+  });
+  // 체크하면 목록에서 빠집니다. 순환 위치가 목록 밖을 가리키지 않게 renderAll 이 다시 맞춥니다.
+  check.addEventListener('change', () => setDone(item.id, check.checked));
+
+  const text = el('button', {
+    class: 'today-rot-text', type: 'button',
+    dataset: { id: item.id },
+    'aria-label': `${t('today.todo.open', item.text)}. ${t('today.aria.position', index + 1, total)}`,
+  }, item.text);
+
+  const edit = el('button', {
+    class: 'today-rot-edit icon-btn', type: 'button',
+    'aria-label': t('today.todo.edit', item.text),
+    title: t('today.todo.edit', item.text),
+  }, '✎');
+
+  const row = el('div', {
+    class: `today-rot-item scope-${item.scope}`,
+    dataset: { id: item.id },
+  },
+  check,
+  el('span', { class: 'today-rot-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+  text,
+  edit);
+
+  edit.addEventListener('click', () => startEdit(row, item));
+  return row;
+}
+
+/**
+ * 그 자리에서 글자 고치기.
+ * Enter 로 저장, Esc 로 취소, 다른 곳을 누르면 저장합니다.
+ * 고치는 동안에는 순환이 돌면 안 됩니다. 글자가 흘러가면 고칠 수가 없습니다.
+ */
+function startEdit(row, item) {
+  if (row.querySelector('.today-rot-input')) return;
+  const textBtn = row.querySelector('.today-rot-text');
+  if (!textBtn) return;
+
+  const input = el('input', {
+    type: 'text',
+    class: 'field today-rot-input',
+    value: item.text,
+    'aria-label': t('today.todo.edit', item.text),
+    title: t('today.todo.editHint'),
+    maxlength: '200',
+  });
+
+  let closed = false;
+  const close = (save) => {
+    if (closed) return;
+    closed = true;
+    setHover(false);
+    // 저장하면 목록이 다시 그려지므로 되돌릴 필요가 없습니다. 취소면 원래 버튼을 되돌립니다.
+    if (save && renameItem(item.id, input.value)) return;
+    input.replaceWith(textBtn);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); close(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+  });
+  input.addEventListener('blur', () => close(true));
+
+  textBtn.replaceWith(input);
+  setHover(true);   // 고치는 동안 순환을 멈춥니다
+  input.focus();
+  input.select();
+}
+
 function todoBody() {
   rows = todayRows();
   const track = el('div', {
@@ -165,14 +261,7 @@ function todoBody() {
     return track;
   }
 
-  rows.forEach((item, i) => track.append(el('button', {
-    class: 'today-rot-item',
-    type: 'button',
-    dataset: { id: item.id },
-    'aria-label': `${item.text}. ${t('today.aria.position', i + 1, rows.length)}. ${t('today.todo.hint')}`,
-  },
-  el('span', { class: `today-rot-dot scope-${item.scope}`, 'aria-hidden': 'true' }),
-  el('span', { class: 'today-rot-text' }, item.text))));
+  rows.forEach((item, i) => track.append(todoRow(item, i, rows.length)));
 
   if (rotateIndex > maxRotateIndex(rows.length)) rotateIndex = 0;
   return track;
@@ -381,12 +470,18 @@ export function initToday() {
 
   // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
   host.addEventListener('click', (e) => {
-    const item = e.target.closest('.today-rot-item');
-    if (item) {
+    /*
+     * 줄에서 '글' 을 눌렀을 때만 계획표로 건너뜁니다.
+     * 줄 전체를 기준으로 잡으면 체크칸이나 고치기를 눌러도 탭이 넘어가 버립니다.
+     */
+    const text = e.target.closest('.today-rot-text');
+    if (text) {
       goToTab('todo');
-      revealItem(item.dataset.id);
+      revealItem(text.dataset.id);
       return;
     }
+    // 체크칸과 고치기는 제 일만 하고 여기서 끝냅니다.
+    if (e.target.closest('.today-rot-check, .today-rot-edit, .today-rot-input')) return;
     if (e.target.closest('#today-rot-toggle')) {
       paused = !paused;
       updateRotateControl();
@@ -414,7 +509,6 @@ export function initToday() {
    *  버튼을 한 번 누른 뒤 마우스가 그 자리에 남아 순환이 영영 멈춥니다)
    */
   const inRot = (node) => !!(node && node.closest && node.closest('#today-rot'));
-  const setHover = (on) => { if (hovering !== on) { hovering = on; syncTimer(); } };
   host.addEventListener('pointerover', (e) => { if (inRot(e.target)) setHover(true); });
   host.addEventListener('pointerout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
   host.addEventListener('pointerdown', (e) => { if (inRot(e.target)) setHover(true); });

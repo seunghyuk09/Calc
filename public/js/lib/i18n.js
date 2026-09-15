@@ -27,6 +27,10 @@ const DICT = {
     'today.rotate.play': '순환 시작',
     'today.aria.rotation': '미완료 할 일 순환',
     'today.aria.position': (i, n) => `${n}개 중 ${i}번째`,
+    'today.todo.check': (text) => `${text} 완료로 표시`,
+    'today.todo.edit': (text) => `${text} 고치기`,
+    'today.todo.editHint': '고치고 Enter, 취소는 Esc',
+    'today.todo.open': (text) => `${text} — 계획표에서 보기`,
     // ---- 탭 이름 (커스터마이즈 목록에서 씁니다) ----
     'tab.today': '오늘', 'tab.calc': '계산기', 'tab.weather': '날씨', 'tab.todo': 'TO DO',
     'tab.time': '시계·타이머', 'tab.memo': '메모·낙서', 'tab.quote': '글귀',
@@ -216,6 +220,10 @@ const DICT = {
     'today.rotate.play': 'Start rotation',
     'today.aria.rotation': 'Unfinished task carousel',
     'today.aria.position': (i, n) => `Item ${i} of ${n}`,
+    'today.todo.check': (text) => `Mark ${text} done`,
+    'today.todo.edit': (text) => `Edit ${text}`,
+    'today.todo.editHint': 'Enter to save, Esc to cancel',
+    'today.todo.open': (text) => `${text} — open in the planner`,
     // ---- Tab names ----
     'tab.today': 'Today', 'tab.calc': 'Calculator', 'tab.weather': 'Weather', 'tab.todo': 'TO DO',
     'tab.time': 'Clock & timer', 'tab.memo': 'Notes', 'tab.quote': 'Quotes',
