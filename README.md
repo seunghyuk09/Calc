@@ -141,20 +141,83 @@ Windows 의 `cmd.exe` 는 배치 파일을 **현재 콘솔 코드페이지**로 
 
 **수기 작업 필요:** 저장소 → Settings → Pages → Source 를 **GitHub Actions** 로 설정해야 합니다.
 
-### 2. Android 앱 (Google Play)
+### 2. Android 앱 (Capacitor)
 
-**수기 작업 필요.** 두 가지 경로가 있습니다.
+웹 자산을 앱 안에 담아 배포합니다. `capacitor.config.json` 의 `webDir` 가 `public/` 이므로
+웹과 앱이 같은 코드를 씁니다.
 
-| 방식 | 장점 | 단점 |
-|---|---|---|
-| **TWA** (Bubblewrap / PWABuilder) | 설정이 간단, 웹 코드 그대로 | 실행이 Chrome 안에서 일어나 **비공개 테스트의 "테스터 참여도" 집계가 안 잡혀 반려 사례 보고됨** |
-| **Capacitor** | 네이티브 셸이라 참여도 집계 정상, 알람·푸시 등 네이티브 API 사용 가능 | 초기 설정이 한 단계 더 필요 |
+```bash
+npm run cap:sync          # public/ 을 안드로이드 프로젝트로 복사
+npm run android:debug     # 디버그 APK (Android SDK 필요)
+```
 
-백그라운드 알람이 필요하므로 **Capacitor 를 권장**합니다.
+| 항목 | 값 |
+|---|---|
+| 패키지 이름 | `io.github.seunghyuk09.dailykit` |
+| 앱 이름 | Daily Kit / 데일리킷 (한국어 로캘) |
+| minSdk / targetSdk | 24 / 36 |
 
-Play 스토어 출시 전 확인사항 (2023-11-13 이후 만든 개인 개발자 계정):
-- **테스터 12명 × 연속 14일** 비공개 테스트를 통과해야 프로덕션 액세스를 신청할 수 있습니다.
-- 개인정보처리방침 URL 이 필요합니다 (위치·알림 권한을 쓰므로).
+`targetSdk 36` 은 필수입니다. **2026-08-31 부터 Google Play 는 신규 앱과 업데이트에
+Android 16(API 36) 이상을 요구**합니다.
+
+#### TWA 가 아니라 Capacitor 를 쓴 이유
+
+TWA 는 설정이 간단하지만 실행이 Chrome 안에서 일어나 Play 의 비공개 테스트에서
+"테스터 참여도" 가 집계되지 않아 반려된 사례가 보고됩니다. 또 백그라운드 알람처럼
+네이티브 API 가 필요한 기능을 붙일 수 없습니다.
+
+## 자동 배포
+
+| 대상 | 트리거 | 결과 | 사람 손 |
+|---|---|---|---|
+| **웹 (GitHub Pages)** | `main` 에 머지 | 몇 분 안에 자동 반영 | 없음 |
+| **디버그 APK** | `main` 에 머지 | Actions 아티팩트로 내려받기 | 없음 |
+| **릴리스 AAB** | `v1.2.3` 형태 태그 푸시 | 서명된 AAB 생성 | 시크릿 등록 1회 + Play 업로드 |
+
+```bash
+# 앱 새 버전 내보내기
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+versionName 은 태그에서, versionCode 는 Actions 실행 번호에서 자동으로 채워집니다.
+(Play 는 같은 versionCode 재업로드를 거부하므로 항상 증가해야 합니다)
+
+### 수기 작업 — 릴리스 AAB 서명
+
+서명 키는 저장소에 넣으면 안 되므로 GitHub 시크릿으로 등록해야 합니다. **1회만** 하면 됩니다.
+
+```bash
+# 1) 키스토어 생성 (분실하면 같은 앱으로 업데이트할 수 없습니다. 반드시 백업하세요)
+keytool -genkeypair -v -keystore dailykit.keystore \
+  -alias dailykit -keyalg RSA -keysize 2048 -validity 10000
+
+# 2) base64 로 변환
+base64 -w0 dailykit.keystore > keystore.b64
+```
+
+저장소 → Settings → Secrets and variables → Actions 에 4개를 등록합니다.
+
+| 시크릿 이름 | 값 |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `keystore.b64` 의 내용 |
+| `ANDROID_KEYSTORE_PASSWORD` | 키스토어 비밀번호 |
+| `ANDROID_KEY_ALIAS` | `dailykit` |
+| `ANDROID_KEY_PASSWORD` | 키 비밀번호 |
+
+시크릿이 없으면 릴리스 단계는 **건너뜁니다** (실패하지 않습니다). 디버그 APK 는 그대로 만들어집니다.
+
+### 수기 작업 — Play 스토어 출시
+
+여기부터는 자동화할 수 없습니다.
+
+1. **개발자 등록** — $25 (1회, 평생)
+2. **비공개 테스트** — 2023-11-13 이후 만든 개인 계정은 **테스터 12명이 연속 14일** 참여해야
+   프로덕션 액세스를 신청할 수 있습니다
+3. **개인정보처리방침 URL** — 위치·알림 권한을 쓰므로 필요합니다
+4. **AAB 업로드** — Actions 아티팩트에서 내려받아 Play Console 에 올립니다
+
+> 4번은 Play Developer API 서비스 계정을 만들면 자동화할 수 있지만, 계정 생성과 권한 부여가
+> 수기 작업이고 실수 시 영향이 커서 이번에는 넣지 않았습니다. 필요하면 추가하겠습니다.
 
 ## 라이선스 / 출처
 - 날씨 데이터: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0)

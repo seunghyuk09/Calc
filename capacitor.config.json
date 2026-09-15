@@ -1,0 +1,11 @@
+{
+  "appId": "io.github.seunghyuk09.dailykit",
+  "appName": "Daily Kit",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

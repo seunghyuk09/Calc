@@ -1,3 +1,18 @@
 node_modules/
 .DS_Store
 *.log
+
+# --- Capacitor / Android ---
+# cap sync 가 public/ 에서 복사해 생성하므로 추적하지 않습니다
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
