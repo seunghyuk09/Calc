@@ -915,7 +915,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   --surface-blur: saturate(150%) blur(10px);
   --bg: #eef1f8; --surface: rgba(255, 255, 255, .72); --surface-2: rgba(255, 255, 255, .5);
   --surface-3: rgba(226, 232, 245, .8);
-  --border: rgba(255, 255, 255, .8);
+  /*
+   * 예전 값은 rgba(255,255,255,.8) 이었습니다. 흰 카드 위의 흰 테두리라 경계가 보이지 않았습니다.
+   * 유리 느낌을 살리면서 경계는 보이도록, 배경보다 진한 푸른 회색으로 바꿉니다.
+   * 위쪽 흰 하이라이트(--card-extra)가 유리의 두께를 담당합니다.
+   */
+  --border: rgba(96, 124, 180, .38);
   --text: #0e1524; --text-dim: #4a5670; --text-faint: #7b869c;
   --shadow: 0 8px 32px rgba(23, 43, 92, .12);
   --card-extra: inset 0 1px 0 rgba(255, 255, 255, .9);
@@ -923,7 +928,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 :root[data-theme="dark"][data-skin="future"] {
   --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
   --surface-3: rgba(44, 58, 88, .7);
-  --border: rgba(120, 150, 210, .22);
+  --border: rgba(140, 172, 235, .34);
   --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
   --shadow: 0 8px 40px rgba(0, 0, 0, .55);
   --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
@@ -975,7 +980,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   :root:not([data-theme="light"])[data-skin="future"] {
     --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
     --surface-3: rgba(44, 58, 88, .7);
-    --border: rgba(120, 150, 210, .22);
+    --border: rgba(140, 172, 235, .34);
     --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
     --shadow: 0 8px 40px rgba(0, 0, 0, .55);
     --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
@@ -989,6 +994,87 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
     --bg: #14130f; --surface: #1d1c17; --surface-2: #26241d; --surface-3: #332f25;
     --border: #3a362b; --text: #eeeade; --text-dim: #a8a290; --text-faint: #78725f;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 26px rgba(0, 0, 0, .4);
+  }
+}
+
+/* =========================================================
+   바탕색 (data-base)
+   -----------------------------------------------------
+   스킨이 정해 둔 배경/카드 색 계열만 갈아 끼웁니다.
+   모서리·그림자·글꼴 같은 '분위기'는 스킨이 계속 담당하므로,
+   '귀여운 모양 + 회색 바탕' 처럼 섞어 쓸 수 있습니다.
+
+   각 팔레트는 밝은 값(--l-*)과 어두운 값(--d-*)을 한 번만 적어 둡니다.
+   어느 쪽을 쓸지 고르는 규칙은 팔레트마다가 아니라 아래에 딱 두 번만 씁니다.
+   (예전 스킨 블록처럼 팔레트마다 다크를 두 번씩 복사하면 한쪽만 고치는 사고가 납니다)
+
+   스킨보다 뒤에 있어야 스킨을 덮습니다. 자리를 옮기지 마세요.
+   ========================================================= */
+
+/* 중성 회색 — 색기 없는 기본 */
+:root[data-base="gray"] {
+  --l-bg: #f4f4f5; --l-surface: #ffffff; --l-surface-2: #ededef; --l-surface-3: #e1e1e4;
+  --l-border: #dcdce0; --l-text: #17171a; --l-text-dim: #5a5a62; --l-text-faint: #8b8b93;
+  --d-bg: #0d0d0f; --d-surface: #17171a; --d-surface-2: #1f1f23; --d-surface-3: #2a2a2f;
+  --d-border: #2d2d33; --d-text: #ededf0; --d-text-dim: #9b9ba4; --d-text-faint: #6e6e77;
+}
+/* 크림 — 종이처럼 따뜻한 바탕 */
+:root[data-base="warm"] {
+  --l-bg: #faf6ef; --l-surface: #fffdf8; --l-surface-2: #f2ece0; --l-surface-3: #e7dfd0;
+  --l-border: #e2d9c8; --l-text: #23201a; --l-text-dim: #615a4c; --l-text-faint: #8d8574;
+  --d-bg: #17140f; --d-surface: #201d16; --d-surface-2: #2a251c; --d-surface-3: #363024;
+  --d-border: #3d3629; --d-text: #f0ece1; --d-text-dim: #a9a291; --d-text-faint: #7a7362;
+}
+/* 블루그레이 — 차갑고 차분한 바탕 */
+:root[data-base="cool"] {
+  --l-bg: #eef2f8; --l-surface: #ffffff; --l-surface-2: #e6ebf4; --l-surface-3: #d9e0ed;
+  --l-border: #d3dae7; --l-text: #121722; --l-text-dim: #515a6b; --l-text-faint: #828b9d;
+  --d-bg: #0a0f17; --d-surface: #131a26; --d-surface-2: #1b2332; --d-surface-3: #262f41;
+  --d-border: #2a3444; --d-text: #e9eef7; --d-text-dim: #98a3b6; --d-text-faint: #6b7588;
+}
+/* 고대비 — 순백과 순흑. 밝은 곳이나 눈이 피로할 때 */
+:root[data-base="mono"] {
+  --l-bg: #ffffff; --l-surface: #ffffff; --l-surface-2: #f0f0f0; --l-surface-3: #e0e0e0;
+  --l-border: #b9b9b9; --l-text: #000000; --l-text-dim: #444444; --l-text-faint: #6b6b6b;
+  --d-bg: #000000; --d-surface: #0b0b0b; --d-surface-2: #181818; --d-surface-3: #262626;
+  --d-border: #454545; --d-text: #ffffff; --d-text-dim: #c2c2c2; --d-text-faint: #949494;
+}
+/* 연분홍 */
+:root[data-base="rose"] {
+  --l-bg: #fdf4f6; --l-surface: #ffffff; --l-surface-2: #f9e9ed; --l-surface-3: #f2dae1;
+  --l-border: #eed5dc; --l-text: #241a1d; --l-text-dim: #665055; --l-text-faint: #927b81;
+  --d-bg: #1a1114; --d-surface: #24181c; --d-surface-2: #2f2025; --d-surface-3: #3c2a30;
+  --d-border: #432f36; --d-text: #f4e8eb; --d-text-dim: #b39ba1; --d-text-faint: #837077;
+}
+/* 연민트 */
+:root[data-base="mint"] {
+  --l-bg: #eff7f3; --l-surface: #ffffff; --l-surface-2: #e4f0ea; --l-surface-3: #d5e6dd;
+  --l-border: #d0e2d9; --l-text: #14201b; --l-text-dim: #4d5f57; --l-text-faint: #7d8f87;
+  --d-bg: #0b1512; --d-surface: #131f1a; --d-surface-2: #1c2a24; --d-surface-3: #27382f;
+  --d-border: #2b3c34; --d-text: #e6f1eb; --d-text-dim: #96ab9f; --d-text-faint: #6b7d74;
+}
+
+/* 밝은 값을 기본으로 씁니다. */
+:root[data-base] {
+  --bg: var(--l-bg); --surface: var(--l-surface);
+  --surface-2: var(--l-surface-2); --surface-3: var(--l-surface-3);
+  --border: var(--l-border);
+  --text: var(--l-text); --text-dim: var(--l-text-dim); --text-faint: var(--l-text-faint);
+}
+/* 다크를 직접 고른 경우. */
+:root[data-theme="dark"][data-base] {
+  --bg: var(--d-bg); --surface: var(--d-surface);
+  --surface-2: var(--d-surface-2); --surface-3: var(--d-surface-3);
+  --border: var(--d-border);
+  --text: var(--d-text); --text-dim: var(--d-text-dim); --text-faint: var(--d-text-faint);
+}
+/* 테마를 고르지 않았고 기기가 다크인 경우. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-base] {
+    --bg: var(--d-bg); --surface: var(--d-surface);
+    --surface-2: var(--d-surface-2); --surface-3: var(--d-surface-3);
+    --border: var(--d-border);
+    --text: var(--d-text); --text-dim: var(--d-text-dim); --text-faint: var(--d-text-faint);
   }
 }
 
@@ -1097,9 +1183,46 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 }
 
 /* ---------- 커스터마이즈 UI ---------- */
-.cz-section { margin-bottom: 18px; }
+/* ---------- 접었다 펴는 구역 ----------
+   다섯 구역이 다 펼쳐져 있으면 카드 크기 하나 고치려고 한참 내려야 합니다.
+   접힌 줄에 현재 값을 같이 써서, 열지 않고도 지금 무엇이 걸려 있는지 보이게 합니다. */
+.cz-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
 .cz-section:last-of-type { margin-bottom: 0; }
-.cz-hint { margin: 4px 0 10px; }
+
+.cz-summary {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 46px;            /* 손가락으로 누를 수 있는 높이 */
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 600; font-size: 14px;
+  list-style: none;            /* 기본 삼각형을 지우고 아래 ⌄ 를 씁니다 */
+  user-select: none;
+}
+.cz-summary::-webkit-details-marker { display: none; }
+.cz-summary:hover { background: var(--surface-3); }
+.cz-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cz-summary-title { flex: none; }
+.cz-summary-now {
+  flex: 1 1 auto; min-width: 0;
+  text-align: right;
+  font-weight: 500; font-size: 12.5px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cz-summary-mark {
+  flex: none; color: var(--text-faint); font-size: 13px; line-height: 1;
+  transition: transform var(--motion) var(--ease);
+}
+.cz-section[open] > .cz-summary > .cz-summary-mark { transform: rotate(180deg); }
+.cz-section[open] > .cz-summary { border-bottom: 1px solid var(--border); }
+.cz-section > :not(summary) { margin-left: 12px; margin-right: 12px; }
+.cz-section > :last-child { margin-bottom: 12px; }
+.cz-hint { margin: 10px 0; }
 .cz-opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .cz-opts-tight { gap: 4px; }
 
@@ -1124,6 +1247,24 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cz-skin-nature  { border-radius: 6px; background: linear-gradient(135deg, #fffdf8 50%, #6f7a4a 50%); }
 
 .cz-swatch { width: 38px; height: 38px; padding: 0; justify-content: center; }
+
+/*
+ * 바탕색 견본.
+ * 밝은 값만 보여 주면 전부 '흰 네모'라 구분이 되지 않습니다. (실제로 그래서 못 고릅니다)
+ * 라이트와 다크를 반씩 붙여, 두 모드에서 어떤 색인지 한 번에 보이게 합니다.
+ * 스킨 견본(.cz-skin-chip)과 같은 방식이라 나란히 놓여도 읽는 법이 같습니다.
+ */
+.cz-base-chip {
+  width: 22px; height: 22px; border-radius: 5px; display: block;
+  border: 1px solid var(--border);
+}
+.cz-base-default { background: linear-gradient(135deg, #ffffff 50%, #3b6ef6 50%); }
+.cz-base-gray { background: linear-gradient(135deg, #f4f4f5 50%, #17171a 50%); }
+.cz-base-warm { background: linear-gradient(135deg, #faf6ef 50%, #201d16 50%); }
+.cz-base-cool { background: linear-gradient(135deg, #eef2f8 50%, #131a26 50%); }
+.cz-base-mono { background: linear-gradient(135deg, #ffffff 50%, #000000 50%); }
+.cz-base-rose { background: linear-gradient(135deg, #fdf4f6 50%, #3c2a30 50%); }
+.cz-base-mint { background: linear-gradient(135deg, #eff7f3 50%, #1c2a24 50%); }
 .cz-dot { width: 20px; height: 20px; border-radius: 50%; display: block; }
 .cz-dot-blue   { background: #2f62ea; } .cz-dot-violet { background: #6540e0; }
 .cz-dot-teal   { background: #0b7d77; } .cz-dot-green  { background: #18794e; }
@@ -1212,24 +1353,6 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cal-mark { font-size: 11px; }
 .cal-more { font-size: 9.5px; color: var(--text-faint); font-weight: 700; }
 
-.cal-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
-.cal-detail-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.cal-detail-date { font-size: 13.5px; font-weight: 700; }
-.cal-detail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.cal-detail-item {
-  width: 100%; min-height: 40px;
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 10px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface-2); color: var(--text);
-  font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
-}
-.cal-detail-item:hover { border-color: var(--accent); }
-.cal-detail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.cal-detail-item.done .cal-detail-text { text-decoration: line-through; color: var(--text-faint); }
-.cal-detail-emoji { flex: none; font-size: 15px; }
-.cal-detail-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-note { margin: 10px 0 0; }
 
 /* ---------- 앱 업데이트 ---------- */
 .upd-msg { margin: 0; font-size: 13px; color: var(--text-dim); }
@@ -1250,6 +1373,168 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
   box-shadow: 0 0 0 2px var(--surface);
 }
 body[data-has-update="true"] .tab[data-tab="settings"]::after { top: 50%; right: 10px; margin-top: -4px; }
+
+
+/* =========================================================
+   TO DO — 달력이 위, 목록이 아래
+   -----------------------------------------------------
+   좁은 화면에서는 달력을 고정해 두고 목록만 스크롤합니다.
+   달력이 같이 밀려 올라가면 '한 달을 보면서 고른다'는 흐름이 끊깁니다.
+   넓은 화면에서는 원래대로 두 칸으로 놓여 둘 다 보이므로 고정할 필요가 없습니다.
+   ========================================================= */
+.cal-card { padding-bottom: 10px; }
+.cal-nav { margin-top: 0; }
+
+/* 달 이름 자체가 접기 버튼입니다. 버튼을 따로 두면 이 줄이 영어에서 카드 폭을 넘깁니다. */
+.cal-label {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 36px; padding: 4px 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit;
+  font-size: 14px; font-weight: 700; letter-spacing: -.01em;
+  cursor: pointer;
+}
+.cal-label:hover { background: var(--surface-2); }
+.cal-label:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-label > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-fold-mark { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
+
+@media (max-width: 759px) {
+  #panel-todo {
+    display: flex;
+    flex-direction: column;
+    /*
+     * .grid 의 align-items:start 가 세로축용인데, flex-direction:column 에서는
+     * 가로축에 걸립니다. 그대로 두면 카드가 내용 폭만큼 부풀어 화면을 넘칩니다.
+     * (320px 영어에서 달력 카드가 360px 이 되어 가로 스크롤이 생겼습니다)
+     */
+    align-items: stretch;
+    overflow: hidden;      /* 패널 전체가 아니라 목록만 스크롤합니다 */
+  }
+  #panel-todo > .cal-card { flex: none; }
+  #panel-todo > [data-card="todo.plan"] {
+    flex: 1 1 auto;
+    min-height: 0;         /* 이게 없으면 내용 높이만큼 늘어나 스크롤이 생기지 않습니다 */
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* 주간에서 날짜별로 묶을 때 쓰는 소제목 */
+.todo-group { list-style: none; margin: 10px 0 2px; }
+.todo-group:first-child { margin-top: 0; }
+.todo-group-head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  font-size: 12.5px; font-weight: 700; color: var(--text-dim);
+  letter-spacing: .01em;
+}
+button.todo-group-head {
+  min-height: 32px; padding: 4px 6px; margin-left: -6px;
+  border: 0; background: none; border-radius: var(--radius-sm);
+  font: inherit; font-size: 12.5px; font-weight: 700; color: var(--text-dim);
+  cursor: pointer; text-align: left;
+}
+button.todo-group-head:hover { background: var(--surface-2); color: var(--text); }
+button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.todo-group-go { color: var(--text-faint); }
+
+/* ---------- 입력줄 ---------- */
+.todo-form { margin: 12px 0 8px; display: flex; flex-direction: column; gap: 8px; }
+
+/*
+ * 분류 고르기.
+ * 예전에는 드롭다운이라 열어 보기 전에는 무엇이 있는지 알 수 없었습니다.
+ * 이모지가 그대로 달력에 나가므로, 고르는 자리에서도 이모지가 보여야 합니다.
+ */
+/* 기본 7개 + 편집 버튼이 390px 화면에서 한 줄에 들어가는 크기입니다.
+   (8 x 36 + 7 x 4 = 316 <= 카드 안쪽 폭 326)
+   분류를 더 만들면 자연스럽게 다음 줄로 넘어갑니다. */
+.cat-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.cat-chip {
+  width: 36px; height: 36px; flex: none;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0; cursor: pointer;
+  transition: background var(--motion) var(--ease), border-color var(--motion) var(--ease);
+}
+.cat-chip:hover { border-color: var(--accent); }
+.cat-chip.is-on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.cat-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cat-chip-emoji { font-size: 18px; line-height: 1; }
+
+/* ---------- 분류 편집 ---------- */
+/* 분류 칩 줄의 맨 끝에 붙는 버튼. 고르는 자리 바로 옆이라 찾기 쉽습니다. */
+.cat-edit-chip { border-style: dashed; }
+.cat-edit-chip.is-open { border-style: solid; border-color: var(--accent); background: var(--surface-3); }
+.cat-edit-body {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); padding: 10px; margin-top: 4px;
+}
+.cat-edit-list { display: flex; flex-direction: column; gap: 5px; }
+/*
+ * 거의 모든 줄이 '표시' 상태라, 켜진 것을 강조색으로 꽉 채우면
+ * 색이 정보를 주지 못하고 화면만 시끄러워집니다. 예외인 '숨김'이 눈에 띄어야 맞습니다.
+ */
+.cat-edit-row .cz-toggle.is-on {
+  background: var(--accent-soft); border-color: var(--border);
+  color: var(--accent); font-weight: 600;
+}
+.cat-edit-row { display: flex; align-items: center; gap: 8px; }
+.cat-edit-new { display: flex; align-items: center; gap: 6px; margin-top: 10px;
+                padding-top: 10px; border-top: 1px solid var(--border); }
+.cat-edit-body .card-sub { margin: 8px 0 0; }
+
+/* 이모지 바꾸기: 눌러서 펼치는 작은 판. 줄마다 판을 깔면 화면이 폭발합니다. */
+.cat-pick { position: relative; flex: none; }
+.cat-pick-summary {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 18px; cursor: pointer; list-style: none;
+}
+.cat-pick-summary::-webkit-details-marker { display: none; }
+.cat-pick-summary:hover { border-color: var(--accent); }
+.cat-pick-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.emoji-grid {
+  position: absolute; z-index: 5; left: 0; top: calc(100% + 4px);
+  display: grid; grid-template-columns: repeat(8, 32px); gap: 2px;
+  padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, .18);
+  max-height: 210px; overflow-y: auto;
+}
+.emoji-opt {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  border: 0; border-radius: 6px; background: none;
+  font-size: 17px; cursor: pointer; padding: 0;
+}
+.emoji-opt:hover { background: var(--surface-2); }
+.emoji-opt.is-on { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.emoji-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* 좁은 화면에서는 판이 화면 밖으로 나가지 않게 오른쪽 기준으로 붙입니다. */
+@media (max-width: 420px) {
+  .emoji-grid { grid-template-columns: repeat(6, 32px); left: auto; right: 0; }
+  .cat-edit-row .emoji-grid { left: 0; right: auto; }
+}
+
+/* ---------- 목록 위 도구줄 ---------- */
+.todo-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.row-tight { display: flex; gap: 5px; flex-wrap: wrap; }
+.todo-tools .card-sub { margin: 0 0 0 auto; }
+
+/* 이월·완료 삭제는 자주 쓰지 않습니다. 늘 펼쳐 두면 입력줄이 묻힙니다. */
+.more-menu { position: relative; flex: none; }
+.more-menu > summary { list-style: none; cursor: pointer; }
+.more-menu > summary::-webkit-details-marker { display: none; }
+.more-body {
+  position: absolute; z-index: 5; right: 0; top: calc(100% + 4px);
+  display: flex; flex-direction: column; gap: 4px; min-width: 132px;
+  padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, .18);
+}
+.more-body .btn { justify-content: flex-start; width: 100%; }
 
 </style>
 </head>
@@ -1381,13 +1666,30 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after { top: 50%; right:
     </section>
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
-    <section class="panel grid grid-2" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
-      <div class="card" data-card="todo.plan">
-        <div class="card-head">
-          <h2 class="card-title" data-i18n="todo.title">계획표</h2>
-          <span class="card-sub" id="todo-count"></span>
-        </div>
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
 
+      <!-- 달력을 맨 위에 둡니다. 한 달을 보면서 날짜를 눌러 그 날로 옮기는 것이 기본 흐름입니다.
+           내용을 다 적을 수 없는 칸이라 분류 이모지만 놓고, 자세한 것은 아래 목록에서 봅니다. -->
+      <div class="card cal-card" data-card="todo.cal">
+        <div class="period-nav cal-nav">
+          <button class="icon-btn" id="cal-prev" type="button" data-i18n-aria="cal.prev">‹</button>
+          <!-- 달 이름을 누르면 접혔다 펴집니다.
+               한 달치는 좁은 화면의 절반을 쓰므로, 하루치 목록을 손볼 때는 한 주만 남깁니다.
+               접기 버튼을 따로 두면 영어에서 이 줄이 카드 폭을 넘겼습니다. -->
+          <button class="period-label cal-label" id="cal-fold" type="button"
+                  aria-expanded="true" aria-controls="cal-grid">
+            <span id="cal-label" aria-live="polite" aria-atomic="true">—</span>
+            <span class="cal-fold-mark" id="cal-fold-mark" aria-hidden="true">⌃</span>
+          </button>
+          <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
+          <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
+        </div>
+        <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
+             aria-label="월 달력"></div>
+      </div>
+
+      <!-- 고른 기간의 목록. 달력에서 날짜를 누르면 이 카드가 그 날로 바뀝니다. -->
+      <div class="card" data-card="todo.plan">
         <!-- 계획 단위: 일 / 주 / 월 / 연 -->
         <div class="scope-tabs" id="scope-tabs" role="tablist" data-i18n-aria="todo.aria.scopeTabs">
           <button class="scope-tab" data-scope="day"   role="tab" aria-selected="true"  data-i18n="todo.scope.day">일간</button>
@@ -1410,40 +1712,45 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after { top: 50%; right:
           <span class="progress-text" id="todo-progress-text">0 / 0</span>
         </div>
 
-        <form class="row" id="todo-form" style="margin:12px 0">
-          <!-- 분류 목록은 todo.js 가 채웁니다. 이모지가 달력 칸에 그대로 나갑니다. -->
-          <select class="field todo-cat-select" id="todo-cat" data-i18n-aria="todo.aria.category"
-                  aria-label="활동 분류"></select>
-          <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
-                 data-i18n-placeholder="todo.input.placeholder">
-          <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
+        <!--
+          입력.
+          예전에는 분류 드롭다운 + 입력칸 + 추가 버튼이 한 줄에 몰려 있어 좁은 화면에서 난잡했습니다.
+          분류는 이모지 칩 한 줄로 빼서 한 번에 보이게 하고, 입력줄은 글자와 추가 버튼만 남겼습니다.
+        -->
+        <form class="todo-form" id="todo-form">
+          <!-- 분류 칩과 '분류 편집' 버튼(🏷️)을 todo.js 가 함께 채웁니다.
+               편집을 따로 한 줄 차지하게 두면 좁은 화면에서 목록이 그만큼 줄어듭니다. -->
+          <div class="cat-row" id="todo-cats" role="group" data-i18n-aria="todo.aria.category"
+               aria-label="활동 분류"></div>
+          <!-- 평소에는 숨어 있습니다. 🏷️ 를 눌러야 펼쳐집니다. -->
+          <div class="cat-edit" id="cat-edit" hidden>
+            <div class="cat-edit-body" id="cat-edit-body"></div>
+          </div>
+          <div class="row">
+            <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
+                   data-i18n-placeholder="todo.input.placeholder">
+            <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
+          </div>
         </form>
 
-        <div class="row" style="margin-bottom:6px">
-          <button class="chip" data-filter="all" aria-pressed="true" data-i18n="todo.filter.all">전체</button>
-          <button class="chip" data-filter="active" aria-pressed="false" data-i18n="todo.filter.active">진행 중</button>
-          <button class="chip" data-filter="done" aria-pressed="false" data-i18n="todo.filter.done">완료</button>
-          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n-title="todo.btn.carryHint"><span aria-hidden="true">↩ </span><span data-i18n="todo.btn.carry">이월</span></button>
-          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
+        <div class="todo-tools">
+          <div class="row row-tight">
+            <button class="chip" data-filter="all" aria-pressed="true" data-i18n="todo.filter.all">전체</button>
+            <button class="chip" data-filter="active" aria-pressed="false" data-i18n="todo.filter.active">진행 중</button>
+            <button class="chip" data-filter="done" aria-pressed="false" data-i18n="todo.filter.done">완료</button>
+          </div>
+          <!-- 자주 쓰지 않는 두 가지는 접어 둡니다. 늘 펼쳐 두면 입력줄이 묻힙니다. -->
+          <details class="more-menu" id="todo-more">
+            <summary class="icon-btn" data-i18n-aria="todo.aria.more" aria-label="더보기">⋯</summary>
+            <div class="more-body">
+              <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n-title="todo.btn.carryHint"><span aria-hidden="true">↩ </span><span data-i18n="todo.btn.carry">이월</span></button>
+              <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
+            </div>
+          </details>
+          <span class="card-sub" id="todo-count"></span>
         </div>
-        <ul class="todo-list" id="todo-list" lang="ko"></ul>
-      </div>
 
-      <!-- 달력: 어느 날에 어떤 종류의 일이 있는지 이모지로만 보여 줍니다. -->
-      <div class="card" data-card="todo.cal">
-        <div class="card-head">
-          <h2 class="card-title" data-i18n="cal.title">달력</h2>
-          <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
-        </div>
-        <div class="period-nav">
-          <button class="icon-btn" id="cal-prev" type="button" data-i18n-aria="cal.prev">‹</button>
-          <div class="period-label" id="cal-label" aria-live="polite" aria-atomic="true">—</div>
-          <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
-        </div>
-        <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
-             aria-label="월 달력"></div>
-        <div class="cal-detail" id="cal-detail"></div>
-        <p class="card-sub cal-note" data-i18n="cal.note">일간 계획만 표시합니다.</p>
+        <ul class="todo-list" id="todo-list" lang="ko"></ul>
       </div>
     </section>
 
@@ -1943,6 +2250,11 @@ const DICT = {
     'cz.skin.hint': '라이트/다크와 별개로 분위기를 고릅니다. 두 모드 모두 지원합니다.',
     'cz.skin.default': '기본', 'cz.skin.refined': '세련', 'cz.skin.cute': '귀여움',
     'cz.skin.future': '미래', 'cz.skin.retro': '레트로', 'cz.skin.nature': '자연',
+    'cz.base.title': '바탕색',
+    'cz.base.hint': '배경과 카드 색 계열만 바꿉니다. 모서리·그림자 같은 모양은 테마 스타일이 그대로 담당합니다.',
+    'cz.base.default': '스타일 기본', 'cz.base.gray': '회색', 'cz.base.warm': '크림',
+    'cz.base.cool': '블루그레이', 'cz.base.mono': '고대비', 'cz.base.rose': '연분홍',
+    'cz.base.mint': '연민트',
     'cz.accent.title': '강조색',
     'cz.accent.hint': '버튼과 선택 표시에 쓰이는 색입니다.',
     'cz.accent.blue': '파랑', 'cz.accent.violet': '보라', 'cz.accent.teal': '청록',
@@ -1969,17 +2281,31 @@ const DICT = {
     'cat.work': '업무', 'cat.personal': '개인', 'cat.study': '학습',
     'cat.health': '운동·건강', 'cat.meet': '약속', 'cat.money': '금전', 'cat.etc': '기타',
     'todo.aria.category': '활동 분류',
+    'todo.aria.more': '더보기',
+    'todo.week.goals': '이번 주 목표',
+    // ---- 분류 편집 ----
+    'cat.edit': '분류 편집',
+    'cat.hint': '이모지는 달력 칸에 그대로 나타납니다. 기본 분류는 지우는 대신 숨길 수 있습니다.',
+    'cat.newPlaceholder': '새 분류 이름',
+    'cat.add': '추가',
+    'cat.needName': '이름과 이모지를 모두 정해 주세요',
+    'cat.lockedHint': '이 분류는 숨길 수 없습니다',
+    'cat.changeEmoji': (name) => `${name} 이모지 바꾸기`,
+    'cat.remove': (name) => `${name} 분류 삭제`,
     // ---- 달력 ----
     'cal.title': '달력',
     'cal.today': '이번 달',
     'cal.prev': '이전 달',
     'cal.next': '다음 달',
-    'cal.pick': '날짜를 누르면 그 날의 할 일이 펼쳐집니다.',
+    'cal.fold': '달력 접기 (한 주만 보기)',
+    'cal.prevWeek': '이전 주',
+    'cal.nextWeek': '다음 주',
+    'cal.thisWeek': '이번 주',
+    'cal.unfold': '달력 펼치기 (한 달 보기)',
     'cal.empty': '이 날은 등록된 일이 없습니다.',
     'cal.count': (n) => `${n}건`,
     'cal.undone': (n) => `미완료 ${n}건`,
     'cal.goHint': '눌러서 계획표에서 보기',
-    'cal.note': '일간 계획만 표시합니다. 주간·월간·연간은 특정 날짜에 속하지 않습니다.',
     'cal.aria.grid': '월 달력',
     'cal.wd.sun': '일', 'cal.wd.mon': '월', 'cal.wd.tue': '화', 'cal.wd.wed': '수',
     'cal.wd.thu': '목', 'cal.wd.fri': '금', 'cal.wd.sat': '토',
@@ -2022,6 +2348,8 @@ const DICT = {
     'cz.lockedHint': '이 탭은 숨길 수 없습니다',
     'cz.moveUp': (label) => `${label} 위로`,
     'cz.moveDown': (label) => `${label} 아래로`,
+    'cz.nowCount': (on, total) => `${on}/${total} 표시`,
+    'cz.nowCards': (n) => `${n}개`,
     'cz.reset': '커스터마이즈 초기화',
     'cz.resetConfirm': '테마, 탭 순서, 위젯, 카드 크기를 모두 기본값으로 되돌립니다. 계속할까요?',
     'todo.title': '계획표',
@@ -2089,6 +2417,11 @@ const DICT = {
     'cz.skin.hint': 'Sets the mood, separate from light/dark. Both modes are supported.',
     'cz.skin.default': 'Default', 'cz.skin.refined': 'Refined', 'cz.skin.cute': 'Cute',
     'cz.skin.future': 'Future', 'cz.skin.retro': 'Retro', 'cz.skin.nature': 'Nature',
+    'cz.base.title': 'Base color',
+    'cz.base.hint': 'Changes the background and card colors only. Corners and shadows stay with the theme style.',
+    'cz.base.default': 'Style default', 'cz.base.gray': 'Gray', 'cz.base.warm': 'Cream',
+    'cz.base.cool': 'Blue gray', 'cz.base.mono': 'High contrast', 'cz.base.rose': 'Blush',
+    'cz.base.mint': 'Mint',
     'cz.accent.title': 'Accent color',
     'cz.accent.hint': 'Used for buttons and selection highlights.',
     'cz.accent.blue': 'Blue', 'cz.accent.violet': 'Violet', 'cz.accent.teal': 'Teal',
@@ -2115,17 +2448,31 @@ const DICT = {
     'cat.work': 'Work', 'cat.personal': 'Personal', 'cat.study': 'Study',
     'cat.health': 'Health', 'cat.meet': 'Meeting', 'cat.money': 'Money', 'cat.etc': 'Other',
     'todo.aria.category': 'Activity category',
+    'todo.aria.more': 'More',
+    'todo.week.goals': 'Goals for this week',
+    // ---- Category editing ----
+    'cat.edit': 'Edit categories',
+    'cat.hint': 'The emoji is what shows up on the calendar. Built-in categories can be hidden instead of deleted.',
+    'cat.newPlaceholder': 'New category name',
+    'cat.add': 'Add',
+    'cat.needName': 'Pick both a name and an emoji',
+    'cat.lockedHint': 'This category cannot be hidden',
+    'cat.changeEmoji': (name) => `Change the ${name} emoji`,
+    'cat.remove': (name) => `Delete the ${name} category`,
     // ---- Calendar ----
     'cal.title': 'Calendar',
     'cal.today': 'This month',
     'cal.prev': 'Previous month',
     'cal.next': 'Next month',
-    'cal.pick': 'Tap a date to see what is planned that day.',
+    'cal.fold': 'Collapse to one week',
+    'cal.prevWeek': 'Previous week',
+    'cal.nextWeek': 'Next week',
+    'cal.thisWeek': 'This week',
+    'cal.unfold': 'Expand to the full month',
     'cal.empty': 'Nothing planned for this day.',
     'cal.count': (n) => `${n} item${n === 1 ? '' : 's'}`,
     'cal.undone': (n) => `${n} unfinished`,
     'cal.goHint': 'Tap to open it in the planner',
-    'cal.note': 'Only daily plans appear here. Weekly, monthly and yearly plans do not belong to one date.',
     'cal.aria.grid': 'Month calendar',
     'cal.wd.sun': 'Sun', 'cal.wd.mon': 'Mon', 'cal.wd.tue': 'Tue', 'cal.wd.wed': 'Wed',
     'cal.wd.thu': 'Thu', 'cal.wd.fri': 'Fri', 'cal.wd.sat': 'Sat',
@@ -2168,6 +2515,8 @@ const DICT = {
     'cz.lockedHint': 'This tab cannot be hidden',
     'cz.moveUp': (label) => `Move ${label} up`,
     'cz.moveDown': (label) => `Move ${label} down`,
+    'cz.nowCount': (on, total) => `${on}/${total} shown`,
+    'cz.nowCards': (n) => `${n} cards`,
     'cz.reset': 'Reset customization',
     'cz.resetConfirm': 'This resets theme, tab order, widgets and card sizes to their defaults. Continue?',
     'todo.title': 'Planner',
@@ -2375,6 +2724,26 @@ const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKDAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 
 /**
+ * 주의 날짜 범위만. ('2026년 38주차 · ' 같은 앞머리가 없습니다)
+ * 달력을 한 줄로 접었을 때처럼 자리가 좁은 곳에서 씁니다.
+ * 앞머리까지 넣으면 좁은 화면에서 잘려서 며칠인지 알 수가 없습니다.
+ */
+function weekRange(key, lang = 'en') {
+  const d = dateOf('week', key);
+  const end = new Date(d);
+  end.setDate(end.getDate() + 6);
+  const sameMonth = d.getMonth() === end.getMonth();
+  if (lang === 'ko') {
+    return sameMonth
+      ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
+      : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
+  }
+  return sameMonth
+    ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
+    : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
+}
+
+/**
  * 화면에 보여줄 기간 이름.
  * @param {'day'|'week'|'month'|'year'} scope
  * @param {string} key
@@ -2391,21 +2760,10 @@ function label(scope, key, lang = 'en') {
   }
 
   if (scope === 'week') {
-    const end = new Date(d);
-    end.setDate(end.getDate() + 6);
     const week = Number(key.split('-W')[1]);
     const isoYear = Number(key.split('-W')[0]);
-    const sameMonth = d.getMonth() === end.getMonth();
-    if (ko) {
-      const range = sameMonth
-        ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
-        : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
-      return `${isoYear}년 ${week}주차 · ${range}`;
-    }
-    const range = sameMonth
-      ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
-      : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
-    return `Week ${week}, ${isoYear} · ${range}`;
+    const range = weekRange(key, lang);
+    return ko ? `${isoYear}년 ${week}주차 · ${range}` : `Week ${week}, ${isoYear} · ${range}`;
   }
 
   if (scope === 'month') {
@@ -2419,7 +2777,7 @@ function label(scope, key, lang = 'en') {
 function isCurrent(scope, key) {
   return key === keyOf(scope, new Date());
 }
-  return { isoWeekParts, isoWeekStart, keyOf, dateOf, shift, label, isCurrent, SCOPES };
+  return { isoWeekParts, isoWeekStart, keyOf, dateOf, shift, weekRange, label, isCurrent, SCOPES };
 })();
 
 /* ===== js/lib/prefs.js ===== */
@@ -2440,6 +2798,17 @@ const PREFS_KEY = 'ui.prefs';
 
 /** 고를 수 있는 스킨. CSS 의 :root[data-skin="..."] 와 짝이 맞아야 합니다. */
 const SKINS = ['default', 'refined', 'cute', 'future', 'retro', 'nature'];
+
+/**
+ * 고를 수 있는 바탕색. CSS 의 :root[data-base="..."] 와 짝이 맞아야 합니다.
+ * 'default' 는 속성을 아예 달지 않아, 스킨이 정한 바탕을 그대로 씁니다.
+ *
+ * 스킨과 축이 다릅니다.
+ *   스킨   : 모서리/그림자/글꼴 같은 '분위기'
+ *   바탕색 : 배경과 카드 색 계열
+ * 그래서 '귀여운 모양 + 회색 바탕' 처럼 섞어 쓸 수 있습니다.
+ */
+const BASES = ['default', 'gray', 'warm', 'cool', 'mono', 'rose', 'mint'];
 
 /** 고를 수 있는 강조색. CSS 의 :root[data-accent="..."] 와 짝이 맞아야 합니다. */
 const ACCENTS = [
@@ -2477,6 +2846,7 @@ const CARD_DEFAULTS = Object.freeze({
 
 const DEFAULTS = Object.freeze({
   skin: 'default',
+  base: 'default',
   accent: 'blue',
   tabOrder: ALL_TABS.slice(),
   tabHidden: [],
@@ -2540,6 +2910,7 @@ function getPrefs() {
   const raw = load(PREFS_KEY, null) || {};
   return {
     skin: SKINS.includes(raw.skin) ? raw.skin : DEFAULTS.skin,
+    base: BASES.includes(raw.base) ? raw.base : DEFAULTS.base,
     accent: ACCENTS.includes(raw.accent) ? raw.accent : DEFAULTS.accent,
     tabOrder: normalizeOrder(raw.tabOrder, ALL_TABS),
     tabHidden: normalizeHidden(raw.tabHidden),
@@ -2566,6 +2937,7 @@ function setPrefs(patch) {
   const next = { ...getPrefs(), ...patch };
   save(PREFS_KEY, {
     skin: next.skin,
+    base: next.base,
     accent: next.accent,
     tabOrder: next.tabOrder,
     tabHidden: next.tabHidden,
@@ -2612,23 +2984,32 @@ function moveItem(list, name, delta) {
   out.splice(to, 0, out.splice(from, 1)[0]);
   return out;
 }
-  return { getPrefs, visibleTabs, cardPref, setPrefs, setCardPref, resetPrefs, onPrefsChange, moveItem, SKINS, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS, CARD_DEFAULTS, DEFAULTS };
+  return { getPrefs, visibleTabs, cardPref, setPrefs, setCardPref, resetPrefs, onPrefsChange, moveItem, SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS, CARD_DEFAULTS, DEFAULTS };
 })();
 
 /* ===== js/lib/categories.js ===== */
 const __m_js_lib_categories_js = (function () {
+  const { load, save } = __m_js_lib_store_js;
 /**
  * categories.js — 할 일의 활동 분류
  *
  * 달력 칸은 작아서 글을 넣을 수 없습니다. 그래서 분류를 이모지 하나로만 보여 줍니다.
  * 이모지는 '어떤 종류의 일인지' 알아보는 용도이고, 자세한 내용은 날짜를 눌러 펼쳐 봅니다.
  *
- * 목록을 늘릴 때 주의할 점:
- *  - id 는 저장값이라 한 번 정하면 바꾸지 않습니다. (바꾸면 기존 할 일의 분류가 사라집니다)
- *  - i18n 에 'cat.<id>' 키를 한/영 모두 추가해야 합니다.
+ * 분류는 두 종류입니다.
+ *   기본 분류 : 여기 박혀 있고, 이름은 i18n 의 'cat.<id>' 를 씁니다. 지울 수는 없고 숨길 수 있습니다.
+ *   내 분류   : 사용자가 만든 것. 이름과 이모지를 직접 정하고 지울 수 있습니다.
+ *
+ * 기본 분류의 이모지도 바꿀 수 있습니다. 바꾼 값만 따로 저장해 두고,
+ * 기본값을 나중에 고치더라도 사용자가 손댄 것만 남습니다.
+ *
+ * id 는 저장값입니다. 한 번 정하면 바꾸지 않습니다. (바꾸면 기존 할 일의 분류가 끊어집니다)
  */
 
-const CATEGORIES = [
+const KEY = 'todo.categories';
+
+/** 기본 분류. 이름은 i18n 의 'cat.<id>' 에 있습니다. */
+const BUILTIN = [
   { id: 'work', emoji: '💼' },
   { id: 'personal', emoji: '🏠' },
   { id: 'study', emoji: '📚' },
@@ -2640,38 +3021,250 @@ const CATEGORIES = [
 
 const DEFAULT_CATEGORY = 'etc';
 
-const BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
+/** 지울 수도 숨길 수도 없는 분류. 하나도 없으면 분류를 고를 수 없게 됩니다. */
+const LOCKED = [DEFAULT_CATEGORY];
 
-const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
+const BUILTIN_IDS = BUILTIN.map((c) => c.id);
+const BUILTIN_MAP = new Map(BUILTIN.map((c) => [c.id, c]));
 
-/** 모르는 값이 들어와도 화면이 비지 않도록 기본 분류로 떨어뜨립니다. */
+/** 이모지 고르기 판에 올릴 후보. 분류로 쓸 만한 것만 추렸습니다. */
+const EMOJI_CHOICES = [
+  '💼', '🏠', '📚', '🏃', '🤝', '💰', '📌', '✅',
+  '🗓️', '⏰', '✈️', '🚗', '🍽️', '☕', '🛒', '🎁',
+  '🎵', '🎮', '🎨', '📷', '🐶', '🌱', '💊', '🏥',
+  '🧹', '🧺', '🍳', '💡', '🔧', '📞', '✉️', '💬',
+  '🎯', '🔥', '⭐', '❤️', '🌙', '☀️', '⚽', '🏋️',
+  '👨‍👩‍👧', '🎂', '📝', '💻', '🧠', '🙏', '🚿', '🛏️',
+];
+
+/** 사용자가 만든 분류의 id 접두사. 기본 분류와 절대 겹치지 않게 합니다. */
+const USER_PREFIX = 'u_';
+
+const isStr = (v) => typeof v === 'string';
+
+/**
+ * 이모지는 한 글자로 보여야 달력 칸이 무너지지 않습니다.
+ * 다만 '👨‍👩‍👧' 처럼 여러 코드포인트가 붙어 한 글자로 보이는 것도 있어서,
+ * 코드포인트 수가 아니라 '글자소(grapheme)' 하나인지로 봅니다.
+ * Intl.Segmenter 가 없는 환경에서는 길이 상한으로만 막습니다.
+ */
+function normalizeEmoji(raw) {
+  if (!isStr(raw)) return '';
+  const text = raw.trim();
+  if (!text) return '';
+  try {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      const first = [...seg.segment(text)][0];
+      return first ? first.segment : '';
+    }
+  } catch { /* 아래 폴백으로 갑니다 */ }
+  // 폴백: 서로게이트 쌍이 잘리지 않게 코드포인트 단위로 자릅니다.
+  const points = [...text];
+  return points.slice(0, 8).join('');
+}
+
+/** 저장된 값을 읽어 옵니다. 망가져 있어도 앱이 죽지 않게 전부 검사합니다. */
+function readStore() {
+  const raw = load(KEY, null);
+  const out = { custom: [], emoji: {}, hidden: [] };
+  if (!raw || typeof raw !== 'object') return out;
+
+  if (Array.isArray(raw.custom)) {
+    const seen = new Set();
+    raw.custom.forEach((c) => {
+      if (!c || typeof c !== 'object') return;
+      if (!isStr(c.id) || !c.id.startsWith(USER_PREFIX) || seen.has(c.id)) return;
+      const emoji = normalizeEmoji(c.emoji);
+      const label = isStr(c.label) ? c.label.trim().slice(0, 20) : '';
+      if (!emoji || !label) return;
+      seen.add(c.id);
+      out.custom.push({ id: c.id, emoji, label });
+    });
+  }
+
+  if (raw.emoji && typeof raw.emoji === 'object') {
+    Object.entries(raw.emoji).forEach(([id, value]) => {
+      if (!BUILTIN_MAP.has(id)) return;   // 없어진 기본 분류의 찌꺼기는 버립니다
+      const emoji = normalizeEmoji(value);
+      if (emoji) out.emoji[id] = emoji;
+    });
+  }
+
+  if (Array.isArray(raw.hidden)) {
+    out.hidden = raw.hidden.filter((id) => (
+      isStr(id) && BUILTIN_MAP.has(id) && !LOCKED.includes(id)
+    )).filter((id, i, arr) => arr.indexOf(id) === i);
+  }
+  return out;
+}
+
+const listeners = new Set();
+
+function onCategoryChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function writeStore(next) {
+  save(KEY, next);
+  listeners.forEach((fn) => {
+    try { fn(); } catch (err) { console.error('[categories] 구독자 오류', err); }
+  });
+}
+
+/**
+ * 고를 수 있는 분류 전체. 기본 분류(숨긴 것 제외) 다음에 내 분류가 옵니다.
+ * label 은 내 분류만 들어 있습니다. 기본 분류의 이름은 화면에서 i18n 으로 채웁니다.
+ */
+function allCategories() {
+  const store = readStore();
+  const hidden = new Set(store.hidden);
+  const base = BUILTIN
+    .filter((c) => !hidden.has(c.id))
+    .map((c) => ({ id: c.id, emoji: store.emoji[c.id] || c.emoji, builtin: true }));
+  return base.concat(store.custom.map((c) => ({ ...c, builtin: false })));
+}
+
+/** 숨긴 것까지 포함한 전체. 설정 화면에서 다시 켜려면 숨긴 것도 보여야 합니다. */
+function allCategoriesIncludingHidden() {
+  const store = readStore();
+  const hidden = new Set(store.hidden);
+  const base = BUILTIN.map((c) => ({
+    id: c.id,
+    emoji: store.emoji[c.id] || c.emoji,
+    builtin: true,
+    hidden: hidden.has(c.id),
+    locked: LOCKED.includes(c.id),
+  }));
+  return base.concat(store.custom.map((c) => ({ ...c, builtin: false, hidden: false, locked: false })));
+}
+
+function findAny(id) {
+  const store = readStore();
+  if (BUILTIN_MAP.has(id)) {
+    return { id, emoji: store.emoji[id] || BUILTIN_MAP.get(id).emoji, builtin: true };
+  }
+  return store.custom.find((c) => c.id === id) || null;
+}
+
+/**
+ * 모르는 값이 들어와도 화면이 비지 않도록 기본 분류로 떨어뜨립니다.
+ * 분류를 지운 뒤에도 그 분류로 저장된 할 일이 남아 있으므로 꼭 필요합니다.
+ */
 function categoryOf(id) {
-  return BY_ID.get(id) || BY_ID.get(DEFAULT_CATEGORY);
+  return findAny(id) || findAny(DEFAULT_CATEGORY);
 }
 
 function emojiOf(id) {
   return categoryOf(id).emoji;
 }
 
-/** 저장할 값인지 확인합니다. */
-function isCategory(id) {
-  return typeof id === 'string' && BY_ID.has(id);
+/** 화면에 쓸 이름. 기본 분류는 i18n 을, 내 분류는 저장된 이름을 씁니다. */
+function labelOf(id, t) {
+  const cat = categoryOf(id);
+  return cat.builtin ? t(`cat.${cat.id}`) : cat.label;
 }
-  return { categoryOf, emojiOf, isCategory, CATEGORIES, DEFAULT_CATEGORY, CATEGORY_IDS };
+
+/** 지금 고를 수 있는 분류인지. (숨긴 분류는 false 입니다) */
+function isCategory(id) {
+  return isStr(id) && allCategories().some((c) => c.id === id);
+}
+
+/** 저장된 적이 있는 분류인지. 숨겼거나 지운 분류도 true 입니다. */
+function isKnownCategory(id) {
+  return isStr(id) && findAny(id) !== null;
+}
+
+/* ---------- 편집 ---------- */
+
+/**
+ * 내 분류를 새로 만듭니다.
+ * @returns {string|null} 만들어진 id. 이름이나 이모지가 비면 null.
+ */
+function addCategory(label, emoji) {
+  const name = isStr(label) ? label.trim().slice(0, 20) : '';
+  const mark = normalizeEmoji(emoji);
+  if (!name || !mark) return null;
+  const store = readStore();
+  // 시간만 쓰면 같은 밀리초에 두 번 눌렀을 때 겹칩니다. 뒤에 난수를 붙입니다.
+  const id = `${USER_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  store.custom.push({ id, emoji: mark, label: name });
+  writeStore(store);
+  return id;
+}
+
+/** 내 분류를 지웁니다. 기본 분류에는 쓸 수 없습니다. (그건 hideCategory 입니다) */
+function removeCategory(id) {
+  if (!isStr(id) || !id.startsWith(USER_PREFIX)) return false;
+  const store = readStore();
+  const next = store.custom.filter((c) => c.id !== id);
+  if (next.length === store.custom.length) return false;
+  store.custom = next;
+  writeStore(store);
+  return true;
+}
+
+/** 분류의 이모지를 바꿉니다. 기본 분류는 바꾼 값만 따로 저장합니다. */
+function setCategoryEmoji(id, emoji) {
+  const mark = normalizeEmoji(emoji);
+  if (!mark) return false;
+  const store = readStore();
+  if (BUILTIN_MAP.has(id)) {
+    store.emoji[id] = mark;
+    writeStore(store);
+    return true;
+  }
+  const mine = store.custom.find((c) => c.id === id);
+  if (!mine) return false;
+  mine.emoji = mark;
+  writeStore(store);
+  return true;
+}
+
+/** 기본 분류를 목록에서 뺍니다. 지우지는 않으므로 언제든 되돌릴 수 있습니다. */
+function hideCategory(id, hidden = true) {
+  if (!BUILTIN_MAP.has(id) || LOCKED.includes(id)) return false;
+  const store = readStore();
+  const set = new Set(store.hidden);
+  if (hidden) set.add(id); else set.delete(id);
+  store.hidden = [...set];
+  writeStore(store);
+  return true;
+}
+
+/** 전부 기본값으로. 이미 저장된 할 일의 분류 값은 건드리지 않습니다. */
+function resetCategories() {
+  writeStore({ custom: [], emoji: {}, hidden: [] });
+}
+
+/** 테스트와 검사용. 기본 분류 id 목록입니다. */
+const CATEGORY_IDS = BUILTIN_IDS;
+  return { onCategoryChange, allCategories, allCategoriesIncludingHidden, categoryOf, emojiOf, labelOf, isCategory, isKnownCategory, addCategory, removeCategory, setCategoryEmoji, hideCategory, resetCategories, BUILTIN, DEFAULT_CATEGORY, EMOJI_CHOICES, CATEGORY_IDS };
 })();
 
 /* ===== js/modules/todo.js ===== */
 const __m_js_modules_todo_js = (function () {
-  const { $, el, toast, uid } = __m_js_lib_dom_js;
+  const { $, $$, el, uid, toast } = __m_js_lib_dom_js;
   const { load, save } = __m_js_lib_store_js;
-  const { keyOf, shift, label, isCurrent, SCOPES } = __m_js_lib_period_js;
-  const { CATEGORIES, DEFAULT_CATEGORY, isCategory, emojiOf } = __m_js_lib_categories_js;
   const { t, getLang, onLangChange, applyStatic } = __m_js_lib_i18n_js;
+  const { keyOf, shift, label, isCurrent, dateOf, SCOPES } = __m_js_lib_period_js;
+  const { allCategories, allCategoriesIncludingHidden, emojiOf, labelOf, isCategory,
+  addCategory, removeCategory, setCategoryEmoji, hideCategory,
+  onCategoryChange, EMOJI_CHOICES, DEFAULT_CATEGORY, } = __m_js_lib_categories_js;
 /**
- * TO DO (계획표) 모듈
- * 일(day) · 주(week) · 월(month) · 연(year) 단위로 계획을 나눠 관리합니다.
+ * todo.js — 계획표 (일 / 주 / 월 / 연)
+ *
  * 각 항목은 { scope, period } 로 어느 기간에 속하는지 기록합니다.
- * 화면 문구는 한국어/영어 중에서 고를 수 있습니다. (i18n.js)
+ *
+ * 화면 구성
+ *   달력이 위, 목록이 아래입니다. 달력에서 날짜를 누르면 목록이 그 날로 옮겨 가고,
+ *   입력한 계획도 그 날짜로 들어갑니다. '어디에 추가되는지'를 기간 표시줄이 늘 보여 줍니다.
+ *
+ * 단위별로 목록이 다르게 보입니다.
+ *   일간 : 그 하루치를 그대로 나열합니다.
+ *   주간 : 그 주의 주간 목표 + 그 주 7일의 일간 계획을 날짜별로 묶어 보여 줍니다.
+ *   월/연 : 그 단위로 적은 것만 보여 줍니다. (일간까지 합치면 수백 줄이 됩니다)
  */
 
 
@@ -2680,49 +3273,63 @@ const __m_js_modules_todo_js = (function () {
 
 const KEY = 'todo.items';
 const VIEW_KEY = 'todo.view';
+const CAT_KEY = 'todo.lastCategory';
 
 let items = [];
 let scope = 'day';
 let period = keyOf('day');
 let filter = 'all';
+let picked = DEFAULT_CATEGORY;   // 입력창 옆에서 고른 분류
 
-// '오늘' 탭처럼 할 일을 함께 보여주는 화면이 바뀐 내용을 바로 반영하도록 알립니다.
 const changeListeners = new Set();
+const viewListeners = new Set();
 
-/** 할 일 목록이 바뀔 때마다 호출됩니다. 해제 함수를 돌려줍니다. */
+/** 항목이 바뀔 때 알립니다. ('오늘' 탭 요약과 달력이 구독합니다) */
 function onTodoChange(fn) {
   changeListeners.add(fn);
   return () => changeListeners.delete(fn);
 }
 
+/** 보고 있는 단위/기간이 바뀔 때 알립니다. (달력이 따라 움직입니다) */
+function onViewChange(fn) {
+  viewListeners.add(fn);
+  return () => viewListeners.delete(fn);
+}
+
 function notifyChange() {
-  // 구독자 하나가 던져도 저장과 나머지 구독자는 살아 있어야 합니다.
   changeListeners.forEach((fn) => {
-    try { fn(); } catch (err) { console.error('[todo] 구독자 오류', err); }
+    try { fn(items); } catch (err) { console.error('[todo] 구독자 오류', err); }
   });
 }
 
-/** 다른 모듈이 읽기 전용으로 쓰는 사본입니다. 원본을 넘기면 밖에서 망가뜨릴 수 있습니다. */
+function notifyView() {
+  viewListeners.forEach((fn) => {
+    try { fn({ scope, period }); } catch (err) { console.error('[todo] 뷰 구독자 오류', err); }
+  });
+}
+
 function getItems() {
-  return items.map((item) => ({ ...item }));
+  return items;
+}
+
+/** 지금 보고 있는 단위와 기간. 달력이 어느 달을 펼칠지 정할 때 씁니다. */
+function getView() {
+  return { scope, period };
 }
 
 const persist = () => { save(KEY, items); notifyChange(); };
-const saveView = () => save(VIEW_KEY, { scope, period });
+const saveView = () => { save(VIEW_KEY, { scope, period }); notifyView(); };
 
 /**
- * 예전 버전(기간 개념이 없던 시절)의 데이터를 현재 구조로 옮깁니다.
- * 사라지면 곤란하므로 전부 '오늘' 계획으로 넣어 바로 보이게 합니다.
+ * 예전 형식(기간 없이 저장된 할 일)을 오늘 계획으로 옮깁니다.
+ * 분류가 없던 시절의 항목에는 기본 분류를 넣어 줍니다.
  */
 function migrate(raw) {
   if (!Array.isArray(raw)) return [];
   const today = keyOf('day');
   let moved = 0;
   const result = raw.map((item) => {
-    // 분류는 나중에 생긴 항목이라 예전 데이터에는 없습니다. 기본 분류로 채웁니다.
-    const withCat = item && isCategory(item.category)
-      ? item
-      : { ...item, category: DEFAULT_CATEGORY };
+    const withCat = isCategory(item?.category) ? item : { ...item, category: DEFAULT_CATEGORY };
     if (withCat && SCOPES.includes(withCat.scope) && typeof withCat.period === 'string') return withCat;
     moved += 1;
     return { ...withCat, scope: 'day', period: today };
@@ -2731,22 +3338,74 @@ function migrate(raw) {
   return result;
 }
 
+/* ---------- 기간 계산 ---------- */
+
+const pad = (n) => String(n).padStart(2, '0');
+const dayKeyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** 주 키('2026-W38')에 속한 7일의 날짜 키. 월요일부터입니다. */
+function daysOfWeek(weekKey) {
+  const start = dateOf('week', weekKey);
+  const out = [];
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    out.push(dayKeyOf(d));
+  }
+  return out;
+}
+
 const inPeriod = (item) => item.scope === scope && item.period === period;
 
-function visible() {
-  const rows = items.filter(inPeriod);
-  if (filter === 'active') return rows.filter((t) => !t.done);
-  if (filter === 'done') return rows.filter((t) => t.done);
+function applyFilter(rows) {
+  if (filter === 'active') return rows.filter((x) => !x.done);
+  if (filter === 'done') return rows.filter((x) => x.done);
   return rows;
 }
+
+/**
+ * 화면에 그릴 묶음들.
+ * 단위마다 모양이 달라서, 그리는 쪽이 분기하지 않도록 여기서 같은 형태로 맞춰 줍니다.
+ * @returns {{key: string|null, title: string|null, rows: object[]}[]}
+ */
+function groups() {
+  if (scope !== 'week') {
+    return [{ key: null, title: null, rows: applyFilter(items.filter(inPeriod)) }];
+  }
+
+  // 주간: 그 주의 주간 목표를 먼저, 그다음 7일을 날짜순으로.
+  const out = [];
+  const weekRows = applyFilter(items.filter((x) => x.scope === 'week' && x.period === period));
+  if (weekRows.length) out.push({ key: null, title: t('todo.week.goals'), rows: weekRows });
+
+  const lang = getLang();
+  daysOfWeek(period).forEach((key) => {
+    const rows = applyFilter(items.filter((x) => x.scope === 'day' && x.period === key));
+    if (!rows.length) return;
+    out.push({ key, title: label('day', key, lang), rows });
+  });
+  return out;
+}
+
+/** 진행률에 쓰는 '이 기간의 전체 항목'. 필터와 무관합니다. */
+function periodRows() {
+  if (scope !== 'week') return items.filter(inPeriod);
+  const days = new Set(daysOfWeek(period));
+  return items.filter((x) => (
+    (x.scope === 'week' && x.period === period)
+    || (x.scope === 'day' && days.has(x.period))
+  ));
+}
+
+/* ---------- 그리기 ---------- */
 
 function renderHeader() {
   const labelEl = $('#period-label');
   labelEl.textContent = label(scope, period, getLang());
   labelEl.classList.toggle('is-current', isCurrent(scope, period));
 
-  const rows = items.filter(inPeriod);
-  const done = rows.filter((t) => t.done).length;
+  const rows = periodRows();
+  const done = rows.filter((x) => x.done).length;
   const ratio = rows.length ? (done / rows.length) * 100 : 0;
 
   const fill = $('#todo-progress-fill');
@@ -2759,48 +3418,64 @@ function renderHeader() {
   $('#todo-count').textContent = total ? t('todo.count.total', total) : '';
 }
 
+function itemRow(item, shownRows) {
+  const checkbox = el('input', { type: 'checkbox', 'aria-label': t('todo.aria.done') });
+  checkbox.checked = item.done;
+  checkbox.addEventListener('change', () => {
+    item.done = checkbox.checked;
+    item.doneAt = checkbox.checked ? Date.now() : null;
+    persist();
+    // 다시 그리면 DOM 이 교체되어 포커스가 body 로 날아갑니다. 같은 자리로 되돌립니다.
+    renderKeepingFocus({ id: item.id, kind: 'check' });
+  });
+
+  return el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
+    checkbox,
+    el('span', { class: 'todo-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+    el('span', { class: 'todo-text' }, item.text),
+    el('button', {
+      class: 'btn btn-sm btn-ghost',
+      title: t('todo.aria.delete'),
+      'aria-label': t('todo.aria.delete'),
+      onclick: () => {
+        // 삭제 후에는 다음 항목의 삭제 버튼으로, 없으면 입력창으로 포커스를 넘깁니다.
+        const idx = shownRows.findIndex((x) => x.id === item.id);
+        const nextId = shownRows.filter((x) => x.id !== item.id)[Math.min(idx, shownRows.length - 2)]?.id;
+        items = items.filter((x) => x.id !== item.id);
+        persist();
+        renderKeepingFocus(nextId ? { id: nextId, kind: 'delete' } : null);
+      },
+    }, '✕'),
+  );
+}
+
 function render() {
   renderHeader();
   const list = $('#todo-list');
   list.replaceChildren();
 
-  const rows = visible();
-  if (!rows.length) {
+  const blocks = groups();
+  const shown = blocks.flatMap((g) => g.rows);
+
+  if (!shown.length) {
     list.append(el('li', { class: 'empty' },
       t(filter === 'all' ? 'todo.empty.none' : 'todo.empty.filter')));
     return;
   }
 
-  rows.forEach((item) => {
-    const checkbox = el('input', { type: 'checkbox', 'aria-label': t('todo.aria.done') });
-    checkbox.checked = item.done;
-    checkbox.addEventListener('change', () => {
-      item.done = checkbox.checked;
-      item.doneAt = checkbox.checked ? Date.now() : null;
-      persist();
-      // 다시 그리면 DOM 이 교체되어 포커스가 body 로 날아갑니다. 같은 자리로 되돌립니다.
-      renderKeepingFocus({ id: item.id, kind: 'check' });
-    });
-    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
-      checkbox,
-      el('span', { class: 'todo-cat', title: t(`cat.${item.category || DEFAULT_CATEGORY}`) },
-        emojiOf(item.category)),
-      el('span', { class: 'todo-text' }, item.text),
-      el('button', {
-        class: 'btn btn-sm btn-ghost',
-        title: t('todo.aria.delete'),
-        'aria-label': t('todo.aria.delete'),
-        onclick: () => {
-          // 삭제 후에는 다음 항목의 삭제 버튼으로, 없으면 입력창으로 포커스를 넘깁니다.
-          const rest = visible().filter((t) => t.id !== item.id);
-          const idx = rows.findIndex((t) => t.id === item.id);
-          const nextId = rest[Math.min(idx, rest.length - 1)]?.id;
-          items = items.filter((t) => t.id !== item.id);
-          persist();
-          renderKeepingFocus(nextId ? { id: nextId, kind: 'delete' } : null);
-        },
-      }, '✕'),
-    ));
+  blocks.forEach((group) => {
+    if (group.title) {
+      // 날짜 소제목을 누르면 그 날짜로 옮겨 갑니다. 주간에서 하루를 손보러 들어가는 길입니다.
+      const head = group.key
+        ? el('button', {
+          class: 'todo-group-head is-link', type: 'button',
+          dataset: { groupDay: group.key },
+          onclick: () => openDate(group.key),
+        }, group.title, el('span', { class: 'todo-group-go', 'aria-hidden': 'true' }, '›'))
+        : el('div', { class: 'todo-group-head' }, group.title);
+      list.append(el('li', { class: 'todo-group' }, head));
+    }
+    group.rows.forEach((item) => list.append(itemRow(item, shown)));
   });
 }
 
@@ -2817,12 +3492,35 @@ function renderKeepingFocus(hint) {
   target?.focus();
 }
 
-function setScope(next) {
-  scope = next;
-  period = keyOf(scope); // 단위를 바꾸면 현재 기간으로 맞춥니다
-  document.querySelectorAll('.scope-tab').forEach((b) => {
+function syncScopeTabs() {
+  $$('.scope-tab').forEach((b) => {
     b.setAttribute('aria-selected', String(b.dataset.scope === scope));
   });
+}
+
+function syncFilterChips() {
+  $$('[data-filter]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+  });
+}
+
+function setScope(next) {
+  /*
+   * 보고 있던 날짜를 그대로 두고 단위만 바꿉니다.
+   * 예전에는 무조건 '오늘'로 튀어서, 달력에서 22일을 고르고 주간을 누르면
+   * 22일이 든 주가 아니라 이번 주가 열렸습니다.
+   */
+  let anchor;
+  try { anchor = dateOf(scope, period); } catch { anchor = new Date(); }
+  /*
+   * 다만 지금 보고 있는 기간 안에 오늘이 들어 있으면 오늘을 기준으로 옮깁니다.
+   * '2026년'을 보다가 일간으로 가면 1월 1일(그 기간의 첫날)보다 오늘이 자연스럽습니다.
+   * 반대로 22일을 골라 둔 상태라면 오늘이 아니므로 22일이 든 주/달로 갑니다.
+   */
+  if (isCurrent(scope, period)) anchor = new Date();
+  scope = next;
+  period = keyOf(scope, anchor);
+  syncScopeTabs();
   saveView();
   render();
 }
@@ -2836,7 +3534,7 @@ function movePeriod(delta) {
 /** 직전 기간의 미완료 항목을 현재 기간으로 옮깁니다. */
 function carryOver() {
   const from = shift(scope, period, -1);
-  const pending = items.filter((t) => t.scope === scope && t.period === from && !t.done);
+  const pending = items.filter((x) => x.scope === scope && x.period === from && !x.done);
   if (!pending.length) {
     toast(t('todo.toast.nothingToCarry'));
     return;
@@ -2868,13 +3566,8 @@ function revealItem(id) {
   period = target.period;
   filter = 'all';
   saveView();
-
-  document.querySelectorAll('.scope-tab').forEach((b) => {
-    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
-  });
-  document.querySelectorAll('[data-filter]').forEach((b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.filter === 'all'));
-  });
+  syncScopeTabs();
+  syncFilterChips();
   render();
 
   const li = [...$('#todo-list').children].find((n) => n.dataset?.id === id);
@@ -2890,6 +3583,7 @@ function revealItem(id) {
 /**
  * 달력에서 날짜를 눌렀을 때 쓰는 진입점.
  * 계획표를 그 날짜로 옮기고, 항목 id 가 있으면 잠깐 강조합니다.
+ * 이 뒤에 입력한 계획은 그 날짜로 들어갑니다.
  */
 function openDate(dateKey, itemId = null) {
   if (typeof dateKey !== 'string') return false;
@@ -2898,27 +3592,167 @@ function openDate(dateKey, itemId = null) {
   period = dateKey;
   filter = 'all';
   saveView();
-  document.querySelectorAll('.scope-tab').forEach((b) => {
-    b.setAttribute('aria-selected', String(b.dataset.scope === 'day'));
-  });
-  document.querySelectorAll('[data-filter]').forEach((b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.filter === 'all'));
-  });
+  syncScopeTabs();
+  syncFilterChips();
   render();
-  $('#todo-list')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   return true;
 }
 
-/** 분류 고르는 칸을 채웁니다. 목록이 늘어나도 HTML 을 고치지 않아도 되게 여기서 만듭니다. */
-function fillCategorySelect() {
-  const sel = $('#todo-cat');
-  if (!sel) return;
-  const keep = sel.value;
-  sel.replaceChildren(...CATEGORIES.map((c) => {
-    const opt = el('option', { value: c.id }, `${c.emoji} ${t(`cat.${c.id}`)}`);
-    return opt;
+/* ---------- 분류 고르기 ---------- */
+
+/**
+ * 입력창 위의 분류 칩 줄.
+ * 예전에는 드롭다운이라 무엇이 있는지 열어 봐야 알았습니다.
+ * 이모지가 그대로 달력에 나가므로, 고르는 자리에서도 이모지가 보여야 합니다.
+ */
+function renderCategoryRow() {
+  const box = $('#todo-cats');
+  if (!box) return;
+  const list = allCategories();
+  // 고른 분류가 숨겨지거나 지워졌을 수 있습니다.
+  if (!list.some((c) => c.id === picked)) picked = list[0]?.id || DEFAULT_CATEGORY;
+
+  box.replaceChildren(...list.map((c) => {
+    const name = labelOf(c.id, t);
+    const btn = el('button', {
+      class: `cat-chip${c.id === picked ? ' is-on' : ''}`,
+      type: 'button',
+      'aria-pressed': String(c.id === picked),
+      'aria-label': name,
+      title: name,
+      dataset: { cat: c.id },
+    }, el('span', { class: 'cat-chip-emoji', 'aria-hidden': 'true' }, c.emoji));
+    btn.addEventListener('click', () => {
+      picked = c.id;
+      save(CAT_KEY, picked);
+      renderCategoryRow();
+    });
+    return btn;
   }));
-  sel.value = isCategory(keep) ? keep : DEFAULT_CATEGORY;
+
+  /*
+   * 편집 버튼을 같은 줄 끝에 붙입니다.
+   * 따로 한 줄을 주면 좁은 화면에서 목록이 그만큼 줄어듭니다.
+   * 분류를 고르는 자리 바로 옆이라 '여기서 분류를 손본다'는 것도 분명해집니다.
+   */
+  const edit = $('#cat-edit');
+  const open = edit ? !edit.hidden : false;
+  const toggle = el('button', {
+    // is-on 은 '고른 분류'라는 뜻이라 여기 붙이면 고른 분류가 둘로 보입니다.
+    class: `cat-chip cat-edit-chip${open ? ' is-open' : ''}`,
+    type: 'button',
+    'aria-expanded': String(open),
+    'aria-controls': 'cat-edit',
+    'aria-label': t('cat.edit'),
+    title: t('cat.edit'),
+    dataset: { catEdit: '1' },
+  }, el('span', { class: 'cat-chip-emoji', 'aria-hidden': 'true' }, '🏷️'));
+  toggle.addEventListener('click', () => {
+    if (!edit) return;
+    edit.hidden = !edit.hidden;
+    renderCategoryRow();
+  });
+  box.append(toggle);
+}
+
+/** 이모지 고르는 판. 입력칸에 직접 붙여 넣어도 됩니다. */
+function emojiGrid(current, onPick) {
+  const grid = el('div', { class: 'emoji-grid' }, ...EMOJI_CHOICES.map((e) => {
+    const b = el('button', {
+      class: `emoji-opt${e === current ? ' is-on' : ''}`,
+      type: 'button', dataset: { emoji: e }, 'aria-label': e,
+    }, e);
+    b.addEventListener('click', () => onPick(e));
+    return b;
+  }));
+  return grid;
+}
+
+/**
+ * 분류 편집 화면.
+ * 기본 분류는 이모지만 바꾸고 숨길 수 있습니다. (지우면 예전 계획의 분류가 끊어집니다)
+ * 내 분류는 만들고 지울 수 있습니다.
+ */
+function renderCategoryEditor() {
+  const box = $('#cat-edit-body');
+  if (!box) return;
+
+  const rows = allCategoriesIncludingHidden().map((c) => {
+    const name = labelOf(c.id, t);
+
+    // 이모지 바꾸기: 눌러서 펼치는 판. 줄마다 판을 깔아 두면 화면이 폭발합니다.
+    const pickBox = el('details', { class: 'cat-pick' },
+      el('summary', {
+        class: 'cat-pick-summary', 'aria-label': t('cat.changeEmoji', name), title: t('cat.changeEmoji', name),
+      }, c.emoji));
+    pickBox.append(emojiGrid(c.emoji, (e) => {
+      setCategoryEmoji(c.id, e);
+      pickBox.open = false;
+    }));
+
+    const tail = c.builtin
+      ? (() => {
+        const b = el('button', {
+          class: `cz-toggle${c.hidden ? '' : ' is-on'}`,
+          type: 'button',
+          dataset: { catToggle: c.id },
+          'aria-pressed': String(!c.hidden),
+        }, t(c.hidden ? 'cz.hidden' : 'cz.shown'));
+        if (c.locked) { b.disabled = true; b.title = t('cat.lockedHint'); }
+        else b.addEventListener('click', () => hideCategory(c.id, !c.hidden));
+        return b;
+      })()
+      : el('button', {
+        class: 'btn btn-sm btn-ghost', type: 'button',
+        dataset: { catRemove: c.id },
+        'aria-label': t('cat.remove', name), title: t('cat.remove', name),
+        onclick: () => removeCategory(c.id),
+      }, '✕');
+
+    return el('div', { class: 'cat-edit-row', dataset: { catRow: c.id } },
+      pickBox,
+      el('span', { class: 'cz-row-label' }, name),
+      tail);
+  });
+
+  // 새로 만들기
+  let newEmoji = '⭐';
+  const preview = el('summary', { class: 'cat-pick-summary' }, newEmoji);
+  const newPick = el('details', { class: 'cat-pick' }, preview);
+  newPick.append(emojiGrid(newEmoji, (e) => {
+    newEmoji = e;
+    preview.textContent = e;
+    newPick.open = false;
+  }));
+
+  const nameInput = el('input', {
+    class: 'field grow', id: 'cat-new-name', maxlength: '20', autocomplete: 'off',
+    placeholder: t('cat.newPlaceholder'), 'aria-label': t('cat.newPlaceholder'),
+  });
+  const addBtn = el('button', { class: 'btn btn-sm btn-primary', type: 'button', id: 'cat-new-add' },
+    t('cat.add'));
+  addBtn.addEventListener('click', () => {
+    const made = addCategory(nameInput.value, newEmoji);
+    if (!made) { toast(t('cat.needName'), 'error'); return; }
+    nameInput.value = '';
+    /*
+     * 방금 만든 분류를 바로 골라 줍니다.
+     * addCategory 안에서 구독자(renderCategoryRow)가 먼저 도는 바람에
+     * 여기서 다시 그리지 않으면 예전에 고른 분류가 그대로 남습니다.
+     */
+    picked = made;
+    save(CAT_KEY, picked);
+    renderCategoryRow();
+  });
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); }
+  });
+
+  box.replaceChildren(
+    el('div', { class: 'cat-edit-list' }, ...rows),
+    el('div', { class: 'cat-edit-new' }, newPick, nameInput, addBtn),
+    el('p', { class: 'card-sub' }, t('cat.hint')),
+  );
 }
 
 function initTodo() {
@@ -2934,20 +3768,30 @@ function initTodo() {
   } else {
     period = keyOf(scope);
   }
-  document.querySelectorAll('.scope-tab').forEach((b) => {
-    b.setAttribute('aria-selected', String(b.dataset.scope === scope));
-  });
+  const lastCat = load(CAT_KEY, null);
+  picked = isCategory(lastCat) ? lastCat : DEFAULT_CATEGORY;
+  syncScopeTabs();
 
   // 언어는 설정 탭에서 바꿉니다. 여기서는 바뀐 결과만 받아 다시 그립니다.
   onLangChange(() => {
     applyStatic($('#panel-todo'));
     applyPanelLang();
-    fillCategorySelect();
+    renderCategoryRow();
+    renderCategoryEditor();
     render();
   });
   applyStatic($('#panel-todo'));
   applyPanelLang();
-  fillCategorySelect();
+
+  // 분류를 고치면 입력줄과 편집 화면, 그리고 목록의 이모지가 한꺼번에 따라가야 합니다.
+  onCategoryChange(() => {
+    renderCategoryRow();
+    renderCategoryEditor();
+    render();
+    notifyChange();   // 달력 칸의 이모지도 다시 그립니다
+  });
+  renderCategoryRow();
+  renderCategoryEditor();
 
   $('#scope-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.scope-tab');
@@ -2967,7 +3811,6 @@ function initTodo() {
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
-    const picked = $('#todo-cat')?.value;
     items.unshift({
       id: uid(), text, done: false, scope, period,
       category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
@@ -2978,12 +3821,10 @@ function initTodo() {
     render();
   });
 
-  document.querySelectorAll('[data-filter]').forEach((btn) => {
+  $$('[data-filter]').forEach((btn) => {
     btn.addEventListener('click', () => {
       filter = btn.dataset.filter;
-      document.querySelectorAll('[data-filter]').forEach((b) => {
-        b.setAttribute('aria-pressed', String(b === btn));
-      });
+      syncFilterChips();
       render();
     });
   });
@@ -2992,8 +3833,9 @@ function initTodo() {
 
   $('#todo-clear-done').addEventListener('click', () => {
     const before = items.length;
-    // 지금 보고 있는 기간의 완료 항목만 지웁니다.
-    items = items.filter((t) => !(inPeriod(t) && t.done));
+    // 지금 보고 있는 기간의 완료 항목만 지웁니다. (주간이면 그 주의 일간까지 포함합니다)
+    const ids = new Set(periodRows().filter((x) => x.done).map((x) => x.id));
+    items = items.filter((x) => !ids.has(x.id));
     persist();
     render();
     const removed = before - items.length;
@@ -3001,8 +3843,9 @@ function initTodo() {
   });
 
   render();
+  notifyView();
 }
-  return { onTodoChange, getItems, revealItem, openDate, initTodo };
+  return { onTodoChange, onViewChange, getItems, getView, daysOfWeek, revealItem, openDate, initTodo };
 })();
 
 /* ===== js/modules/weather.js ===== */
@@ -4575,27 +5418,48 @@ function initCalculator() {
 const __m_js_modules_calendar_js = (function () {
   const { $, el } = __m_js_lib_dom_js;
   const { t, getLang, onLangChange } = __m_js_lib_i18n_js;
+  const { load, save } = __m_js_lib_store_js;
   const { emojiOf } = __m_js_lib_categories_js;
-  const { getItems, onTodoChange, openDate } = __m_js_modules_todo_js;
+  const { keyOf, dateOf, weekRange, isoWeekParts } = __m_js_lib_period_js;
+  const { getItems, onTodoChange, onViewChange, getView, openDate } = __m_js_modules_todo_js;
 /**
- * calendar.js — TO DO 탭의 월 달력
+ * calendar.js — TO DO 탭 맨 위의 월 달력
  *
- * 어느 날에 무슨 일이 있는지 한눈에 보기 위한 화면입니다.
+ * 한 달을 통째로 보면서 날짜를 눌러 그 날로 옮겨 가는 것이 기본 흐름입니다.
  * 칸이 작아 내용을 다 쓸 수 없으므로 분류 이모지만 놓고,
- * 날짜를 누르면 그 날의 할 일이 아래로 펼쳐집니다.
+ * 자세한 것은 바로 아래 목록 카드가 보여 줍니다. (누른 날짜로 목록이 옮겨 갑니다)
  *
- * 일간(day) 계획만 표시합니다.
+ * 일간(day) 계획만 칸에 표시합니다.
  * 주간/월간/연간은 특정 하루에 속하지 않아서, 달력에 올리면 어느 날인지 거짓으로 알려주게 됩니다.
+ *
+ * 한 주는 월요일에서 시작합니다.
+ * 계획표의 '주간' 단위가 ISO 주차(월요일 시작)라서, 일요일 시작으로 그리면
+ * 한 주가 두 줄에 걸쳐 끊깁니다. 그러면 '이번 주'를 한 줄로 표시할 수가 없습니다.
  */
 
 
 
 
-const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
-const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-let cursor = firstOfMonth(new Date());   // 지금 보고 있는 달
-let selected = null;                     // 펼쳐 놓은 날짜 (YYYY-MM-DD)
+
+const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
+const FOLD_KEY = 'cal.folded';
+
+/** 화면에 쓸 요일 머리글 순서. 월요일 시작입니다. */
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+/*
+ * 지금 보고 있는 자리. '달'이 아니라 '날짜'로 들고 있습니다.
+ * 펼쳤을 때는 이 날짜가 속한 달을, 접었을 때는 이 날짜가 속한 주를 그립니다.
+ * 그래야 ‹ › 가 펼침/접힘에 따라 달 단위와 주 단위로 자연스럽게 갈립니다.
+ */
+let cursor = new Date();
+/*
+ * 접힌 상태.
+ * 한 달치는 좁은 화면의 절반 가까이를 씁니다. 하루치 목록을 손볼 때는
+ * 지금 주 한 줄만 남기면 목록이 그만큼 넓어집니다. 고른 상태는 기억합니다.
+ */
+let folded = load(FOLD_KEY, false) === true;
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -4603,21 +5467,39 @@ function firstOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+/** 월요일을 0 으로 두는 요일 번호. period.js 의 ISO 계산과 같은 기준입니다. */
+const isoDayIndex = (date) => (date.getDay() + 6) % 7;
+
 /** Date -> 'YYYY-MM-DD'. period.js 의 keyOf('day') 와 같은 형식입니다. */
 function dayKey(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 /**
+ * 접었을 때 보여 줄 한 줄. 기준 날짜가 든 주의 월요일부터 7칸입니다.
+ */
+function weekRow(anchor) {
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+  start.setDate(start.getDate() - isoDayIndex(start));
+  const out = [];
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    out.push(d);
+  }
+  return out;
+}
+
+/**
  * 달력에 깔 날짜들.
- * 1일이 속한 주의 일요일부터, 말일이 속한 주의 토요일까지 채웁니다.
+ * 1일이 속한 주의 월요일부터, 말일이 속한 주의 일요일까지 채웁니다.
  * (달마다 줄 수가 달라지지만, 빈 줄을 억지로 만드는 것보다 낫습니다)
  */
 function monthGrid(monthStart) {
   const start = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
-  start.setDate(start.getDate() - start.getDay());
+  start.setDate(start.getDate() - isoDayIndex(start));
   const end = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-  end.setDate(end.getDate() + (6 - end.getDay()));
+  end.setDate(end.getDate() + (6 - isoDayIndex(end)));
 
   const out = [];
   const walk = new Date(start);
@@ -4653,96 +5535,125 @@ function monthLabel(date, lang) {
   }
 }
 
-function renderDetail(dayItems) {
-  const box = $('#cal-detail');
-  if (!box) return;
-
-  if (!selected) {
-    box.replaceChildren(el('p', { class: 'card-sub' }, t('cal.pick')));
-    return;
+/**
+ * 지금 보고 있는 기간에 이 날짜가 들어가는지.
+ * 단위마다 강조 범위가 다릅니다. 일간은 하루, 주간은 그 줄 전체, 월간은 그 달 전체입니다.
+ */
+function inView(date, view) {
+  const key = dayKey(date);
+  if (view.scope === 'day') return key === view.period;
+  if (view.scope === 'week') {
+    const { year, week } = isoWeekParts(date);
+    return `${year}-W${pad(week)}` === view.period;
   }
-
-  const rows = dayItems.get(selected) || [];
-  const head = el('div', { class: 'cal-detail-head' },
-    el('span', { class: 'cal-detail-date' }, selected),
-    el('span', { class: 'card-sub' }, t('cal.count', rows.length)));
-
-  if (!rows.length) {
-    box.replaceChildren(head, el('p', { class: 'empty' }, t('cal.empty')));
-    return;
+  if (view.scope === 'month') {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}` === view.period;
   }
-
-  box.replaceChildren(head, el('ul', { class: 'cal-detail-list' },
-    ...rows.map((item) => {
-      const btn = el('button', {
-        class: `cal-detail-item${item.done ? ' done' : ''}`,
-        type: 'button',
-        'aria-label': `${item.text}. ${t('cal.goHint')}`,
-      },
-      el('span', { class: 'cal-detail-emoji', 'aria-hidden': 'true' }, emojiOf(item.category)),
-      el('span', { class: 'cal-detail-text' }, item.text));
-      // 누르면 계획표를 그 날짜로 옮기고 해당 항목을 강조합니다.
-      btn.addEventListener('click', () => openDate(selected, item.id));
-      return el('li', {}, btn);
-    })));
+  return false;   // 연간은 달력 전체가 강조돼 의미가 없습니다
 }
 
 function render() {
   const grid = $('#cal-grid');
   if (!grid) return;
+
   const lang = getLang();
+  const view = getView();
   const byDay = groupByDay();
-  const todayKey = dayKey(new Date());
+  const todayKey = keyOf('day');
   const month = cursor.getMonth();
 
-  const labelEl = $('#cal-label');
-  if (labelEl) labelEl.textContent = monthLabel(cursor, lang);
 
-  grid.replaceChildren(
-    ...WEEKDAY_KEYS.map((key, i) => el('div', {
-      class: `cal-wd${i === 0 ? ' sun' : ''}${i === 6 ? ' sat' : ''}`,
+  const foldBtn = $('#cal-fold');
+  if (foldBtn) {
+    // 글자는 안쪽 span 에만 씁니다. 버튼 전체를 덮어쓰면 달 이름까지 날아갑니다.
+    const mark = $('#cal-fold-mark');
+    if (mark) mark.textContent = folded ? '⌄' : '⌃';
+    foldBtn.setAttribute('aria-expanded', String(!folded));
+    foldBtn.title = t(folded ? 'cal.unfold' : 'cal.fold');
+  }
+
+  // 접었으면 커서가 든 주 한 줄만, 펼쳤으면 커서가 든 달 전체를 그립니다.
+  const days = folded ? weekRow(cursor) : monthGrid(firstOfMonth(cursor));
+  // 접었을 때는 날짜 범위만 씁니다. '2026년 38주차 ·' 까지 넣으면 좁은 화면에서 잘립니다.
+  $('#cal-label').textContent = folded
+    ? weekRange(keyOf('week', cursor), lang)
+    : monthLabel(firstOfMonth(cursor), lang);
+  // 접었을 때 ‹ › 는 주 단위로 움직입니다. 버튼 설명도 같이 바꿔야 헷갈리지 않습니다.
+  $('#cal-prev')?.setAttribute('aria-label', t(folded ? 'cal.prevWeek' : 'cal.prev'));
+  $('#cal-next')?.setAttribute('aria-label', t(folded ? 'cal.nextWeek' : 'cal.next'));
+  const todayBtn = $('#cal-today');
+  if (todayBtn) todayBtn.textContent = t(folded ? 'cal.thisWeek' : 'cal.today');
+
+  const cells = [
+    ...WEEKDAY_KEYS.map((key) => el('div', {
+      class: `cal-wd${key === 'sun' ? ' sun' : ''}${key === 'sat' ? ' sat' : ''}`,
     }, t(`cal.wd.${key}`))),
-    ...monthGrid(cursor).map((date) => {
-      const key = dayKey(date);
-      const rows = byDay.get(key) || [];
-      const undone = rows.filter((r) => !r.done).length;
-      const outside = date.getMonth() !== month;
+  ];
 
-      // 같은 분류가 여러 건이면 이모지를 한 번만 보여 줍니다. 칸이 금방 가득 차기 때문입니다.
-      const emojis = [...new Set(rows.map((r) => emojiOf(r.category)))];
-      const shown = emojis.slice(0, MAX_DOTS);
-      const more = emojis.length - shown.length;
+  days.forEach((date) => {
+    const key = dayKey(date);
+    const rows = byDay.get(key) || [];
+    // 접었을 때는 '이 달 밖'이라는 개념이 없습니다. 한 주가 두 달에 걸치는 게 정상입니다.
+    const outside = !folded && date.getMonth() !== month;
 
-      const cell = el('button', {
-        class: [
-          'cal-day',
-          outside ? 'is-outside' : '',
-          key === todayKey ? 'is-today' : '',
-          key === selected ? 'is-selected' : '',
-          rows.length ? 'has-items' : '',
-        ].filter(Boolean).join(' '),
-        type: 'button',
-        dataset: { day: key },
-        'aria-pressed': String(key === selected),
-        'aria-label': rows.length
-          ? `${key}. ${t('cal.count', rows.length)}${undone ? `, ${t('cal.undone', undone)}` : ''}`
-          : `${key}. ${t('cal.empty')}`,
-      },
-      el('span', { class: 'cal-num' }, String(date.getDate())),
-      el('span', { class: 'cal-marks', 'aria-hidden': 'true' },
-        ...shown.map((e) => el('span', { class: 'cal-mark' }, e)),
-        more > 0 ? el('span', { class: 'cal-more' }, `+${more}`) : ''));
+    // 같은 분류가 여러 건이어도 이모지는 한 번만 놓습니다. 같은 그림이 겹치면 개수만 헷갈립니다.
+    const marks = [];
+    const seen = new Set();
+    rows.forEach((item) => {
+      const e = emojiOf(item.category);
+      if (seen.has(e)) return;
+      seen.add(e);
+      marks.push(e);
+    });
 
-      return cell;
-    }),
-  );
+    const classes = ['cal-day'];
+    if (outside) classes.push('is-outside');
+    if (key === todayKey) classes.push('is-today');
+    if (inView(date, view)) classes.push('is-selected');
+    if (rows.length) classes.push('has-items');
 
-  renderDetail(byDay);
+    const undone = rows.filter((x) => !x.done).length;
+    const cell = el('button', {
+      class: classes.join(' '),
+      type: 'button',
+      dataset: { day: key },
+      'aria-label': rows.length
+        ? `${key}. ${t('cal.count', rows.length)}${undone ? `, ${t('cal.undone', undone)}` : ''}`
+        : `${key}. ${t('cal.empty')}`,
+      'aria-pressed': String(inView(date, view)),
+    },
+    el('span', { class: 'cal-num' }, String(date.getDate())),
+    el('span', { class: 'cal-marks' },
+      ...marks.slice(0, MAX_DOTS).map((e) => el('span', { class: 'cal-mark' }, e)),
+      marks.length > MAX_DOTS ? el('span', { class: 'cal-more' }, `+${marks.length - MAX_DOTS}`) : ''));
+
+    // 누르면 아래 목록이 그 날짜로 옮겨 갑니다. 그 뒤에 입력한 계획도 그 날짜로 들어갑니다.
+    cell.addEventListener('click', () => {
+      openDate(key);
+      // 달력이 딴 달을 보고 있었다면 고른 날짜의 달로 따라옵니다.
+      if (outside) { cursor = new Date(date); render(); }
+    });
+    cells.push(cell);
+  });
+
+  grid.replaceChildren(...cells);
 }
 
-/** 달을 옮깁니다. 보고 있던 날짜 선택은 유지합니다. */
-function moveMonth(delta) {
-  cursor = new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1);
+/** 접혀 있으면 한 주씩, 펼쳐져 있으면 한 달씩 움직입니다. */
+function move(delta) {
+  const next = new Date(cursor);
+  if (folded) next.setDate(next.getDate() + delta * 7);
+  else next.setMonth(next.getMonth() + delta, 1);
+  cursor = next;
+  render();
+}
+
+/** 보고 있는 기간이 바뀌면 달력도 그 달을 펼칩니다. */
+function followView(view) {
+  try {
+    // 주간은 월요일이, 월간은 1일이 대표 날짜입니다. (period.js 의 dateOf 규칙)
+    cursor = dateOf(view.scope, view.period);
+  } catch { /* 저장값이 손상된 경우 보고 있던 자리를 그대로 둡니다 */ }
   render();
 }
 
@@ -4750,27 +5661,38 @@ function initCalendar() {
   const grid = $('#cal-grid');
   if (!grid) return;
 
-  grid.addEventListener('click', (e) => {
-    const cell = e.target.closest('.cal-day');
-    if (!cell) return;
-    // 같은 날을 다시 누르면 접습니다. 펼친 뒤 닫을 방법이 없으면 답답합니다.
-    selected = selected === cell.dataset.day ? null : cell.dataset.day;
-    render();
-  });
-
-  $('#cal-prev')?.addEventListener('click', () => moveMonth(-1));
-  $('#cal-next')?.addEventListener('click', () => moveMonth(1));
+  $('#cal-prev')?.addEventListener('click', () => move(-1));
+  $('#cal-next')?.addEventListener('click', () => move(1));
   $('#cal-today')?.addEventListener('click', () => {
-    cursor = firstOfMonth(new Date());
-    selected = dayKey(new Date());
+    cursor = new Date();
+    render();
+  });
+  $('#cal-fold')?.addEventListener('click', () => {
+    folded = !folded;
+    save(FOLD_KEY, folded);
     render();
   });
 
-  onTodoChange(render);
-  onLangChange(render);
-  render();
+  onTodoChange(() => render());
+  onViewChange(followView);
+  onLangChange(() => render());
+
+  followView(getView());
 }
-  return { dayKey, monthGrid, groupByDay, initCalendar };
+
+/** 접혀 있는지. 테스트에서 확인할 때 씁니다. */
+function isFolded() {
+  return folded;
+}
+
+/** 테스트에서 상태를 확인할 때 씁니다. */
+function shownMonth() {
+  return `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}`;
+}
+
+/** 요일 머리글 순서. 월요일 시작인지 확인할 때 씁니다. */
+const WEEK_START_KEYS = WEEKDAY_KEYS;
+  return { dayKey, weekRow, monthGrid, groupByDay, initCalendar, isFolded, shownMonth, WEEK_START_KEYS };
 })();
 
 /* ===== js/modules/memo.js ===== */
@@ -5614,7 +6536,8 @@ function initSettings() {
 const __m_js_modules_appearance_js = (function () {
   const { $, $$, el } = __m_js_lib_dom_js;
   const { t, onLangChange } = __m_js_lib_i18n_js;
-  const { SKINS, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
+  const { load, save } = __m_js_lib_store_js;
+  const { SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
   getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem, } = __m_js_lib_prefs_js;
 /**
  * appearance.js — 커스터마이즈를 화면에 적용하고, 설정 탭의 편집 UI 를 그립니다.
@@ -5623,6 +6546,7 @@ const __m_js_modules_appearance_js = (function () {
  * 탭 순서는 가로 페이저의 스크롤 위치와 직결되므로, 여기서는 DOM 만 옮기고
  * 페이저를 다시 맞추는 일은 main.js 가 합니다. (applyTabLayout 의 반환값을 씁니다)
  */
+
 
 
 
@@ -5648,6 +6572,8 @@ function applySkinAccent(prefs = getPrefs()) {
   const root = document.documentElement;
   if (prefs.skin && prefs.skin !== 'default') root.setAttribute('data-skin', prefs.skin);
   else root.removeAttribute('data-skin');
+  if (prefs.base && prefs.base !== 'default') root.setAttribute('data-base', prefs.base);
+  else root.removeAttribute('data-base');
   if (prefs.accent && prefs.accent !== 'blue') root.setAttribute('data-accent', prefs.accent);
   else root.removeAttribute('data-accent');
   syncThemeColor();
@@ -5726,6 +6652,20 @@ function renderSkins(prefs) {
     const btn = optionButton(t(`cz.skin.${name}`), prefs.skin === name,
       () => setPrefs({ skin: name }), { dataset: { skinOpt: name } });
     btn.prepend(el('span', { class: `cz-skin-chip cz-skin-${name}`, 'aria-hidden': 'true' }));
+    return btn;
+  }));
+}
+
+function renderBases(prefs) {
+  return el('div', { class: 'cz-opts' }, ...BASES.map((name) => {
+    const btn = optionButton('', prefs.base === name, () => setPrefs({ base: name }), {
+      class: `cz-swatch cz-swatch-base${prefs.base === name ? ' is-on' : ''}`,
+      dataset: { baseOpt: name },
+      title: t(`cz.base.${name}`),
+      'aria-label': t(`cz.base.${name}`),
+    });
+    // 배경과 카드 두 색을 함께 보여 줘야 고르기 전에 분위기를 알 수 있습니다.
+    btn.append(el('span', { class: `cz-base-chip cz-base-${name}`, 'aria-hidden': 'true' }));
     return btn;
   }));
 }
@@ -5848,11 +6788,41 @@ function renderCards(prefs) {
   )));
 }
 
-function section(titleKey, hintKey, body) {
-  return el('section', { class: 'cz-section' },
-    el('h3', { class: 'card-title' }, t(titleKey)),
+/* ---------- 접었다 펴는 구역 ----------
+ * 예전에는 다섯 구역이 전부 펼쳐져 있어서, 카드 크기를 고치려면 한참 내려야 했습니다.
+ * 기본은 전부 접고, 접힌 줄에 '지금 값'을 같이 써서 열지 않고도 알 수 있게 합니다.
+ *
+ * 펼친 상태를 기억해야 합니다. 색을 하나 고를 때마다 이 화면을 다시 그리는데,
+ * 기억하지 않으면 고를 때마다 구역이 닫혀 버립니다.
+ */
+const OPEN_KEY = 'ui.czOpen';
+let openSections = new Set(Array.isArray(load(OPEN_KEY, null)) ? load(OPEN_KEY, []) : []);
+
+function rememberOpen(name, open) {
+  if (open) openSections.add(name); else openSections.delete(name);
+  save(OPEN_KEY, [...openSections]);
+}
+
+/**
+ * @param {string} name   저장용 식별자 (화면 글자는 언어에 따라 바뀌므로 쓰면 안 됩니다)
+ * @param {string} now    접힌 줄에 같이 보여 줄 현재 값. 없으면 생략합니다.
+ */
+function section(name, titleKey, hintKey, now, body) {
+  const box = el('details', { class: 'cz-section', dataset: { section: name } },
+    el('summary', { class: 'cz-summary' },
+      el('span', { class: 'cz-summary-title' }, t(titleKey)),
+      now ? el('span', { class: 'cz-summary-now' }, now) : '',
+      el('span', { class: 'cz-summary-mark', 'aria-hidden': 'true' }, '⌄')),
     hintKey ? el('p', { class: 'card-sub cz-hint' }, t(hintKey)) : '',
     body);
+  box.open = openSections.has(name);
+  box.addEventListener('toggle', () => rememberOpen(name, box.open));
+  return box;
+}
+
+/** 접힌 줄에 쓸 요약. 켜진 개수처럼 '열어 볼 가치가 있는지' 알려 주는 값을 씁니다. */
+function countNow(on, total) {
+  return t('cz.nowCount', on, total);
 }
 
 function renderCustomize() {
@@ -5868,12 +6838,16 @@ function renderCustomize() {
     if (window.confirm(t('cz.resetConfirm'))) resetPrefs();
   });
 
+  const shownTabs = prefs.tabOrder.length - prefs.tabHidden.length;
+  const cardCount = $$('[data-card]').length;
+
   host.replaceChildren(
-    section('cz.skin.title', 'cz.skin.hint', renderSkins(prefs)),
-    section('cz.accent.title', 'cz.accent.hint', renderAccents(prefs)),
-    section('cz.tabs.title', 'cz.tabs.hint', renderTabOrder(prefs)),
-    section('cz.widgets.title', 'cz.widgets.hint', renderWidgets(prefs)),
-    section('cz.cards.title', 'cz.cards.hint', renderCards(prefs)),
+    section('skin', 'cz.skin.title', 'cz.skin.hint', t(`cz.skin.${prefs.skin}`), renderSkins(prefs)),
+    section('base', 'cz.base.title', 'cz.base.hint', t(`cz.base.${prefs.base}`), renderBases(prefs)),
+    section('accent', 'cz.accent.title', 'cz.accent.hint', t(`cz.accent.${prefs.accent}`), renderAccents(prefs)),
+    section('tabs', 'cz.tabs.title', 'cz.tabs.hint', countNow(shownTabs, prefs.tabOrder.length), renderTabOrder(prefs)),
+    section('widgets', 'cz.widgets.title', 'cz.widgets.hint', countNow(prefs.widgets.length, ALL_WIDGETS.length), renderWidgets(prefs)),
+    section('cards', 'cz.cards.title', 'cz.cards.hint', t('cz.nowCards', cardCount), renderCards(prefs)),
     el('div', { class: 'row', style: 'margin-top:14px' }, reset),
   );
 }

@@ -15,6 +15,17 @@ const PREFS_KEY = 'ui.prefs';
 /** 고를 수 있는 스킨. CSS 의 :root[data-skin="..."] 와 짝이 맞아야 합니다. */
 export const SKINS = ['default', 'refined', 'cute', 'future', 'retro', 'nature'];
 
+/**
+ * 고를 수 있는 바탕색. CSS 의 :root[data-base="..."] 와 짝이 맞아야 합니다.
+ * 'default' 는 속성을 아예 달지 않아, 스킨이 정한 바탕을 그대로 씁니다.
+ *
+ * 스킨과 축이 다릅니다.
+ *   스킨   : 모서리/그림자/글꼴 같은 '분위기'
+ *   바탕색 : 배경과 카드 색 계열
+ * 그래서 '귀여운 모양 + 회색 바탕' 처럼 섞어 쓸 수 있습니다.
+ */
+export const BASES = ['default', 'gray', 'warm', 'cool', 'mono', 'rose', 'mint'];
+
 /** 고를 수 있는 강조색. CSS 의 :root[data-accent="..."] 와 짝이 맞아야 합니다. */
 export const ACCENTS = [
   'blue', 'violet', 'teal', 'green', 'amber', 'rose', 'slate', 'pink',
@@ -51,6 +62,7 @@ export const CARD_DEFAULTS = Object.freeze({
 
 export const DEFAULTS = Object.freeze({
   skin: 'default',
+  base: 'default',
   accent: 'blue',
   tabOrder: ALL_TABS.slice(),
   tabHidden: [],
@@ -114,6 +126,7 @@ export function getPrefs() {
   const raw = load(PREFS_KEY, null) || {};
   return {
     skin: SKINS.includes(raw.skin) ? raw.skin : DEFAULTS.skin,
+    base: BASES.includes(raw.base) ? raw.base : DEFAULTS.base,
     accent: ACCENTS.includes(raw.accent) ? raw.accent : DEFAULTS.accent,
     tabOrder: normalizeOrder(raw.tabOrder, ALL_TABS),
     tabHidden: normalizeHidden(raw.tabHidden),
@@ -140,6 +153,7 @@ export function setPrefs(patch) {
   const next = { ...getPrefs(), ...patch };
   save(PREFS_KEY, {
     skin: next.skin,
+    base: next.base,
     accent: next.accent,
     tabOrder: next.tabOrder,
     tabHidden: next.tabHidden,

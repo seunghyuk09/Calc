@@ -7,8 +7,9 @@
  */
 import { $, $$, el } from '../lib/dom.js';
 import { t, onLangChange } from '../lib/i18n.js';
+import { load, save } from '../lib/store.js';
 import {
-  SKINS, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
+  SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
   getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem,
 } from '../lib/prefs.js';
 
@@ -34,6 +35,8 @@ export function applySkinAccent(prefs = getPrefs()) {
   const root = document.documentElement;
   if (prefs.skin && prefs.skin !== 'default') root.setAttribute('data-skin', prefs.skin);
   else root.removeAttribute('data-skin');
+  if (prefs.base && prefs.base !== 'default') root.setAttribute('data-base', prefs.base);
+  else root.removeAttribute('data-base');
   if (prefs.accent && prefs.accent !== 'blue') root.setAttribute('data-accent', prefs.accent);
   else root.removeAttribute('data-accent');
   syncThemeColor();
@@ -112,6 +115,20 @@ function renderSkins(prefs) {
     const btn = optionButton(t(`cz.skin.${name}`), prefs.skin === name,
       () => setPrefs({ skin: name }), { dataset: { skinOpt: name } });
     btn.prepend(el('span', { class: `cz-skin-chip cz-skin-${name}`, 'aria-hidden': 'true' }));
+    return btn;
+  }));
+}
+
+function renderBases(prefs) {
+  return el('div', { class: 'cz-opts' }, ...BASES.map((name) => {
+    const btn = optionButton('', prefs.base === name, () => setPrefs({ base: name }), {
+      class: `cz-swatch cz-swatch-base${prefs.base === name ? ' is-on' : ''}`,
+      dataset: { baseOpt: name },
+      title: t(`cz.base.${name}`),
+      'aria-label': t(`cz.base.${name}`),
+    });
+    // 배경과 카드 두 색을 함께 보여 줘야 고르기 전에 분위기를 알 수 있습니다.
+    btn.append(el('span', { class: `cz-base-chip cz-base-${name}`, 'aria-hidden': 'true' }));
     return btn;
   }));
 }
@@ -234,11 +251,41 @@ function renderCards(prefs) {
   )));
 }
 
-function section(titleKey, hintKey, body) {
-  return el('section', { class: 'cz-section' },
-    el('h3', { class: 'card-title' }, t(titleKey)),
+/* ---------- 접었다 펴는 구역 ----------
+ * 예전에는 다섯 구역이 전부 펼쳐져 있어서, 카드 크기를 고치려면 한참 내려야 했습니다.
+ * 기본은 전부 접고, 접힌 줄에 '지금 값'을 같이 써서 열지 않고도 알 수 있게 합니다.
+ *
+ * 펼친 상태를 기억해야 합니다. 색을 하나 고를 때마다 이 화면을 다시 그리는데,
+ * 기억하지 않으면 고를 때마다 구역이 닫혀 버립니다.
+ */
+const OPEN_KEY = 'ui.czOpen';
+let openSections = new Set(Array.isArray(load(OPEN_KEY, null)) ? load(OPEN_KEY, []) : []);
+
+function rememberOpen(name, open) {
+  if (open) openSections.add(name); else openSections.delete(name);
+  save(OPEN_KEY, [...openSections]);
+}
+
+/**
+ * @param {string} name   저장용 식별자 (화면 글자는 언어에 따라 바뀌므로 쓰면 안 됩니다)
+ * @param {string} now    접힌 줄에 같이 보여 줄 현재 값. 없으면 생략합니다.
+ */
+function section(name, titleKey, hintKey, now, body) {
+  const box = el('details', { class: 'cz-section', dataset: { section: name } },
+    el('summary', { class: 'cz-summary' },
+      el('span', { class: 'cz-summary-title' }, t(titleKey)),
+      now ? el('span', { class: 'cz-summary-now' }, now) : '',
+      el('span', { class: 'cz-summary-mark', 'aria-hidden': 'true' }, '⌄')),
     hintKey ? el('p', { class: 'card-sub cz-hint' }, t(hintKey)) : '',
     body);
+  box.open = openSections.has(name);
+  box.addEventListener('toggle', () => rememberOpen(name, box.open));
+  return box;
+}
+
+/** 접힌 줄에 쓸 요약. 켜진 개수처럼 '열어 볼 가치가 있는지' 알려 주는 값을 씁니다. */
+function countNow(on, total) {
+  return t('cz.nowCount', on, total);
 }
 
 function renderCustomize() {
@@ -254,12 +301,16 @@ function renderCustomize() {
     if (window.confirm(t('cz.resetConfirm'))) resetPrefs();
   });
 
+  const shownTabs = prefs.tabOrder.length - prefs.tabHidden.length;
+  const cardCount = $$('[data-card]').length;
+
   host.replaceChildren(
-    section('cz.skin.title', 'cz.skin.hint', renderSkins(prefs)),
-    section('cz.accent.title', 'cz.accent.hint', renderAccents(prefs)),
-    section('cz.tabs.title', 'cz.tabs.hint', renderTabOrder(prefs)),
-    section('cz.widgets.title', 'cz.widgets.hint', renderWidgets(prefs)),
-    section('cz.cards.title', 'cz.cards.hint', renderCards(prefs)),
+    section('skin', 'cz.skin.title', 'cz.skin.hint', t(`cz.skin.${prefs.skin}`), renderSkins(prefs)),
+    section('base', 'cz.base.title', 'cz.base.hint', t(`cz.base.${prefs.base}`), renderBases(prefs)),
+    section('accent', 'cz.accent.title', 'cz.accent.hint', t(`cz.accent.${prefs.accent}`), renderAccents(prefs)),
+    section('tabs', 'cz.tabs.title', 'cz.tabs.hint', countNow(shownTabs, prefs.tabOrder.length), renderTabOrder(prefs)),
+    section('widgets', 'cz.widgets.title', 'cz.widgets.hint', countNow(prefs.widgets.length, ALL_WIDGETS.length), renderWidgets(prefs)),
+    section('cards', 'cz.cards.title', 'cz.cards.hint', t('cz.nowCards', cardCount), renderCards(prefs)),
     el('div', { class: 'row', style: 'margin-top:14px' }, reset),
   );
 }
