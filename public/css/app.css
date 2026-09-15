@@ -1175,3 +1175,9 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cal-detail-emoji { flex: none; font-size: 15px; }
 .cal-detail-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-note { margin: 10px 0 0; }
+
+/* ---------- 앱 업데이트 ---------- */
+.upd-msg { margin: 0; font-size: 13px; color: var(--text-dim); }
+.upd-msg.is-error { color: var(--danger); }
+.upd-msg[data-state="latest"] { color: var(--success); }
+.upd-msg[data-state="ready"] { color: var(--accent); font-weight: 600; }

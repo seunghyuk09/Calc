@@ -940,6 +940,100 @@ const main = async () => {
     overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
 
+  // ---------- 10-a. 앱 업데이트 ----------
+  console.log('\n▶ 앱 업데이트');
+  await goTab(page, 'settings');
+  await page.waitForSelector('#update-body');
+  check('업데이트 카드가 그려짐', (await page.locator('#update-action').count()) === 1);
+  check('현재 버전 표시', ((await page.textContent('#update-body')) || '').includes('dev'),
+    (await page.textContent('#update-body'))?.slice(0, 60));
+
+  if (IS_FILE) {
+    // 단일 파일은 서비스 워커를 쓸 수 없으므로 '확인할 수 없음' 이라고 정확히 말해야 합니다.
+    await page.click('#update-action');
+    await page.waitForTimeout(300);
+    check('단일 파일에서는 확인 불가라고 안내',
+      (await page.getAttribute('#update-msg', 'data-state')) === 'none',
+      await page.getAttribute('#update-msg', 'data-state'));
+  } else {
+    await page.click('#update-action');
+    // 서비스 워커에 물어보는 동안 '확인 중' 을 거쳐 결론이 나야 합니다.
+    await page.waitForFunction(
+      () => ['latest', 'ready', 'error', 'none'].includes(
+        document.querySelector('#update-msg')?.dataset.state),
+      null, { timeout: 15000 },
+    );
+    const updState = await page.getAttribute('#update-msg', 'data-state');
+    // sw.js 가 그대로이므로 새 버전은 없습니다. 있다고 나오면 잘못 판정한 것입니다.
+    check('바뀐 것이 없으면 최신이라고 답함', updState === 'latest',
+      `상태: ${updState} / ${await page.textContent('#update-msg')}`);
+    check('업데이트 버튼이 다시 눌리는 상태로 돌아옴',
+      (await page.isDisabled('#update-action')) === false);
+  }
+
+  /*
+   * 앱(안드로이드) 경로는 실기가 없어도 검증할 수 있습니다.
+   * Capacitor 전역을 심어 네이티브로 인식시키고, version.js 를 찍힌 것처럼 바꿔 치고,
+   * GitHub 릴리스 응답을 흉내 냅니다. 이렇게 하지 않으면 이 경로는 한 번도 안 돌아 봅니다.
+   */
+  if (!IS_FILE) {
+    console.log('\n▶ 앱 업데이트 (네이티브 모의)');
+    const SHA_OLD = '1'.repeat(40);
+    const SHA_NEW = '2'.repeat(40);
+
+    const nativeCheck = async (releaseSha, label, expect) => {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => {
+        window.Capacitor = { isNativePlatform: () => true };
+      });
+      // 설치된 빌드의 커밋을 SHA_OLD 로 고정합니다.
+      await ctx.route('**/js/lib/version.js', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: `export const BUILD = Object.freeze({ commit: '${'1'.repeat(40)}', builtAt: '2026-01-01T00:00:00.000Z' });
+export function shortVersion() { return BUILD.commit.slice(0, 7); }
+export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
+      }));
+      await ctx.route('**/api.github.com/**', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ target_commitish: releaseSha }),
+      }));
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await goTab(np, 'settings');
+      await np.waitForSelector('#update-action');
+      const note = (await np.textContent('#update-body')) || '';
+      await np.click('#update-action');
+      await np.waitForFunction(
+        () => ['latest', 'ready', 'error', 'none'].includes(
+          document.querySelector('#update-msg')?.dataset.state),
+        null, { timeout: 15000 },
+      );
+      const got = await np.getAttribute('#update-msg', 'data-state');
+      const btn = (await np.textContent('#update-action')) || '';
+      await ctx.close();
+      return { got, btn, note };
+    };
+
+    const same = await nativeCheck(SHA_OLD, '같은 커밋');
+    check('앱: 릴리스가 같은 커밋이면 최신이라고 답함', same.got === 'latest', `상태: ${same.got}`);
+    check('앱: 자동 설치가 안 된다는 안내가 항상 보임',
+      same.note.includes('자동으로 설치되지 않습니다') || same.note.includes('cannot install itself'),
+      same.note.slice(-70));
+
+    const newer = await nativeCheck(SHA_NEW, '다른 커밋');
+    check('앱: 릴리스가 다른 커밋이면 새 버전이 있다고 답함', newer.got === 'ready',
+      `상태: ${newer.got}`);
+    // 앱에서는 '적용' 이 아니라 '내려받기' 여야 합니다. 앱은 스스로 설치할 수 없습니다.
+    check('앱: 버튼이 내려받기로 바뀜',
+      newer.btn.includes('내려받기') || newer.btn.includes('Download'), newer.btn);
+  }
+
   // ---------- 10-b. 메뉴 사이드바 ----------
   console.log('\n▶ 메뉴 사이드바');
   const barHidden = () => page.locator('#sidebar').isHidden();

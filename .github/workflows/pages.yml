@@ -30,8 +30,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: 단위 테스트 (계산 엔진 · 기간 · 다국어 · 오늘 탭)
-        run: node --test tests/calc-engine.test.mjs tests/period.test.mjs tests/i18n.test.mjs
+      # package.json 의 test:unit 을 그대로 씁니다.
+      # 파일 목록을 여기에 또 적으면 테스트를 추가할 때마다 어긋납니다.
+      # 실제로 today/prefs/calendar 테스트가 CI 에서 빠진 채로 돌고 있었습니다.
+      - name: 단위 테스트
+        run: npm run test:unit
 
       - name: 정적 파일 무결성 검사
         run: node scripts/verify-assets.mjs
@@ -80,10 +83,10 @@ jobs:
         run: npx playwright install-deps chromium
 
       # 테스트가 자체 정적 서버를 띄우므로 별도로 서버를 실행할 필요가 없습니다.
-      - name: E2E — 웹 서버 모드 (145종)
+      - name: E2E — 웹 서버 모드
         run: npm run test:e2e
 
-      - name: E2E — 단일 파일 file:// 모드 (145종)
+      - name: E2E — 단일 파일 file:// 모드
         run: npm run test:standalone
 
       # 실패했을 때 무엇이 어떻게 보였는지 확인할 수 있도록 스크린샷을 남깁니다.
@@ -109,6 +112,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # 앱이 '내가 어느 커밋에서 나왔는지' 알아야 업데이트 확인을 할 수 있습니다.
+      - name: 빌드 커밋 찍기
+        run: node scripts/stamp-build.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

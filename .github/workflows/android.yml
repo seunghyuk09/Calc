@@ -65,6 +65,11 @@ jobs:
       - name: 의존성 설치
         run: npm ci
 
+      # APK 안의 웹 자산은 서비스 워커로 못 고칩니다.
+      # 앱이 자기 버전을 알아야 GitHub 릴리스와 비교해 새 APK 를 안내할 수 있습니다.
+      - name: 빌드 커밋 찍기
+        run: node scripts/stamp-build.mjs
+
       # public/ 의 웹 자산을 안드로이드 프로젝트로 복사합니다.
       - name: 웹 자산 동기화
         run: npx cap sync android
