@@ -178,8 +178,28 @@ const main = async () => {
   await page.click('.tab[data-tab="todo"]');
   await page.waitForSelector('#scope-tabs', { timeout: 5000 });
 
-  // 기본 언어는 한국어
+  // 언어 전환은 설정 탭에 있으므로, 거기서 바꾸고 TO DO 로 돌아옵니다.
+  const setLanguage = async (lang) => {
+    await page.click('.tab[data-tab="settings"]');
+    await page.waitForSelector('#lang-switch', { timeout: 5000 });
+    await page.click(`.lang-btn[data-lang="${lang}"]`);
+    await page.waitForTimeout(150);
+    await page.click('.tab[data-tab="todo"]');
+    await page.waitForTimeout(150);
+  };
+
+
+  // 언어 전환은 설정 탭에 있습니다 (TO DO 카드에는 없어야 함)
+  check('TO DO 카드에는 언어 버튼이 없음',
+    (await page.locator('#panel-todo .lang-switch').count()) === 0);
+  await page.click('.tab[data-tab="settings"]');
+  await page.waitForTimeout(150);
+  check('설정 탭에 언어 전환이 있음', (await page.locator('#panel-settings #lang-switch').count()) === 1);
   check('기본 언어 한국어', (await page.getAttribute('.lang-btn[data-lang="ko"]', 'aria-pressed')) === 'true');
+  const langBox = await page.locator('.lang-btn[data-lang="ko"]').boundingBox();
+  check('언어 버튼이 충분히 큼 (최소 높이 36px)', langBox.height >= 36, `실제 ${Math.round(langBox.height)}px`);
+  await page.click('.tab[data-tab="todo"]');
+  await page.waitForTimeout(150);
   check('한국어 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간',
     await page.textContent('.scope-tab[data-scope="day"]'));
   check('한국어 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === '추가');
@@ -188,8 +208,7 @@ const main = async () => {
     await page.textContent('#period-label'));
 
   // 영어로 전환
-  await page.click('.lang-btn[data-lang="en"]');
-  await page.waitForTimeout(200);
+  await setLanguage('en');
   check('영어 전환 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
   check('영어 전환 — 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === 'Add');
   check('영어 전환 — 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === 'Add a plan and press Enter');
@@ -217,15 +236,16 @@ const main = async () => {
   check('이월 버튼에 설명 title', (await page.getAttribute('#todo-carry', 'title')).includes('previous period'),
     await page.getAttribute('#todo-carry', 'title'));
 
-  // 한국어로 되돌리기 (역방향 전환이 검증된 적 없었음)
-  await page.click('.lang-btn[data-lang="ko"]');
-  await page.waitForTimeout(200);
+  // 한국어로 되돌리기 (역방향 전환)
+  await setLanguage('ko');
   check('한국어 복귀 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간');
   check('한국어 복귀 — 패널 lang', (await page.getAttribute('#panel-todo', 'lang')) === 'ko');
+  await page.click('.tab[data-tab="settings"]');
+  await page.waitForTimeout(150);
   check('한국어 복귀 — 이전 버튼 눌림 해제',
     (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'false');
-  await page.click('.lang-btn[data-lang="en"]');
-  await page.waitForTimeout(200);
+  await page.click('.tab[data-tab="todo"]');
+  await setLanguage('en');
 
   check('기본 단위는 Day', (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
   const dayLabel = await page.textContent('#period-label');
@@ -251,14 +271,12 @@ const main = async () => {
     (await page.getAttribute('#todo-list .todo-item input', 'aria-label')) === 'Mark as done');
   check('동적 요소 — 영어 삭제 버튼 이름',
     (await page.getAttribute('#todo-list .todo-item button', 'aria-label')) === 'Delete');
-  await page.click('.lang-btn[data-lang="ko"]');
-  await page.waitForTimeout(200);
+  await setLanguage('ko');
   check('동적 요소 — 한국어 체크박스 이름',
     (await page.getAttribute('#todo-list .todo-item input', 'aria-label')) === '완료 표시');
   check('동적 요소 — 한국어 삭제 버튼 이름',
     (await page.getAttribute('#todo-list .todo-item button', 'aria-label')) === '삭제');
-  await page.click('.lang-btn[data-lang="en"]');
-  await page.waitForTimeout(200);
+  await setLanguage('en');
 
   await page.click('.chip[data-filter="active"]');
   check('Active 필터', (await page.locator('#todo-list .todo-item').count()) === 1);
@@ -497,8 +515,13 @@ const main = async () => {
     (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
   check('새로고침 후 Day 계획 유지', (await page.locator('#todo-list .todo-item').count()) === 1);
   check('새로고침 후 선택한 언어(영어) 유지',
-    (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'true'
-    && (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
+    (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day',
+    await page.textContent('.scope-tab[data-scope="day"]'));
+  await page.click('.tab[data-tab="settings"]');
+  await page.waitForTimeout(150);
+  check('새로고침 후 설정 탭 버튼 상태도 복원',
+    (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'true');
+  await page.click('.tab[data-tab="todo"]');
   await page.click('.tab[data-tab="memo"]');
   await page.waitForTimeout(400);
   check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);

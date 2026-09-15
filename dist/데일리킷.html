@@ -534,7 +534,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 /* ---------- 언어 전환 (TO DO 기능) ---------- */
 .lang-switch {
   display: flex;
-  gap: 2px;
+  gap: 3px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -546,11 +546,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   background: transparent;
   /* --text-faint 는 이 배경에서 대비가 2.72:1 로 WCAG AA(4.5:1) 에 못 미칩니다 */
   color: var(--text-dim);
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 8px 18px;
   border-radius: 999px;
   white-space: nowrap;
+  min-height: 36px;
   transition: background .15s, color .15s;
 }
 /* 선택 상태를 색뿐 아니라 테두리로도 드러냅니다 */
@@ -662,11 +663,6 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
-          <!-- 이 기능의 표시 언어 -->
-          <div class="lang-switch" id="lang-switch" role="group" data-i18n-aria="todo.lang.label">
-            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
-            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
-          </div>
         </div>
 
         <!-- 계획 단위: 일 / 주 / 월 / 연 -->
@@ -889,6 +885,14 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
             <option value="dark">다크</option>
           </select>
         </div>
+        <div class="row" style="margin-bottom:14px">
+          <span class="card-sub grow">TO DO 표시 언어</span>
+          <div class="lang-switch" id="lang-switch" role="group" aria-label="TO DO 표시 언어">
+            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
+            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
+          </div>
+        </div>
+        <p class="card-sub" style="margin:-6px 0 14px">TO DO 탭의 버튼과 날짜 표기 언어입니다. 입력한 계획 내용은 바뀌지 않습니다.</p>
         <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
         <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
         <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>
@@ -1948,7 +1952,6 @@ const DICT = {
     'todo.toast.carried': (n) => `미완료 ${n}건을 이 기간으로 옮겼습니다`,
     'todo.toast.nothingToClear': '이 기간에 완료된 항목이 없습니다',
     'todo.toast.cleared': (n) => `완료 항목 ${n}건을 삭제했습니다`,
-    'todo.lang.label': '언어',
   },
   en: {
     'todo.title': 'Planner',
@@ -1977,7 +1980,6 @@ const DICT = {
     'todo.toast.carried': (n) => `Moved ${n} unfinished item${n === 1 ? '' : 's'} here`,
     'todo.toast.nothingToClear': 'No completed items in this period',
     'todo.toast.cleared': (n) => `Cleared ${n} completed item${n === 1 ? '' : 's'}`,
-    'todo.lang.label': 'Language',
   },
 };
 
@@ -2054,7 +2056,7 @@ const __m_js_modules_todo_js = (function () {
   const { $, el, toast, uid } = __m_js_lib_dom_js;
   const { load, save } = __m_js_lib_store_js;
   const { keyOf, shift, label, isCurrent, SCOPES } = __m_js_lib_period_js;
-  const { t, getLang, setLang, onLangChange, applyStatic, LANGS } = __m_js_lib_i18n_js;
+  const { t, getLang, onLangChange, applyStatic } = __m_js_lib_i18n_js;
 /**
  * TO DO (계획표) 모듈
  * 일(day) · 주(week) · 월(month) · 연(year) 단위로 계획을 나눠 관리합니다.
@@ -2216,13 +2218,6 @@ function applyPanelLang() {
   $('#panel-todo').setAttribute('lang', getLang());
 }
 
-/** 언어 전환 버튼의 눌림 상태를 현재 언어에 맞춥니다. */
-function renderLangSwitch() {
-  document.querySelectorAll('.lang-btn').forEach((b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
-  });
-}
-
 function initTodo() {
   items = migrate(load(KEY, []));
 
@@ -2239,20 +2234,14 @@ function initTodo() {
     b.setAttribute('aria-selected', String(b.dataset.scope === scope));
   });
 
-  // 언어 전환: 정적 문구와 목록을 모두 다시 그립니다.
-  $('#lang-switch').addEventListener('click', (e) => {
-    const btn = e.target.closest('.lang-btn');
-    if (btn && LANGS.includes(btn.dataset.lang)) setLang(btn.dataset.lang);
-  });
+  // 언어는 설정 탭에서 바꿉니다. 여기서는 바뀐 결과만 받아 다시 그립니다.
   onLangChange(() => {
     applyStatic($('#panel-todo'));
     applyPanelLang();
-    renderLangSwitch();
     render();
   });
   applyStatic($('#panel-todo'));
   applyPanelLang();
-  renderLangSwitch();
 
   $('#scope-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.scope-tab');
@@ -3349,7 +3338,9 @@ const __m_js_modules_settings_js = (function () {
   saveSecret, loadSecret, removeSecret, isSharedStorage } = __m_js_lib_store_js;
   const { BANNER_KEY, parseBannerText, saveBanner } = __m_js_modules_banner_js;
   const { APIKEY_KEY, MODEL_KEY, refreshAiMode } = __m_js_modules_ai_js;
+  const { getLang, setLang, onLangChange, LANGS } = __m_js_lib_i18n_js;
 /** 설정 모듈: 테마, 배너 편집, API 키 관리, 데이터 백업/복원/초기화 */
+
 
 
 
@@ -3395,7 +3386,23 @@ function downloadJson(filename, data) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** 언어 전환 버튼의 눌림 상태를 현재 언어에 맞춥니다. */
+function renderLangSwitch() {
+  document.querySelectorAll('.lang-btn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
+  });
+}
+
 function initSettings() {
+  // --- TO DO 표시 언어 ---
+  // 컨트롤은 여기 있고, 실제 화면 갱신은 TO DO 모듈이 onLangChange 로 받아 처리합니다.
+  $('#lang-switch').addEventListener('click', (e) => {
+    const btn = e.target.closest('.lang-btn');
+    if (btn && LANGS.includes(btn.dataset.lang)) setLang(btn.dataset.lang);
+  });
+  onLangChange(renderLangSwitch);
+  renderLangSwitch();
+
   // --- 테마 선택 ---
   const themeSelect = $('#set-theme');
   themeSelect.value = load(THEME_KEY, 'auto');

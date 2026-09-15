@@ -40,7 +40,6 @@ const DICT = {
     'todo.toast.carried': (n) => `미완료 ${n}건을 이 기간으로 옮겼습니다`,
     'todo.toast.nothingToClear': '이 기간에 완료된 항목이 없습니다',
     'todo.toast.cleared': (n) => `완료 항목 ${n}건을 삭제했습니다`,
-    'todo.lang.label': '언어',
   },
   en: {
     'todo.title': 'Planner',
@@ -69,7 +68,6 @@ const DICT = {
     'todo.toast.carried': (n) => `Moved ${n} unfinished item${n === 1 ? '' : 's'} here`,
     'todo.toast.nothingToClear': 'No completed items in this period',
     'todo.toast.cleared': (n) => `Cleared ${n} completed item${n === 1 ? '' : 's'}`,
-    'todo.lang.label': 'Language',
   },
 };
 
