@@ -36,7 +36,28 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      # android-actions/setup-android@v3 는 쓰지 않습니다.
+      # 이미 폐기된 'tools' 패키지를 설치하려다 "Failed to find package 'tools'" 로 실패합니다.
+      # ubuntu-latest 러너에는 Android SDK 가 이미 설치돼 있으므로 필요한 것만 직접 준비합니다.
+      - name: Android SDK 준비
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::sdkmanager 를 찾지 못했습니다. 러너 이미지가 바뀌었는지 확인하세요."
+            exit 1
+          fi
+          echo "sdkmanager: $SDKMANAGER"
+          # 라이선스 동의는 이 명령이 비정상 종료해도 무시합니다 (이미 동의돼 있으면 그렇습니다)
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          # 플랫폼은 필수입니다. 없으면 빌드가 진행되지 않습니다.
+          "$SDKMANAGER" "platforms;android-36" "platform-tools"
+          # build-tools 는 AGP 가 필요 시 스스로 내려받으므로 실패해도 진행합니다.
+          "$SDKMANAGER" "build-tools;36.0.0" || echo "::notice::build-tools 36.0.0 설치를 건너뜁니다 (AGP 가 처리)"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
       - name: 의존성 설치
         run: npm ci
