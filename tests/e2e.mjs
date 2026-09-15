@@ -1347,12 +1347,26 @@ export function isStamped() { return true; }`,
 
   // ---------- 10-c. TO DO 달력 ----------
   console.log('\n▶ 달력');
-  // 앞선 계획표 검사에서 만든 일간 항목들이 오늘 날짜에 들어 있습니다.
   const todayKey = await page.evaluate(() => {
     const d = new Date();
     const p2 = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
   });
+  /*
+   * 기간을 오늘로 맞추고 시작합니다.
+   *
+   * 아래 검사들은 '오늘 칸'에 이모지가 붙는지를 봅니다. 그런데 계획은 '지금 보고 있는 기간'에
+   * 들어가므로, 앞선 검사가 기간을 옮겨 두면 엉뚱한 날짜에 들어가 전부 깨집니다.
+   * 앞 검사 중에는 '오늘' 탭에서 돌아가는 목록을 눌러 revealItem 으로 기간이 바뀌는 것이 있어서,
+   * 어느 항목이 눌리느냐(=타이밍)에 따라 기간이 달라집니다. 실제로 CI 에서만 세 건이 깨졌습니다.
+   * 가정하지 말고 여기서 못박습니다.
+   */
+  await page.click('#period-today');
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.waitForTimeout(250);
+  check('달력 검사 시작 전 기간이 오늘',
+    await page.evaluate(() => document.querySelector('#period-label').classList.contains('is-current')),
+    await page.textContent('#period-label'));
   check('달력이 그려짐', (await page.locator('#cal-grid .cal-day').count()) >= 28,
     `${await page.locator('#cal-grid .cal-day').count()}칸`);
   check('요일 머리글 7개', (await page.locator('#cal-grid .cal-wd').count()) === 7);
