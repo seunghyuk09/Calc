@@ -471,55 +471,135 @@ const main = async () => {
   check('날씨 카드 클릭 -> 날씨 탭으로 이동',
     (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true');
 
-  // ---------- 3-c. 좌우 스와이프로 탭 이동 ----------
-  console.log('\n▶ 스와이프');
+  // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
+  console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
 
-  /** 요소 위에서 가로로 끌어 스와이프를 흉내냅니다. */
-  const swipe = async (selector, dx) => {
-    const box = await page.locator(selector).boundingBox();
-    if (!box) throw new Error(`${selector} 의 위치를 찾지 못했습니다`);
-    const y = box.y + box.height / 2;
-    const startX = dx < 0 ? box.x + box.width * 0.8 : box.x + box.width * 0.2;
-    await page.mouse.move(startX, y);
-    await page.mouse.down();
-    await page.mouse.move(startX + dx, y, { steps: 12 });
-    await page.mouse.up();
-    await page.waitForTimeout(200);
+  // 스와이프는 전용 컨텍스트에서 봅니다.
+  //  - 마우스 드래그로는 안 됩니다. 페이저가 브라우저의 네이티브 가로 스크롤이기 때문입니다.
+  //  - 합성 휠 이벤트도 안 됩니다. 헤드리스 Chromium 이 scroll-snap 과 함께 처리하지 못합니다.
+  //  - 터치 스크롤은 isMobile 에뮬레이션이 켜져 있어야 동작합니다.
+  const swipeCtx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: 'ko-KR', timezoneId: 'Asia/Seoul',
+    hasTouch: true, isMobile: true, deviceScaleFactor: 2,
+  });
+  await swipeCtx.route('**/api.open-meteo.com/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+  const sp = await swipeCtx.newPage();
+  const cdp = await swipeCtx.newCDPSession(sp);
+  await sp.goto(BASE, { waitUntil: 'networkidle' });
+  await sp.waitForSelector('body[data-ready="true"]');
+  await sp.waitForTimeout(400);
+
+  // 뒤로가기 제스처로 앱을 벗어나면 #main 자체가 사라집니다.
+  // 그때 예외로 죽지 않고 검사 실패로 보이도록 -1 을 돌려줍니다.
+  const pagerLeft = () => sp.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
+
+  /**
+   * 스크롤이 멈출 때까지 기다립니다.
+   * 고정 대기(900ms)로는 느린 러너에서 9장을 가로지르는 부드러운 스크롤이 끝나지 않아
+   * 애니메이션 도중 값을 읽고 검사가 흔들립니다. (CI 에서 실제로 났습니다)
+   */
+  const settlePager = async () => {
+    let prev = null;
+    for (let i = 0; i < 50; i += 1) {
+      const now = await pagerLeft();
+      if (now === prev) return now;
+      prev = now;
+      await sp.waitForTimeout(100);
+    }
+    return prev;
   };
 
-  await page.click('.tab[data-tab="today"]');
-  await page.waitForTimeout(150);
-  await swipe('.today-head', -150);
-  check('왼쪽으로 쓸면 다음 탭(계산기)',
-    (await page.getAttribute('.tab[data-tab="calc"]', 'aria-selected')) === 'true',
-    `실제 today=${await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')}`);
+  /** 화면 가운데 높이에서 가로로 dx 만큼 손가락을 끕니다. */
+  const swipe = async (dx, steps = 12) => {
+    const box = await sp.locator('#main').boundingBox();
+    const y = box.y + box.height / 2;
+    const x0 = dx < 0 ? box.x + box.width * 0.85 : box.x + box.width * 0.15;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] });
+    for (let i = 1; i <= steps; i += 1) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove', touchPoints: [{ x: x0 + (dx * i) / steps, y }],
+      });
+      await sp.waitForTimeout(12);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settlePager();          // 스냅 애니메이션이 끝날 때까지
+    await sp.waitForTimeout(250); // 탭 상태 반영(스크롤 멈춤 감지 120ms) 여유
+  };
+  const selectedTab = () => sp.evaluate(() =>
+    document.querySelector('.tab[aria-selected="true"]')?.dataset.tab ?? '(앱 이탈)');
 
-  await swipe('#panel-calc .calc-display', 150);
-  check('오른쪽으로 쓸면 이전 탭(오늘)',
-    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+  const W = await sp.evaluate(() => document.querySelector('#main').clientWidth);
+  check('첫 화면은 페이저 첫 장', (await pagerLeft()) === 0 && (await selectedTab()) === 'today',
+    `scrollLeft=${await pagerLeft()} tab=${await selectedTab()}`);
 
-  // 첫 탭에서 더 오른쪽으로 쓸어도 끝으로 순환하지 않아야 합니다.
-  await swipe('.today-head', 150);
-  check('첫 탭에서 오른쪽으로 쓸어도 그대로',
-    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+  await swipe(-W * 0.7);
+  check('왼쪽으로 쓸면 화면이 한 장 밀림', Math.round(await pagerLeft()) === W,
+    `기대 ${W}, 실제 ${await pagerLeft()}`);
+  check('밀린 뒤 탭도 따라옴 (계산기)', (await selectedTab()) === 'calc', `실제 ${await selectedTab()}`);
 
-  // 세로로 크게 움직이면 스크롤로 보고 탭을 바꾸지 않아야 합니다.
-  const headBox = await page.locator('.today-head').boundingBox();
-  await page.mouse.move(headBox.x + headBox.width / 2, headBox.y + headBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(headBox.x + headBox.width / 2 - 70, headBox.y + 200, { steps: 12 });
-  await page.mouse.up();
-  await page.waitForTimeout(200);
-  check('세로가 큰 제스처는 탭을 바꾸지 않음',
-    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+  await swipe(-W * 0.7);
+  check('한 번 더 쓸면 두 장째 (날씨)',
+    Math.round(await pagerLeft()) === W * 2 && (await selectedTab()) === 'weather',
+    `scrollLeft=${await pagerLeft()} tab=${await selectedTab()}`);
 
-  // 낙서판 위에서는 스와이프가 먹으면 안 됩니다 (그림이 끊깁니다).
-  await page.click('.tab[data-tab="memo"]');
-  await page.waitForTimeout(150);
-  await swipe('#draw-canvas', -150);
-  check('낙서판 위 스와이프는 탭을 바꾸지 않음',
-    (await page.getAttribute('.tab[data-tab="memo"]', 'aria-selected')) === 'true',
-    `실제 memo=${await page.getAttribute('.tab[data-tab="memo"]', 'aria-selected')}`);
+  await swipe(W * 0.7);
+  check('오른쪽으로 쓸면 되돌아옴 (계산기)',
+    Math.round(await pagerLeft()) === W && (await selectedTab()) === 'calc',
+    `scrollLeft=${await pagerLeft()} tab=${await selectedTab()}`);
+
+  // 첫 장에서 더 오른쪽으로 쓸어도 끝으로 순환하지 않아야 합니다.
+  // 그리고 무엇보다 앱을 벗어나면 안 됩니다.
+  // 브라우저는 가로 페이저의 끝에서 바깥으로 끄는 제스처를 '뒤로가기'로 받아들입니다.
+  // (히스토리가 없으면 about:blank 로 나가버립니다. overscroll-behavior 로는 막히지 않습니다)
+  const urlBeforeEdge = sp.url();
+  await swipe(W * 0.7);
+  await swipe(W * 0.7);
+  check('첫 장에서 더 쓸어도 앱을 벗어나지 않음 (뒤로가기 제스처 차단)',
+    sp.url() === urlBeforeEdge, `${urlBeforeEdge} -> ${sp.url()}`);
+  check('첫 장에서 더 쓸어도 제자리',
+    (await pagerLeft()) === 0 && (await selectedTab()) === 'today',
+    `scrollLeft=${await pagerLeft()} tab=${await selectedTab()}`);
+
+  // 마지막 장에서 왼쪽으로 쓸 때도 같습니다.
+  await sp.click('.tab[data-tab="settings"]');
+  const lastLeft = await settlePager();
+  const urlBeforeLastEdge = sp.url();
+  await swipe(-W * 0.7);
+  // 픽셀이 아니라 '몇 번째 장인가'로 봅니다. 스냅 위치가 1~2px 어긋나도 의미는 같습니다.
+  const lastIndex = Math.round(lastLeft / W);
+  check('마지막 장에서 더 쓸어도 제자리이고 앱을 벗어나지 않음',
+    Math.round((await pagerLeft()) / W) === lastIndex && sp.url() === urlBeforeLastEdge,
+    `${lastIndex}번째 장 유지 여부: scrollLeft ${lastLeft} -> ${await pagerLeft()}, url ${sp.url().slice(-20)}`);
+
+  // 탭 버튼으로도 같은 자리로 가야 합니다.
+  await sp.click('.tab[data-tab="today"]');
+  await settlePager();
+  await sp.click('.tab[data-tab="settings"]');
+  const settingsLeft = await settlePager();
+  check('탭 버튼을 누르면 그 장으로 스크롤', Math.round(settingsLeft / W) === 9,
+    `기대 9번째 장(${W * 9}), 실제 ${settingsLeft}`);
+
+  // 낙서판 위에서는 페이저가 움직이면 안 됩니다 (그림이 끊깁니다).
+  await sp.click('.tab[data-tab="memo"]');
+  const memoLeft = await settlePager();
+  const cBox = await sp.locator('#draw-canvas').boundingBox();
+  const cy = cBox.y + cBox.height / 2;
+  const cx = cBox.x + cBox.width * 0.85;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy }] });
+  for (let i = 1; i <= 12; i += 1) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x: cx - (cBox.width * 0.7 * i) / 12, y: cy }],
+    });
+    await sp.waitForTimeout(12);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await settlePager();
+  check('낙서판 위 스와이프는 페이지를 넘기지 않음 (touch-action: none)',
+    (await pagerLeft()) === memoLeft, `${memoLeft} -> ${await pagerLeft()}`);
+
+  await swipeCtx.close();
 
   // ---------- 4. 시계 · 타이머 ----------
   console.log('\n▶ 시계 · 타이머');
@@ -739,17 +819,15 @@ const main = async () => {
   // 모바일에서 가로 스크롤이 생기지 않아야 함.
   // 탭 하나만 보면 놓칩니다. 실제로 '오늘' 탭의 긴 할 일 제목이 그리드 칼럼을 밀어
   // 화면 전체에 가로 스크롤을 만든 적이 있는데, 계산기 탭만 보던 검사는 통과했습니다.
-  const TABS_TO_CHECK = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
-  const overflowing = [];
-  for (const tab of TABS_TO_CHECK) {
-    await mobile.click(`.tab[data-tab="${tab}"]`);
-    await mobile.waitForTimeout(150);
-    const over = await mobile.evaluate(() =>
-      document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    if (over > 1) overflowing.push(`${tab}(+${over}px)`);
-  }
-  check('모바일(390px) 모든 탭에서 가로 스크롤 없음', overflowing.length === 0,
-    overflowing.length ? `넘친 탭: ${overflowing.join(', ')}` : '전부 정상');
+  // 본문이 가로 페이저가 된 뒤로 document 의 scrollWidth 는 페이저 전체 폭을 담습니다.
+  // 그래서 문서가 아니라 '패널 하나하나가 제 폭을 넘기는지'를 봅니다.
+  // 원래 잡으려던 문제(긴 할 일 제목이 그리드 칼럼을 벌리는 것)가 바로 이 형태입니다.
+  const overflowing = await mobile.evaluate(() => [...document.querySelectorAll('.panel')]
+    .map((p) => ({ id: p.id, over: p.scrollWidth - p.clientWidth }))
+    .filter((r) => r.over > 1)
+    .map((r) => `${r.id}(+${r.over}px)`));
+  check('모바일(390px) 모든 탭에서 가로 넘침 없음', overflowing.length === 0,
+    overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
 
   // ---------- 12. 콘솔 에러 ----------

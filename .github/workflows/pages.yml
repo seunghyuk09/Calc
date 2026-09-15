@@ -80,10 +80,10 @@ jobs:
         run: npx playwright install-deps chromium
 
       # 테스트가 자체 정적 서버를 띄우므로 별도로 서버를 실행할 필요가 없습니다.
-      - name: E2E — 웹 서버 모드 (131종)
+      - name: E2E — 웹 서버 모드 (136종)
         run: npm run test:e2e
 
-      - name: E2E — 단일 파일 file:// 모드 (131종)
+      - name: E2E — 단일 파일 file:// 모드 (136종)
         run: npm run test:standalone
 
       # 실패했을 때 무엇이 어떻게 보였는지 확인할 수 있도록 스크린샷을 남깁니다.
