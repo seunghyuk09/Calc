@@ -1391,9 +1391,18 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 .cal-card { padding-bottom: 10px; }
 .cal-nav { margin-top: 0; }
 
-/* 달 이름 자체가 접기 버튼입니다. 버튼을 따로 두면 이 줄이 영어에서 카드 폭을 넘깁니다. */
+/*
+ * 달 이름은 년·월 고르기 판을 여는 자리입니다.
+ *
+ * 이 줄에는 ‹ › 접기 '이번 달' 까지 다섯 개가 들어갑니다.
+ * 320px 영어('This month')에서는 한 줄에 다 들어가지 않아, 달 이름이 통째로 잘리고
+ * ▾ 만 남았습니다. 어느 달인지 안 보이면 달력의 의미가 없습니다.
+ * 그래서 이름에 최소 폭을 주고 줄을 접을 수 있게 했습니다. 모자라면 '이번 달'이 다음 줄로 갑니다.
+ */
+.cal-nav { flex-wrap: wrap; }
 .cal-label {
   display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1 1 auto; min-width: 104px;
   min-height: 36px; padding: 4px 8px;
   border: 1px solid transparent; border-radius: var(--radius-sm);
   background: none; color: inherit; font: inherit;
@@ -1404,6 +1413,48 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 .cal-label:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cal-label > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-fold-mark { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
+/* 접기는 이제 제 버튼을 씁니다. 달 이름 자리는 년·월 고르기 판을 여는 데 썼습니다. */
+.cal-fold-btn { flex: none; width: 32px; height: 32px; font-size: 12px; }
+
+/* ---------- 년·월 고르기 판 ----------
+ * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+ * 달 이름을 누르면 여기가 열리고, 연도를 누르면 달 격자가 연도 격자로 바뀝니다.
+ */
+.cal-pick {
+  margin: 8px 0 2px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.cal-pick-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.cal-pick-title {
+  flex: 1;
+  min-height: 32px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+.cal-pick-title:hover { background: var(--surface); border-color: var(--border); }
+.cal-pick-title:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.cal-pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cal-pick-cell {
+  min-height: 38px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.cal-pick-cell:hover { border-color: var(--accent); }
+.cal-pick-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 오늘이 든 달/해는 글자만 강조합니다. 고른 칸과 헷갈리면 안 됩니다. */
+.cal-pick-cell.is-now { color: var(--accent); font-weight: 700; }
+.cal-pick-cell.is-on {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700;
+}
 
 @media (max-width: 759px) {
   #panel-todo {

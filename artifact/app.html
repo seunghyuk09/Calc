@@ -145,13 +145,34 @@
           <!-- 달 이름을 누르면 접혔다 펴집니다.
                한 달치는 좁은 화면의 절반을 쓰므로, 하루치 목록을 손볼 때는 한 주만 남깁니다.
                접기 버튼을 따로 두면 영어에서 이 줄이 카드 폭을 넘겼습니다. -->
-          <button class="period-label cal-label" id="cal-fold" type="button"
-                  aria-expanded="true" aria-controls="cal-grid">
+          <!-- 달 이름을 누르면 년·월 고르기 판이 열립니다. 한 해 뒤로 가려고 ‹ 를 열두 번 누를 수는 없습니다. -->
+          <button class="period-label cal-label" id="cal-pick-open" type="button"
+                  data-i18n-aria="cal.pick.open" aria-expanded="false" aria-controls="cal-pick">
             <span id="cal-label" aria-live="polite" aria-atomic="true">—</span>
-            <span class="cal-fold-mark" id="cal-fold-mark" aria-hidden="true">⌃</span>
+            <span class="cal-fold-mark" aria-hidden="true">▾</span>
           </button>
           <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
+          <!-- 접기는 따로 뺐습니다. 달 이름이 이제 고르기 판을 여는 자리라 겸할 수 없습니다. -->
+          <button class="icon-btn cal-fold-btn" id="cal-fold" type="button"
+                  aria-expanded="true" aria-controls="cal-grid">
+            <span id="cal-fold-mark" aria-hidden="true">⌃</span>
+          </button>
           <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
+        </div>
+
+        <!--
+          년·월 고르기 판.
+          달 이름을 누르면 열립니다. 달 격자에서 연도를 누르면 연도 격자로 바뀝니다.
+          (Material 날짜 선택기와 같은 흐름입니다)
+        -->
+        <div class="cal-pick" id="cal-pick" hidden>
+          <div class="cal-pick-nav">
+            <button class="icon-btn" id="cal-pick-prev" type="button">‹</button>
+            <button class="cal-pick-title" id="cal-pick-title" type="button"
+                    aria-live="polite" aria-atomic="true">—</button>
+            <button class="icon-btn" id="cal-pick-next" type="button">›</button>
+          </div>
+          <div class="cal-pick-grid" id="cal-pick-grid" role="group"></div>
         </div>
         <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
              aria-label="월 달력"></div>

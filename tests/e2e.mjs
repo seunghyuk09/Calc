@@ -1177,6 +1177,37 @@ const main = async () => {
     check(`모바일(${w}px) 모든 탭에서 가로 넘침 없음`, over.length === 0,
       over.length ? `넘친 패널: ${over.join(', ')}` : '전부 정상');
   }
+
+  /*
+   * 넘치지 않는다고 멀쩡한 것이 아닙니다.
+   *
+   * 달력 머리줄은 ‹ › 달이름 접기 '이번 달' 다섯 개가 한 줄에 들어갑니다.
+   * 320px 영어('This month')에서 달 이름이 통째로 잘려 ▾ 만 남은 적이 있습니다.
+   * 넘침 검사는 통과합니다. 줄인 것이지 넘친 것이 아니니까요.
+   * 어느 달인지 안 보이면 달력을 쓸 수 없으므로 '글자가 온전한지'를 따로 봅니다.
+   */
+  // 언어 전환은 설정 탭에 있습니다. 바꾸고 TO DO 로 돌아옵니다.
+  const setMobileLang = async (lang) => {
+    await goTab(mobile, 'settings');
+    await mobile.waitForSelector('#lang-switch', { timeout: 5000 });
+    await mobile.click(`.lang-btn[data-lang="${lang}"]`);
+    await mobile.waitForTimeout(150);
+    await goTab(mobile, 'todo');
+    await mobile.waitForTimeout(250);
+  };
+  for (const w of [320, 360, 390]) {
+    for (const lang of ['ko', 'en']) {
+      await mobile.setViewportSize({ width: w, height: 844 });
+      await setMobileLang(lang);
+      const lab = await mobile.evaluate(() => {
+        const n = document.querySelector('#cal-label');
+        return { text: n.textContent, visible: Math.round(n.getBoundingClientRect().width), needed: n.scrollWidth };
+      });
+      check(`달 이름이 온전히 보임 (${w}px ${lang})`, lab.needed - lab.visible <= 1,
+        `"${lab.text}" 보임 ${lab.visible}px / 필요 ${lab.needed}px`);
+    }
+  }
+  await setMobileLang('ko');
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.waitForTimeout(200);
   await mobile.close();
@@ -1709,6 +1740,84 @@ export function isStamped() { return true; }`,
     `${await page.locator('#cal-grid .cal-day').count()} / ${monthCells}`);
   await page.click('#cal-today');
   await page.waitForTimeout(200);
+
+  // ---------- 년·월 고르기 판 ----------
+  /*
+   * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+   * 달 이름을 누르면 판이 열리고, 판에서 연도를 누르면 연도 격자로 바뀝니다.
+   */
+  const pickOpen = () => page.evaluate(() => !document.querySelector('#cal-pick').hidden);
+  const pickCells = () => page.evaluate(() => (
+    [...document.querySelectorAll('#cal-pick-grid .cal-pick-cell')].map((n) => n.textContent)));
+
+  check('처음에는 고르기 판이 닫혀 있음', (await pickOpen()) === false);
+  await page.click('#cal-pick-open');
+  await page.waitForTimeout(250);
+  check('달 이름을 누르면 고르기 판이 열림', (await pickOpen()) === true);
+  const months = await pickCells();
+  check('판에 열두 달이 놓임', months.length === 12, `${months.length}칸: ${months.slice(0, 3).join(' ')}…`);
+  check('지금 보고 있는 달이 표시됨',
+    (await page.evaluate(() => document.querySelectorAll('#cal-pick-grid .is-on').length)) === 1);
+
+  // 연도 격자로 바꿔 다른 해를 고릅니다.
+  await page.click('#cal-pick-title');
+  await page.waitForTimeout(250);
+  const years = await pickCells();
+  check('연도를 누르면 연도 격자로 바뀜',
+    years.length === 12 && /^\d{4}$/.test(years[0]), years.slice(0, 3).join(' '));
+  const thisYear = new Date().getFullYear();
+  check('연도 격자가 올해를 품고 있음', years.includes(String(thisYear)),
+    `${years[0]} – ${years[years.length - 1]} (올해 ${thisYear})`);
+
+  // ‹ › 가 12년씩 움직이고 왕복하면 제자리로 와야 합니다.
+  const yearTitle = () => page.textContent('#cal-pick-title');
+  const titleBefore = await yearTitle();
+  await page.click('#cal-pick-prev');
+  await page.waitForTimeout(200);
+  const titleBack = await yearTitle();
+  await page.click('#cal-pick-next');
+  await page.waitForTimeout(200);
+  check('연도 격자를 ‹ › 로 옮겼다 되돌리면 제자리',
+    titleBack !== titleBefore && (await yearTitle()) === titleBefore,
+    `${titleBefore} -> ${titleBack} -> ${await yearTitle()}`);
+
+  // 지난해를 골라 그 해 3월로 갑니다.
+  const wantYear = String(thisYear - 1);
+  await page.$eval('#cal-pick-grid', (grid, y) => {
+    [...grid.querySelectorAll('.cal-pick-cell')].find((n) => n.textContent === y)?.click();
+  }, wantYear);
+  await page.waitForTimeout(250);
+  check('연도를 고르면 달 격자로 돌아옴',
+    (await page.textContent('#cal-pick-title')) === wantYear
+    && (await pickCells()).length === 12 && !/^\d{4}$/.test((await pickCells())[0]),
+    `제목 ${await page.textContent('#cal-pick-title')} / 첫 칸 ${(await pickCells())[0]}`);
+
+  await page.$eval('#cal-pick-grid', (grid) => {
+    // 세 번째 칸이 3월입니다. 글자는 언어마다 달라 자리로 고릅니다.
+    grid.querySelectorAll('.cal-pick-cell')[2]?.click();
+  });
+  await page.waitForTimeout(350);
+  check('달을 고르면 판이 닫힘', (await pickOpen()) === false);
+  const jumped = await page.evaluate(() => (
+    document.querySelector('#cal-grid .cal-day:not(.is-outside)')?.dataset.day));
+  check('고른 년·월로 달력이 옮겨 감', jumped?.startsWith(`${wantYear}-03`), `첫 날짜 ${jumped}`);
+
+  // Esc 로 닫히고, 접기 버튼은 판과 따로 움직여야 합니다.
+  await page.click('#cal-pick-open');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  check('Esc 로 고르기 판이 닫힘', (await pickOpen()) === false);
+
+  await page.click('#cal-fold');
+  await page.waitForTimeout(250);
+  check('접기 버튼은 고르기 판과 따로 움직임',
+    (await page.locator('#cal-grid .cal-day').count()) === 7 && (await pickOpen()) === false,
+    `${await page.locator('#cal-grid .cal-day').count()}칸`);
+  await page.click('#cal-fold');
+  await page.waitForTimeout(250);
+  await page.click('#cal-today');
+  await page.waitForTimeout(250);
 
   // ---------- 분류 커스터마이징 ----------
   // 앞의 검사에서 다른 날짜/주로 옮겨 다녔습니다. 오늘 칸을 보려면 오늘로 돌아와야 합니다.

@@ -38,6 +38,21 @@ let cursor = new Date();
  */
 let folded = load(FOLD_KEY, false) === true;
 
+/*
+ * 년·월 고르기 판.
+ *
+ * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+ * 달 이름을 누르면 판이 열리고, 판에서 연도를 누르면 연도 격자로 바뀝니다.
+ * (Material 날짜 선택기의 흐름입니다. 달 격자 <-> 연도 격자)
+ */
+let pickOpen = false;
+let pickMode = 'month';     // 'month' | 'year'
+let pickYear = new Date().getFullYear();   // 판이 보고 있는 해
+let pickYearPage = 0;       // 연도 격자가 보고 있는 12년 묶음 (0 이면 pickYear 가 든 묶음)
+
+/** 연도 격자 한 판에 놓는 개수. 4열 x 3줄입니다. */
+const YEARS_PER_PAGE = 12;
+
 const pad = (n) => String(n).padStart(2, '0');
 
 function firstOfMonth(date) {
@@ -142,11 +157,11 @@ function render() {
 
   const foldBtn = $('#cal-fold');
   if (foldBtn) {
-    // 글자는 안쪽 span 에만 씁니다. 버튼 전체를 덮어쓰면 달 이름까지 날아갑니다.
     const mark = $('#cal-fold-mark');
     if (mark) mark.textContent = folded ? '⌄' : '⌃';
     foldBtn.setAttribute('aria-expanded', String(!folded));
     foldBtn.title = t(folded ? 'cal.unfold' : 'cal.fold');
+    foldBtn.setAttribute('aria-label', t(folded ? 'cal.unfold' : 'cal.fold'));
   }
 
   // 접었으면 커서가 든 주 한 줄만, 펼쳤으면 커서가 든 달 전체를 그립니다.
@@ -216,6 +231,121 @@ function render() {
   grid.replaceChildren(...cells);
 }
 
+/* ---------- 년·월 고르기 판 ---------- */
+
+/**
+ * 연도 격자가 보여 줄 12년의 첫 해.
+ *
+ * 12로 나눠떨어지는 자리에 맞추면 2026년에 '2016 – 2027' 이 나옵니다. 읽기 이상합니다.
+ * 보고 있는 해가 가운데쯤 오도록 잡습니다. (2026 -> 2021 – 2032)
+ */
+function yearPageStart() {
+  return pickYear - 5 + pickYearPage * YEARS_PER_PAGE;
+}
+
+/** 판을 지금 상태대로 다시 그립니다. */
+function renderPick() {
+  const panel = $('#cal-pick');
+  const grid = $('#cal-pick-grid');
+  const title = $('#cal-pick-title');
+  const opener = $('#cal-pick-open');
+  if (!panel || !grid || !title) return;
+
+  panel.hidden = !pickOpen;
+  opener?.setAttribute('aria-expanded', String(pickOpen));
+  if (!pickOpen) { grid.replaceChildren(); return; }
+
+  const lang = getLang();
+  const now = new Date();
+  const cells = [];
+
+  if (pickMode === 'month') {
+    title.textContent = String(pickYear);
+    title.title = t('cal.pick.toYears');
+    title.setAttribute('aria-label', t('cal.pick.month', pickYear));
+    $('#cal-pick-prev')?.setAttribute('aria-label', t('cal.pick.prevYear'));
+    $('#cal-pick-next')?.setAttribute('aria-label', t('cal.pick.nextYear'));
+    grid.setAttribute('aria-label', t('cal.pick.month', pickYear));
+
+    for (let m = 1; m <= 12; m += 1) {
+      const onNow = pickYear === now.getFullYear() && m === now.getMonth() + 1;
+      const onCursor = pickYear === cursor.getFullYear() && m === cursor.getMonth() + 1;
+      const cell = el('button', {
+        class: `cal-pick-cell${onCursor ? ' is-on' : ''}${onNow ? ' is-now' : ''}`,
+        type: 'button',
+        dataset: { pickMonth: String(m) },
+        'aria-pressed': String(onCursor),
+      }, t('cal.pick.monthName', m));
+      cell.addEventListener('click', () => {
+        // 고른 달의 1일로 옮깁니다. 접혀 있으면 그 주가, 펼쳐져 있으면 그 달이 보입니다.
+        cursor = new Date(pickYear, m - 1, 1);
+        closePick();
+        render();
+      });
+      cells.push(cell);
+    }
+  } else {
+    const start = yearPageStart();
+    title.textContent = `${start} – ${start + YEARS_PER_PAGE - 1}`;
+    title.title = t('cal.pick.year');
+    title.setAttribute('aria-label', t('cal.pick.year'));
+    $('#cal-pick-prev')?.setAttribute('aria-label', t('cal.pick.prevYears'));
+    $('#cal-pick-next')?.setAttribute('aria-label', t('cal.pick.nextYears'));
+    grid.setAttribute('aria-label', t('cal.pick.year'));
+
+    for (let i = 0; i < YEARS_PER_PAGE; i += 1) {
+      const y = start + i;
+      const cell = el('button', {
+        class: `cal-pick-cell${y === cursor.getFullYear() ? ' is-on' : ''}${y === now.getFullYear() ? ' is-now' : ''}`,
+        type: 'button',
+        dataset: { pickYear: String(y) },
+        'aria-pressed': String(y === cursor.getFullYear()),
+      }, String(y));
+      cell.addEventListener('click', () => {
+        // 해를 고르면 달 격자로 돌아갑니다. 아직 어느 달인지 안 골랐습니다.
+        pickYear = y;
+        pickYearPage = 0;
+        pickMode = 'month';
+        renderPick();
+        $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+      });
+      cells.push(cell);
+    }
+  }
+  grid.replaceChildren(...cells);
+  // 언어가 바뀌면 판 안의 글자도 따라가야 합니다. lang 은 위에서 읽어 둔 값으로 충분합니다.
+  void lang;
+}
+
+function openPick() {
+  pickOpen = true;
+  pickMode = 'month';
+  pickYear = cursor.getFullYear();
+  pickYearPage = 0;
+  renderPick();
+  // 판을 열면 첫 칸으로 초점을 보내야 키보드로 바로 고를 수 있습니다.
+  $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+}
+
+function closePick({ restoreFocus = false } = {}) {
+  if (!pickOpen) return;
+  pickOpen = false;
+  renderPick();
+  if (restoreFocus) $('#cal-pick-open')?.focus();
+}
+
+/** 판의 ‹ › . 달 격자면 한 해씩, 연도 격자면 12년씩 움직입니다. */
+function movePick(delta) {
+  if (pickMode === 'month') pickYear += delta;
+  else pickYearPage += delta;
+  renderPick();
+}
+
+/** 판이 열려 있는지. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+export function isPickOpen() {
+  return pickOpen;
+}
+
 /** 접혀 있으면 한 주씩, 펼쳐져 있으면 한 달씩 움직입니다. */
 function move(delta) {
   const next = new Date(cursor);
@@ -231,6 +361,8 @@ function followView(view) {
     // 주간은 일요일이, 월간은 1일이 대표 날짜입니다. (period.js 의 dateOf 규칙)
     cursor = dateOf(view.scope, view.period);
   } catch { /* 저장값이 손상된 경우 보고 있던 자리를 그대로 둡니다 */ }
+  // 달력이 딴 달로 옮겨 갔는데 고르기 판이 옛 해를 보고 있으면 어긋나 보입니다.
+  closePick();
   render();
 }
 
@@ -250,9 +382,32 @@ export function initCalendar() {
     render();
   });
 
+  // --- 년·월 고르기 판 ---
+  $('#cal-pick-open')?.addEventListener('click', () => {
+    if (pickOpen) closePick({ restoreFocus: true }); else openPick();
+  });
+  $('#cal-pick-prev')?.addEventListener('click', () => movePick(-1));
+  $('#cal-pick-next')?.addEventListener('click', () => movePick(1));
+  $('#cal-pick-title')?.addEventListener('click', () => {
+    // 달 격자에서 연도를 누르면 연도 격자로, 연도 격자에서 누르면 되돌아옵니다.
+    pickMode = pickMode === 'month' ? 'year' : 'month';
+    pickYearPage = 0;
+    renderPick();
+    $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+  });
+  // 판 밖을 누르거나 Esc 를 누르면 닫습니다. 열어 둔 채 다른 곳을 만지면 헷갈립니다.
+  document.addEventListener('pointerdown', (e) => {
+    if (!pickOpen) return;
+    if (e.target.closest?.('#cal-pick, #cal-pick-open')) return;
+    closePick();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pickOpen) { e.preventDefault(); closePick({ restoreFocus: true }); }
+  });
+
   onTodoChange(() => render());
   onViewChange(followView);
-  onLangChange(() => render());
+  onLangChange(() => { render(); renderPick(); });
 
   followView(getView());
 }
