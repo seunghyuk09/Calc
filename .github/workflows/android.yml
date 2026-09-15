@@ -91,6 +91,34 @@ jobs:
             -PappVersionCode=${{ steps.ver.outputs.code }} \
             -PappVersionName=${{ steps.ver.outputs.name }}
 
+      # 디버그 APK 가 저장소에 고정한 키로 서명됐는지 확인합니다.
+      # AGP 가 ~/.android/debug.keystore 를 새로 만들어 쓰면 빌드마다 서명이 달라지고,
+      # 이미 깔린 앱을 덮어쓸 수 없게 됩니다(설치 실패). 그 회귀를 여기서 잡습니다.
+      # keytool -printcert -jarfile 은 v1(JAR) 서명만 읽어서 쓸 수 없습니다.
+      # minSdk 24 이상이면 AGP 가 v1 을 끄고 v2 만 넣으므로 apksigner 를 써야 합니다.
+      - name: 디버그 APK 서명 검증
+        run: |
+          set -euo pipefail
+          APK=$(find android/app/build/outputs/apk/debug -name '*.apk' | head -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner 를 찾지 못했습니다. build-tools 설치를 확인하세요."
+            exit 1
+          fi
+          norm() { tr -d ': ' | tr 'A-F' 'a-f'; }
+          WANT=$(keytool -list -keystore android/app/debug.keystore \
+                   -storepass android -alias androiddebugkey \
+                 | grep -o '[0-9A-F][0-9A-F]\(:[0-9A-F][0-9A-F]\)\{31\}' | norm)
+          GOT=$("$APKSIGNER" verify --print-certs "$APK" \
+                 | grep -i 'certificate SHA-256 digest' | head -1 | awk '{print $NF}' | norm)
+          echo "기대 지문: $WANT"
+          echo "실제 지문: $GOT"
+          if [ -z "$WANT" ] || [ "$WANT" != "$GOT" ]; then
+            echo "::error::디버그 APK 서명이 저장소의 debug.keystore 와 다릅니다."
+            exit 1
+          fi
+          echo "::notice::디버그 서명 확인 완료 ($GOT)"
+
       - name: 디버그 APK 업로드
         uses: actions/upload-artifact@v4
         with:
@@ -115,9 +143,11 @@ jobs:
           cp "$APK" dailykit-debug.apk
           # 릴리스 설명은 파일로 넘깁니다. --notes 에 여러 줄을 직접 쓰면 YAML 이 깨집니다.
           cat > release-notes.md <<NOTES
-          main 브랜치 최신 커밋(\`${GITHUB_SHA:0:7}\`)으로 만든 **서명되지 않은 디버그 APK** 입니다.
+          main 브랜치 최신 커밋(\`${GITHUB_SHA:0:7}\`)으로 만든 **디버그 빌드** 입니다.
+          Play 스토어 정식 키가 아닌 공개된 디버그 키로 서명돼 있습니다.
 
-          설치하려면 안드로이드 설정에서 '출처를 알 수 없는 앱 설치' 를 허용해야 합니다.
+          설치하려면 받은 브라우저에 '출처를 알 수 없는 앱 설치' 를 허용해야 합니다.
+          One UI 6.1 이상이라면 설정 > 보안 및 개인정보 보호 > 자동 차단(Auto Blocker) 도 꺼야 합니다.
           Play 스토어 정식 버전이 아니며, main 에 커밋될 때마다 이 파일이 교체됩니다.
 
           설치 없이 웹으로 바로 쓰실 수도 있습니다: https://seunghyuk09.github.io/Calc/
