@@ -1,0 +1,100 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+// store.js 가 window 를 참조하므로 import 전에 최소한의 전역을 만들어 둡니다.
+globalThis.window = {
+  localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+  location: { protocol: 'http:' },
+};
+// calendar.js 가 dom.js 를 거쳐 document 를 건드리므로 최소한만 흉내 냅니다.
+globalThis.document = { querySelector: () => null, querySelectorAll: () => [] };
+
+const { monthGrid, groupByDay, dayKey } = await import('../public/js/modules/calendar.js');
+const { emojiOf, isCategory, CATEGORY_IDS } = await import('../public/js/lib/categories.js');
+
+const item = (over = {}) => ({
+  id: over.id ?? 'x', text: over.text ?? '할 일', done: over.done ?? false,
+  scope: over.scope ?? 'day', period: over.period ?? '2026-09-15',
+  category: over.category ?? 'work',
+});
+
+test('dayKey: 로컬 시간대 기준 YYYY-MM-DD', () => {
+  assert.equal(dayKey(new Date(2026, 8, 15)), '2026-09-15');
+  assert.equal(dayKey(new Date(2026, 0, 1)), '2026-01-01');
+  // UTC 로 바꾸면 시간대에 따라 하루가 밀립니다. 로컬 기준이어야 합니다.
+  assert.equal(dayKey(new Date(2026, 11, 31, 23, 30)), '2026-12-31');
+});
+
+test('monthGrid: 일요일에서 시작해 토요일에서 끝난다', () => {
+  const grid = monthGrid(new Date(2026, 8, 1)); // 2026-09
+  assert.equal(grid[0].getDay(), 0, '첫 칸이 일요일이 아닙니다');
+  assert.equal(grid[grid.length - 1].getDay(), 6, '마지막 칸이 토요일이 아닙니다');
+  assert.equal(grid.length % 7, 0, '칸 수가 7의 배수가 아닙니다');
+});
+
+test('monthGrid: 해당 달의 모든 날짜를 담는다', () => {
+  for (const month of [0, 1, 5, 11]) {
+    const grid = monthGrid(new Date(2026, month, 1));
+    const keys = new Set(grid.map(dayKey));
+    const last = new Date(2026, month + 1, 0).getDate();
+    for (let d = 1; d <= last; d += 1) {
+      assert.ok(keys.has(dayKey(new Date(2026, month, d))),
+        `${2026}-${month + 1}-${d} 이 달력에 없습니다`);
+    }
+  }
+});
+
+test('monthGrid: 윤년 2월도 빠짐없이 담는다', () => {
+  const grid = monthGrid(new Date(2028, 1, 1)); // 2028 은 윤년
+  assert.ok(grid.map(dayKey).includes('2028-02-29'), '2월 29일이 빠졌습니다');
+});
+
+test('monthGrid: 어떤 달도 42칸을 넘지 않는다', () => {
+  for (let y = 2024; y <= 2030; y += 1) {
+    for (let m = 0; m < 12; m += 1) {
+      assert.ok(monthGrid(new Date(y, m, 1)).length <= 42, `${y}-${m + 1} 이 42칸을 넘었습니다`);
+    }
+  }
+});
+
+test('groupByDay: 일간 항목만 날짜별로 모은다', () => {
+  const map = groupByDay([
+    item({ id: 'a', period: '2026-09-15' }),
+    item({ id: 'b', period: '2026-09-15' }),
+    item({ id: 'c', period: '2026-09-16' }),
+    item({ id: 'w', scope: 'week', period: '2026-W38' }),
+    item({ id: 'm', scope: 'month', period: '2026-09' }),
+  ]);
+  assert.deepEqual(map.get('2026-09-15').map((i) => i.id), ['a', 'b']);
+  assert.deepEqual(map.get('2026-09-16').map((i) => i.id), ['c']);
+  assert.equal(map.has('2026-W38'), false, '주간 항목이 달력에 올라왔습니다');
+  assert.equal(map.has('2026-09'), false, '월간 항목이 달력에 올라왔습니다');
+});
+
+test('groupByDay: 망가진 항목이 있어도 던지지 않는다', () => {
+  const map = groupByDay([
+    null,
+    undefined,
+    { scope: 'day' },                       // period 없음
+    { scope: 'day', period: 123 },          // period 가 문자열이 아님
+    { scope: 'day', period: '2026-09-15' }, // text 없음
+    item({ id: 'ok' }),
+  ]);
+  assert.deepEqual(map.get('2026-09-15').map((i) => i.id), ['ok']);
+});
+
+test('groupByDay: 빈 입력이면 빈 맵', () => {
+  assert.equal(groupByDay([]).size, 0);
+});
+
+test('분류: 모르는 값은 기본 분류로 떨어진다', () => {
+  assert.equal(emojiOf('없는분류'), emojiOf('etc'));
+  assert.equal(emojiOf(undefined), emojiOf('etc'));
+  assert.equal(isCategory('없는분류'), false);
+  assert.equal(isCategory('work'), true);
+});
+
+test('분류: 이모지가 서로 겹치지 않는다 (달력에서 구분이 안 됩니다)', () => {
+  const emojis = CATEGORY_IDS.map(emojiOf);
+  assert.equal(new Set(emojis).size, emojis.length, `중복: ${emojis.join(' ')}`);
+});

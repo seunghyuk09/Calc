@@ -3,7 +3,7 @@
  * 정적 파일: 캐시 우선(cache-first). 외부 API: 항상 네트워크(캐시하지 않음).
  * 앱 파일을 수정하면 CACHE_VERSION 을 올려야 사용자에게 새 버전이 반영됩니다.
  */
-const CACHE_VERSION = 'daily-kit-v4';
+const CACHE_VERSION = 'daily-kit-v5';
 
 const APP_SHELL = [
   './',
@@ -15,19 +15,22 @@ const APP_SHELL = [
   './js/lib/store.js',
   './js/lib/calc-engine.js',
   './js/lib/period.js',
+  './js/lib/categories.js',
   './js/lib/i18n.js',
   './js/lib/nav.js',
+  './js/lib/prefs.js',
   './js/modules/today.js',
   './js/modules/calculator.js',
   './js/modules/weather.js',
   './js/modules/todo.js',
+  './js/modules/calendar.js',
   './js/modules/time.js',
   './js/modules/memo.js',
   './js/modules/quote.js',
-  './js/modules/music.js',
   './js/modules/ai.js',
   './js/modules/banner.js',
   './js/modules/settings.js',
+  './js/modules/appearance.js',
   './assets/favicon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',

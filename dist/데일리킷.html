@@ -148,8 +148,8 @@ a { color: var(--accent); }
   width: 26px; height: 26px;
   display: grid; place-items: center;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-text);
   font-size: 14px; font-weight: 800;
 }
 
@@ -186,30 +186,75 @@ a { color: var(--accent); }
 .banner-dot[aria-current="true"] { background: #fff; width: 16px; border-radius: 3px; }
 
 /* ---------- 탭 ---------- */
+/* ---------- 메뉴 사이드바 ----------
+   탭 막대를 없애고 '•••' 버튼으로 여는 서랍 하나에 메뉴를 모았습니다.
+   화면 폭과 무관하게 항상 덮어쓰는 방식입니다. 넓은 화면에서만 고정으로 두면
+   '메뉴는 거기에만 있다'는 규칙이 화면마다 달라져 헷갈립니다. */
+.menu-btn { font-size: 15px; letter-spacing: .06em; }
+
+.header-now {
+  margin-left: auto;
+  font-size: 12.5px; font-weight: 600; color: var(--text-dim);
+  max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.sidebar-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(10, 12, 16, .42);
+  animation: cz-fade var(--motion) var(--ease);
+}
+
+.sidebar {
+  position: fixed; z-index: 41;
+  top: 0; left: 0; bottom: 0;
+  width: min(84vw, 300px);
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: 0 0 40px rgba(0, 0, 0, .28);
+  /* 노치와 홈 인디케이터를 피합니다. */
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 10px
+           calc(12px + env(safe-area-inset-bottom, 0px));
+  animation: sidebar-in var(--motion) var(--ease);
+}
+@keyframes sidebar-in { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes cz-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.sidebar-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 6px 10px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-title { font-size: 13px; font-weight: 700; color: var(--text-faint);
+                 letter-spacing: .04em; margin-right: auto; }
+
 .tabs {
   display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 10px 0 0;
-  margin: 0 -16px;
-  padding-inline: 16px;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  min-height: 0;
 }
-.tabs::-webkit-scrollbar { display: none; }
 
 .tab {
   flex: 0 0 auto;
   border: 0;
   background: transparent;
   color: var(--text-dim);
-  padding: 8px 13px 11px;
-  border-bottom: 2px solid transparent;
-  font-size: 13.5px;
+  /* 손가락으로 누르는 목록이라 44px 을 확보합니다. */
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14.5px;
   font-weight: 600;
+  text-align: left;
   white-space: nowrap;
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 10px;
 }
-.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover { background: var(--surface-2); }
+.tab[aria-selected="true"] { color: var(--accent); background: var(--accent-soft); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* ---------- 본문 ---------- */
 /*
@@ -306,7 +351,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   transition: filter .15s, background .15s;
 }
 .btn:hover { filter: brightness(.97); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn-primary { background: var(--accent-fill); border-color: var(--accent); color: var(--accent-text); }
 .btn-ghost { background: transparent; }
 .btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: transparent; }
 .btn-sm { padding: 6px 10px; font-size: 12.5px; }
@@ -391,7 +436,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .key:active { transform: scale(.96); }
 .key-fn { background: var(--surface-3); color: var(--text-dim); font-size: 15px; }
 .key-op { color: var(--accent); }
-.key-eq { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.key-eq { background: var(--accent-fill); border-color: var(--accent); color: var(--accent-text); }
 .key-wide { grid-column: span 2; }
 
 .hist-list { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; }
@@ -523,15 +568,13 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .quote-author { margin-top: 10px; font-size: 12.5px; color: var(--text-dim); }
 
 /* ---------- 음악 ---------- */
-.yt-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--radius-sm); background: #000; display: block; }
-.svc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
 .svc-btn { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text); }
 .svc-btn span:first-child { font-size: 19px; }
 
 /* ---------- AI ---------- */
 .chat-log { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
 .msg { padding: 10px 13px; border-radius: 13px; font-size: 13.5px; line-height: 1.62; white-space: pre-wrap; word-break: break-word; max-width: 88%; }
-.msg-user { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
+.msg-user { align-self: flex-end; background: var(--accent-fill); color: var(--accent-text); border-bottom-right-radius: 4px; }
 .msg-ai { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .msg-err { align-self: stretch; background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); color: var(--text); max-width: 100%; }
 
@@ -620,7 +663,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   height: 100%;
   width: 0;
   border-radius: 3px;
-  background: var(--accent);
+  background: var(--accent-fill);
   transition: width .25s ease;
 }
 .progress-fill.is-complete { background: var(--success); }
@@ -729,7 +772,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   font-size: 14px;
 }
 /* 계획 단위를 색 점 하나로 구분합니다. 글자를 더 넣으면 할 일 자체가 안 보입니다. */
-.today-rot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent); }
+.today-rot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent-fill); }
 .today-rot-dot.scope-week { background: var(--success); }
 .today-rot-dot.scope-month { background: var(--warn); }
 .today-rot-dot.scope-year { background: var(--text-faint); }
@@ -765,6 +808,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
    ========================================================= */
 
 :root {
+  /*
+   * --accent      : 글자와 테두리에 쓰는 색. 본문 대비를 지켜야 합니다.
+   * --accent-fill : 버튼처럼 넓게 칠하는 배경. 보통은 --accent 와 같습니다.
+   * 파스텔 계열만 이 둘을 갈라 씁니다. 파스텔을 글자색으로 쓰면 읽히지 않기 때문입니다.
+   */
+  --accent-fill: var(--accent);
   --motion: .18s;
   --ease: cubic-bezier(.4, 0, .2, 1);
   --card-extra: none;          /* 스킨이 카드에 얹는 추가 그림자/윤곽 */
@@ -910,6 +959,15 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 :root[data-accent="slate"]  { --accent: #445065; --accent-soft: #e5e8ee; --accent-text: #ffffff; }
 :root[data-accent="pink"]   { --accent: #b83a8a; --accent-soft: #fbe2f1; --accent-text: #ffffff; }
 
+
+/* 파스텔 계열: 칠하는 색은 연하게, 글자와 테두리는 읽히는 톤으로 나눠 씁니다.
+   다섯 색 모두 본문 대비 4.5:1 이상을 확인했습니다. */
+:root[data-accent="pastelrose"] { --accent: #b0476a; --accent-fill: #f7cbd8; --accent-soft: #fdeef3; --accent-text: #4a2330; }
+:root[data-accent="pastelsky"] { --accent: #2f6ea6; --accent-fill: #c6e0f6; --accent-soft: #e9f3fc; --accent-text: #17303f; }
+:root[data-accent="pastelmint"] { --accent: #26745a; --accent-fill: #c3ebd7; --accent-soft: #e6f7ef; --accent-text: #123528; }
+:root[data-accent="pastellilac"] { --accent: #6851b0; --accent-fill: #ddd4f5; --accent-soft: #f0ecfc; --accent-text: #2a2145; }
+:root[data-accent="pastelpeach"] { --accent: #9d5f2c; --accent-fill: #fbdcc5; --accent-soft: #fdf1e6; --accent-text: #402512; }
+
 :root[data-theme="dark"][data-accent="blue"]   { --accent: #6c9bff; --accent-soft: #1b2b4d; }
 :root[data-theme="dark"][data-accent="violet"] { --accent: #a58bff; --accent-soft: #2a2050; }
 :root[data-theme="dark"][data-accent="teal"]   { --accent: #3ad6c8; --accent-soft: #123833; }
@@ -922,6 +980,13 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 /* 다크 강조색은 밝아서 그 위에 흰 글자를 쓰면 안 보입니다. 어두운 글자로 바꿉니다. */
 :root[data-theme="dark"][data-accent] { --accent-text: #0d1117; }
 
+:root[data-theme="dark"][data-accent="pastelrose"] { --accent: #f2b9cc; --accent-fill: #f0aec4; --accent-soft: #3a2129; --accent-text: #3d1f29; }
+:root[data-theme="dark"][data-accent="pastelsky"] { --accent: #a9d6f7; --accent-fill: #9ecdf2; --accent-soft: #1b2c39; --accent-text: #12293a; }
+:root[data-theme="dark"][data-accent="pastelmint"] { --accent: #9fe3c4; --accent-fill: #93dcba; --accent-soft: #16302a; --accent-text: #0e2b20; }
+:root[data-theme="dark"][data-accent="pastellilac"] { --accent: #c3b2f5; --accent-fill: #b9a8ef; --accent-soft: #282142; --accent-text: #241c3d; }
+:root[data-theme="dark"][data-accent="pastelpeach"] { --accent: #f4c79b; --accent-fill: #efbd8d; --accent-soft: #332419; --accent-text: #33200f; }
+
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"])[data-accent="blue"]   { --accent: #6c9bff; --accent-soft: #1b2b4d; }
   :root:not([data-theme="light"])[data-accent="violet"] { --accent: #a58bff; --accent-soft: #2a2050; }
@@ -932,6 +997,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   :root:not([data-theme="light"])[data-accent="slate"]  { --accent: #a3b1c6; --accent-soft: #272d38; }
   :root:not([data-theme="light"])[data-accent="pink"]   { --accent: #f28ed2; --accent-soft: #3f1c34; }
   :root:not([data-theme="light"])[data-accent] { --accent-text: #0d1117; }
+  :root:not([data-theme="light"])[data-accent="pastelrose"] { --accent: #f2b9cc; --accent-fill: #f0aec4; --accent-soft: #3a2129; --accent-text: #3d1f29; }
+  :root:not([data-theme="light"])[data-accent="pastelsky"] { --accent: #a9d6f7; --accent-fill: #9ecdf2; --accent-soft: #1b2c39; --accent-text: #12293a; }
+  :root:not([data-theme="light"])[data-accent="pastelmint"] { --accent: #9fe3c4; --accent-fill: #93dcba; --accent-soft: #16302a; --accent-text: #0e2b20; }
+  :root:not([data-theme="light"])[data-accent="pastellilac"] { --accent: #c3b2f5; --accent-fill: #b9a8ef; --accent-soft: #282142; --accent-text: #241c3d; }
+  :root:not([data-theme="light"])[data-accent="pastelpeach"] { --accent: #f4c79b; --accent-fill: #efbd8d; --accent-soft: #332419; --accent-text: #33200f; }
+
 }
 
 /* ---------- 카드 크기 프리셋 ----------
@@ -962,6 +1033,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 @media (prefers-reduced-motion: reduce) {
   :root, :root[data-skin] { --motion: 0s; }
   .card, .btn, .key, .chip, .tab, .field, .icon-btn { transition: none; }
+  .sidebar, .sidebar-scrim { animation: none; }
 }
 
 /* ---------- '오늘' 위젯 ---------- */
@@ -1011,6 +1083,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cz-dot-teal   { background: #0b7d77; } .cz-dot-green  { background: #18794e; }
 .cz-dot-amber  { background: #96590a; } .cz-dot-rose   { background: #c02c4f; }
 .cz-dot-slate  { background: #445065; } .cz-dot-pink   { background: #b83a8a; }
+.cz-dot-pastelrose { background: #f7cbd8; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.cz-dot-pastelsky { background: #c6e0f6; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.cz-dot-pastelmint { background: #c3ebd7; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.cz-dot-pastellilac { background: #ddd4f5; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.cz-dot-pastelpeach { background: #fbdcc5; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+
 
 .cz-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .cz-row {
@@ -1028,7 +1106,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   background: var(--surface); color: var(--text-dim);
   font: inherit; font-size: 12px; cursor: pointer;
 }
-.cz-toggle.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+.cz-toggle.is-on { background: var(--accent-fill); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
 .cz-toggle:disabled { opacity: .45; cursor: default; }
 
 .cz-cards { display: flex; flex-direction: column; gap: 14px; }
@@ -1042,6 +1120,71 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cz-card-row .cz-row-label { flex: 1 1 140px; }
 .cz-card-row .cz-opt { min-height: 30px; padding: 4px 9px; font-size: 12px; }
 
+/* ---------- TO DO 달력 ----------
+   칸이 작아 글은 넣지 않습니다. 분류 이모지만 최대 3개, 넘치면 +N 으로 줄입니다. */
+.todo-cat-select { flex: 0 0 auto; width: 128px; }
+.todo-cat { flex: none; font-size: 15px; line-height: 1.4; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 4px;
+}
+.cal-wd {
+  text-align: center; font-size: 11px; font-weight: 700; color: var(--text-faint);
+  padding: 4px 0 2px;
+}
+.cal-wd.sun { color: var(--danger); }
+.cal-wd.sat { color: var(--accent); }
+
+.cal-day {
+  /* 손가락으로 누르는 칸이라 최소 44px 을 확보합니다. */
+  min-height: 46px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.cal-day:hover { background: var(--surface-2); }
+.cal-day:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* 이번 달이 아닌 날은 흐리게. 지우면 주 단위가 끊겨 보입니다. */
+.cal-day.is-outside { opacity: .38; }
+.cal-day.is-today .cal-num {
+  background: var(--accent-fill); color: var(--accent-text);
+  border-radius: 999px; padding: 1px 6px; font-weight: 700;
+}
+.cal-day.is-selected { border-color: var(--accent); background: var(--accent-soft); }
+.cal-day.has-items { font-weight: 600; }
+
+.cal-num { font-size: 12.5px; line-height: 1.5; }
+.cal-marks { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; line-height: 1; }
+.cal-mark { font-size: 11px; }
+.cal-more { font-size: 9.5px; color: var(--text-faint); font-weight: 700; }
+
+.cal-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.cal-detail-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.cal-detail-date { font-size: 13.5px; font-weight: 700; }
+.cal-detail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cal-detail-item {
+  width: 100%; min-height: 40px;
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+}
+.cal-detail-item:hover { border-color: var(--accent); }
+.cal-detail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cal-detail-item.done .cal-detail-text { text-decoration: line-through; color: var(--text-faint); }
+.cal-detail-emoji { flex: none; font-size: 15px; }
+.cal-detail-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-note { margin: 10px 0 0; }
+
 </style>
 </head>
 <body>
@@ -1049,7 +1192,11 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
   <header class="app-header">
     <div class="header-top">
+      <button class="icon-btn menu-btn" id="menu-open" type="button"
+              aria-label="메뉴 열기" aria-expanded="false" aria-controls="sidebar" title="메뉴">•••</button>
       <div class="brand"><span class="brand-mark">DK</span> Daily Kit</div>
+      <!-- 탭 막대를 없앴으므로 지금 어느 화면인지 여기서 알려 줍니다. -->
+      <span class="header-now" id="header-now" aria-live="polite">오늘</span>
       <button class="icon-btn" id="theme-toggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button>
     </div>
 
@@ -1061,7 +1208,15 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
       </div>
       <div class="banner-dots" id="banner-dots"></div>
     </section>
+  </header>
 
+  <!-- 메뉴 사이드바: '•••' 버튼으로 열립니다. 탭은 전부 여기에만 있습니다. -->
+  <div class="sidebar-scrim" id="sidebar-scrim" hidden></div>
+  <aside class="sidebar" id="sidebar" role="dialog" aria-modal="true" aria-label="메뉴" hidden>
+    <div class="sidebar-head">
+      <span class="sidebar-title">메뉴</span>
+      <button class="icon-btn" id="menu-close" type="button" aria-label="메뉴 닫기" title="닫기">✕</button>
+    </div>
     <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
       <button class="tab" role="tab" data-tab="today"    aria-selected="true"><span>🗓️</span>오늘</button>
       <button class="tab" role="tab" data-tab="calc"     aria-selected="false"><span>🧮</span>계산기</button>
@@ -1070,11 +1225,10 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
       <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
       <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
       <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
-      <button class="tab" role="tab" data-tab="music"    aria-selected="false"><span>🎵</span>음악</button>
       <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span>🤖</span>AI 검색</button>
       <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span>⚙️</span>설정</button>
     </nav>
-  </header>
+  </aside>
 
   <main class="app-main" id="main">
 
@@ -1151,7 +1305,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
     </section>
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
-    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
+    <section class="panel grid grid-2" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
       <div class="card" data-card="todo.plan">
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
@@ -1181,6 +1335,9 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
 
         <form class="row" id="todo-form" style="margin:12px 0">
+          <!-- 분류 목록은 todo.js 가 채웁니다. 이모지가 달력 칸에 그대로 나갑니다. -->
+          <select class="field todo-cat-select" id="todo-cat" data-i18n-aria="todo.aria.category"
+                  aria-label="활동 분류"></select>
           <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
                  data-i18n-placeholder="todo.input.placeholder">
           <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
@@ -1194,6 +1351,23 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
           <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
         </div>
         <ul class="todo-list" id="todo-list" lang="ko"></ul>
+      </div>
+
+      <!-- 달력: 어느 날에 어떤 종류의 일이 있는지 이모지로만 보여 줍니다. -->
+      <div class="card" data-card="todo.cal">
+        <div class="card-head">
+          <h2 class="card-title" data-i18n="cal.title">달력</h2>
+          <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
+        </div>
+        <div class="period-nav">
+          <button class="icon-btn" id="cal-prev" type="button" data-i18n-aria="cal.prev">‹</button>
+          <div class="period-label" id="cal-label" aria-live="polite" aria-atomic="true">—</div>
+          <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
+             aria-label="월 달력"></div>
+        <div class="cal-detail" id="cal-detail"></div>
+        <p class="card-sub cal-note" data-i18n="cal.note">일간 계획만 표시합니다.</p>
       </div>
     </section>
 
@@ -1307,36 +1481,6 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
           </div>
         </form>
         <ul class="memo-list" id="quote-list"></ul>
-      </div>
-    </section>
-
-    <!-- ================= 음악 ================= -->
-    <section class="panel grid" id="panel-music" role="tabpanel" aria-label="음악">
-      <div class="card" data-card="music.player">
-        <div class="card-head"><h2 class="card-title">YouTube 플레이어</h2></div>
-        <form class="row" id="yt-form" style="margin-bottom:12px">
-          <input class="field grow" id="yt-input" placeholder="YouTube 영상/재생목록 URL 또는 ID 붙여넣기" autocomplete="off">
-          <button class="btn btn-primary" type="submit">재생</button>
-        </form>
-        <div id="yt-holder"><p class="empty">URL 을 넣으면 여기에서 재생됩니다.</p></div>
-        <div class="row" style="margin-top:10px">
-          <input class="field grow" id="yt-search" placeholder="유튜브에서 검색할 곡·아티스트" autocomplete="off">
-          <button class="btn" id="yt-search-btn" type="button">🔎 유튜브 검색</button>
-        </div>
-      </div>
-
-      <div class="card" data-card="music.links">
-        <div class="card-head"><h2 class="card-title">음악 서비스 바로가기</h2></div>
-        <p class="note" style="margin-bottom:12px">
-          <strong>기술적 한계 안내:</strong> 멜론·지니·유튜브뮤직은 외부 앱에서 <strong>계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.</strong>
-          Spotify 는 API 가 있지만 2026년 2월부터 개발 모드 앱은 소유자 Premium 필수 + 테스터 5명 제한이며,
-          확장 쿼터는 법인 + 월 활성사용자 25만 이상만 신청할 수 있어 개인 앱은 사실상 불가합니다.
-          따라서 아래는 <strong>검색어를 들고 각 서비스로 이동하는 바로가기</strong>이며, 재생은 해당 앱/사이트에서 이뤄집니다.
-        </p>
-        <div class="row" style="margin-bottom:12px">
-          <input class="field grow" id="svc-query" placeholder="검색할 곡 또는 아티스트" autocomplete="off">
-        </div>
-        <div class="svc-grid" id="svc-grid"></div>
       </div>
     </section>
 
@@ -1697,7 +1841,7 @@ const DICT = {
     // ---- 탭 이름 (커스터마이즈 목록에서 씁니다) ----
     'tab.today': '오늘', 'tab.calc': '계산기', 'tab.weather': '날씨', 'tab.todo': 'TO DO',
     'tab.time': '시계·타이머', 'tab.memo': '메모·낙서', 'tab.quote': '글귀',
-    'tab.music': '음악', 'tab.ai': 'AI 검색', 'tab.settings': '설정',
+    'tab.ai': 'AI 검색', 'tab.settings': '설정',
     // ---- '오늘' 위젯 ----
     'today.clock.title': '지금 시각',
     'today.timer.title': '타이머',
@@ -1723,6 +1867,9 @@ const DICT = {
     'cz.accent.blue': '파랑', 'cz.accent.violet': '보라', 'cz.accent.teal': '청록',
     'cz.accent.green': '초록', 'cz.accent.amber': '호박', 'cz.accent.rose': '로즈',
     'cz.accent.slate': '슬레이트', 'cz.accent.pink': '핑크',
+    'cz.accent.pastelrose': '파스텔 로즈', 'cz.accent.pastelsky': '파스텔 스카이',
+    'cz.accent.pastelmint': '파스텔 민트', 'cz.accent.pastellilac': '파스텔 라일락',
+    'cz.accent.pastelpeach': '파스텔 피치',
     'cz.tabs.title': '탭 순서와 표시',
     'cz.tabs.hint': '위아래로 옮겨 순서를 바꾸고, 안 쓰는 탭은 숨길 수 있습니다.',
     'cz.widgets.title': "'오늘' 탭 위젯",
@@ -1737,10 +1884,28 @@ const DICT = {
     'cz.card.calc.pad': '계산기 자판', 'cz.card.calc.hist': '계산 기록',
     'cz.card.weather.now': '현재 날씨', 'cz.card.weather.week': '주간 예보',
     'cz.card.todo.plan': '계획표',
+    // ---- 활동 분류 ----
+    'cat.work': '업무', 'cat.personal': '개인', 'cat.study': '학습',
+    'cat.health': '운동·건강', 'cat.meet': '약속', 'cat.money': '금전', 'cat.etc': '기타',
+    'todo.aria.category': '활동 분류',
+    // ---- 달력 ----
+    'cal.title': '달력',
+    'cal.today': '이번 달',
+    'cal.prev': '이전 달',
+    'cal.next': '다음 달',
+    'cal.pick': '날짜를 누르면 그 날의 할 일이 펼쳐집니다.',
+    'cal.empty': '이 날은 등록된 일이 없습니다.',
+    'cal.count': (n) => `${n}건`,
+    'cal.undone': (n) => `미완료 ${n}건`,
+    'cal.goHint': '눌러서 계획표에서 보기',
+    'cal.note': '일간 계획만 표시합니다. 주간·월간·연간은 특정 날짜에 속하지 않습니다.',
+    'cal.aria.grid': '월 달력',
+    'cal.wd.sun': '일', 'cal.wd.mon': '월', 'cal.wd.tue': '화', 'cal.wd.wed': '수',
+    'cal.wd.thu': '목', 'cal.wd.fri': '금', 'cal.wd.sat': '토',
+    'cz.card.todo.cal': '달력',
     'cz.card.time.clock': '시계', 'cz.card.time.timer': '타이머·알람',
     'cz.card.memo.draw': '낙서판', 'cz.card.memo.note': '간단 메모',
     'cz.card.quote.today': '오늘의 글귀', 'cz.card.quote.mine': '내 글귀',
-    'cz.card.music.player': 'YouTube 플레이어', 'cz.card.music.links': '음악 서비스 바로가기',
     'cz.card.ai.chat': 'AI 검색',
     'cz.card.settings.display': '표시 설정', 'cz.card.settings.ai': 'AI 연동',
     'cz.card.settings.customize': '화면 커스터마이즈',
@@ -1796,7 +1961,7 @@ const DICT = {
     // ---- Tab names ----
     'tab.today': 'Today', 'tab.calc': 'Calculator', 'tab.weather': 'Weather', 'tab.todo': 'TO DO',
     'tab.time': 'Clock & timer', 'tab.memo': 'Notes', 'tab.quote': 'Quotes',
-    'tab.music': 'Music', 'tab.ai': 'AI search', 'tab.settings': 'Settings',
+    'tab.ai': 'AI search', 'tab.settings': 'Settings',
     // ---- Today widgets ----
     'today.clock.title': 'Time now',
     'today.timer.title': 'Timer',
@@ -1822,6 +1987,9 @@ const DICT = {
     'cz.accent.blue': 'Blue', 'cz.accent.violet': 'Violet', 'cz.accent.teal': 'Teal',
     'cz.accent.green': 'Green', 'cz.accent.amber': 'Amber', 'cz.accent.rose': 'Rose',
     'cz.accent.slate': 'Slate', 'cz.accent.pink': 'Pink',
+    'cz.accent.pastelrose': 'Pastel rose', 'cz.accent.pastelsky': 'Pastel sky',
+    'cz.accent.pastelmint': 'Pastel mint', 'cz.accent.pastellilac': 'Pastel lilac',
+    'cz.accent.pastelpeach': 'Pastel peach',
     'cz.tabs.title': 'Tab order and visibility',
     'cz.tabs.hint': 'Move tabs up or down, and hide the ones you never use.',
     'cz.widgets.title': 'Today widgets',
@@ -1836,10 +2004,28 @@ const DICT = {
     'cz.card.calc.pad': 'Keypad', 'cz.card.calc.hist': 'History',
     'cz.card.weather.now': 'Current weather', 'cz.card.weather.week': 'Weekly forecast',
     'cz.card.todo.plan': 'Planner',
+    // ---- Categories ----
+    'cat.work': 'Work', 'cat.personal': 'Personal', 'cat.study': 'Study',
+    'cat.health': 'Health', 'cat.meet': 'Meeting', 'cat.money': 'Money', 'cat.etc': 'Other',
+    'todo.aria.category': 'Activity category',
+    // ---- Calendar ----
+    'cal.title': 'Calendar',
+    'cal.today': 'This month',
+    'cal.prev': 'Previous month',
+    'cal.next': 'Next month',
+    'cal.pick': 'Tap a date to see what is planned that day.',
+    'cal.empty': 'Nothing planned for this day.',
+    'cal.count': (n) => `${n} item${n === 1 ? '' : 's'}`,
+    'cal.undone': (n) => `${n} unfinished`,
+    'cal.goHint': 'Tap to open it in the planner',
+    'cal.note': 'Only daily plans appear here. Weekly, monthly and yearly plans do not belong to one date.',
+    'cal.aria.grid': 'Month calendar',
+    'cal.wd.sun': 'Sun', 'cal.wd.mon': 'Mon', 'cal.wd.tue': 'Tue', 'cal.wd.wed': 'Wed',
+    'cal.wd.thu': 'Thu', 'cal.wd.fri': 'Fri', 'cal.wd.sat': 'Sat',
+    'cz.card.todo.cal': 'Calendar',
     'cz.card.time.clock': 'Clock', 'cz.card.time.timer': 'Timer & alarm',
     'cz.card.memo.draw': 'Scratchpad', 'cz.card.memo.note': 'Quick notes',
     'cz.card.quote.today': 'Quote of the day', 'cz.card.quote.mine': 'My quotes',
-    'cz.card.music.player': 'YouTube player', 'cz.card.music.links': 'Music services',
     'cz.card.ai.chat': 'AI search',
     'cz.card.settings.display': 'Display', 'cz.card.settings.ai': 'AI integration',
     'cz.card.settings.customize': 'Customize',
@@ -2123,10 +2309,14 @@ const PREFS_KEY = 'ui.prefs';
 const SKINS = ['default', 'refined', 'cute', 'future', 'retro', 'nature'];
 
 /** 고를 수 있는 강조색. CSS 의 :root[data-accent="..."] 와 짝이 맞아야 합니다. */
-const ACCENTS = ['blue', 'violet', 'teal', 'green', 'amber', 'rose', 'slate', 'pink'];
+const ACCENTS = [
+  'blue', 'violet', 'teal', 'green', 'amber', 'rose', 'slate', 'pink',
+  // 파스텔 계열. 칠하는 색만 연하고 글자/테두리는 읽히는 톤을 따로 씁니다.
+  'pastelrose', 'pastelsky', 'pastelmint', 'pastellilac', 'pastelpeach',
+];
 
 /** 탭 전체 목록. 화면에 놓이는 순서의 기본값이기도 합니다. */
-const ALL_TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
+const ALL_TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'ai', 'settings'];
 
 /**
  * 숨길 수 없는 탭.
@@ -2292,11 +2482,57 @@ function moveItem(list, name, delta) {
   return { getPrefs, visibleTabs, cardPref, setPrefs, setCardPref, resetPrefs, onPrefsChange, moveItem, SKINS, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS, CARD_DEFAULTS, DEFAULTS };
 })();
 
+/* ===== js/lib/categories.js ===== */
+const __m_js_lib_categories_js = (function () {
+/**
+ * categories.js — 할 일의 활동 분류
+ *
+ * 달력 칸은 작아서 글을 넣을 수 없습니다. 그래서 분류를 이모지 하나로만 보여 줍니다.
+ * 이모지는 '어떤 종류의 일인지' 알아보는 용도이고, 자세한 내용은 날짜를 눌러 펼쳐 봅니다.
+ *
+ * 목록을 늘릴 때 주의할 점:
+ *  - id 는 저장값이라 한 번 정하면 바꾸지 않습니다. (바꾸면 기존 할 일의 분류가 사라집니다)
+ *  - i18n 에 'cat.<id>' 키를 한/영 모두 추가해야 합니다.
+ */
+
+const CATEGORIES = [
+  { id: 'work', emoji: '💼' },
+  { id: 'personal', emoji: '🏠' },
+  { id: 'study', emoji: '📚' },
+  { id: 'health', emoji: '🏃' },
+  { id: 'meet', emoji: '🤝' },
+  { id: 'money', emoji: '💰' },
+  { id: 'etc', emoji: '📌' },
+];
+
+const DEFAULT_CATEGORY = 'etc';
+
+const BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
+
+const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
+
+/** 모르는 값이 들어와도 화면이 비지 않도록 기본 분류로 떨어뜨립니다. */
+function categoryOf(id) {
+  return BY_ID.get(id) || BY_ID.get(DEFAULT_CATEGORY);
+}
+
+function emojiOf(id) {
+  return categoryOf(id).emoji;
+}
+
+/** 저장할 값인지 확인합니다. */
+function isCategory(id) {
+  return typeof id === 'string' && BY_ID.has(id);
+}
+  return { categoryOf, emojiOf, isCategory, CATEGORIES, DEFAULT_CATEGORY, CATEGORY_IDS };
+})();
+
 /* ===== js/modules/todo.js ===== */
 const __m_js_modules_todo_js = (function () {
   const { $, el, toast, uid } = __m_js_lib_dom_js;
   const { load, save } = __m_js_lib_store_js;
   const { keyOf, shift, label, isCurrent, SCOPES } = __m_js_lib_period_js;
+  const { CATEGORIES, DEFAULT_CATEGORY, isCategory, emojiOf } = __m_js_lib_categories_js;
   const { t, getLang, onLangChange, applyStatic } = __m_js_lib_i18n_js;
 /**
  * TO DO (계획표) 모듈
@@ -2304,6 +2540,7 @@ const __m_js_modules_todo_js = (function () {
  * 각 항목은 { scope, period } 로 어느 기간에 속하는지 기록합니다.
  * 화면 문구는 한국어/영어 중에서 고를 수 있습니다. (i18n.js)
  */
+
 
 
 
@@ -2349,9 +2586,13 @@ function migrate(raw) {
   const today = keyOf('day');
   let moved = 0;
   const result = raw.map((item) => {
-    if (item && SCOPES.includes(item.scope) && typeof item.period === 'string') return item;
+    // 분류는 나중에 생긴 항목이라 예전 데이터에는 없습니다. 기본 분류로 채웁니다.
+    const withCat = item && isCategory(item.category)
+      ? item
+      : { ...item, category: DEFAULT_CATEGORY };
+    if (withCat && SCOPES.includes(withCat.scope) && typeof withCat.period === 'string') return withCat;
     moved += 1;
-    return { ...item, scope: 'day', period: today };
+    return { ...withCat, scope: 'day', period: today };
   });
   if (moved) console.info(`[planner] 이전 형식의 할 일 ${moved}건을 오늘 계획으로 옮겼습니다.`);
   return result;
@@ -2409,6 +2650,8 @@ function render() {
     });
     list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
       checkbox,
+      el('span', { class: 'todo-cat', title: t(`cat.${item.category || DEFAULT_CATEGORY}`) },
+        emojiOf(item.category)),
       el('span', { class: 'todo-text' }, item.text),
       el('button', {
         class: 'btn btn-sm btn-ghost',
@@ -2511,6 +2754,40 @@ function revealItem(id) {
   return true;
 }
 
+/**
+ * 달력에서 날짜를 눌렀을 때 쓰는 진입점.
+ * 계획표를 그 날짜로 옮기고, 항목 id 가 있으면 잠깐 강조합니다.
+ */
+function openDate(dateKey, itemId = null) {
+  if (typeof dateKey !== 'string') return false;
+  if (itemId && revealItem(itemId)) return true;
+  scope = 'day';
+  period = dateKey;
+  filter = 'all';
+  saveView();
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === 'day'));
+  });
+  document.querySelectorAll('[data-filter]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.filter === 'all'));
+  });
+  render();
+  $('#todo-list')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  return true;
+}
+
+/** 분류 고르는 칸을 채웁니다. 목록이 늘어나도 HTML 을 고치지 않아도 되게 여기서 만듭니다. */
+function fillCategorySelect() {
+  const sel = $('#todo-cat');
+  if (!sel) return;
+  const keep = sel.value;
+  sel.replaceChildren(...CATEGORIES.map((c) => {
+    const opt = el('option', { value: c.id }, `${c.emoji} ${t(`cat.${c.id}`)}`);
+    return opt;
+  }));
+  sel.value = isCategory(keep) ? keep : DEFAULT_CATEGORY;
+}
+
 function initTodo() {
   items = migrate(load(KEY, []));
   notifyChange(); // 첫 로드 결과도 '오늘' 탭에 반영합니다
@@ -2532,10 +2809,12 @@ function initTodo() {
   onLangChange(() => {
     applyStatic($('#panel-todo'));
     applyPanelLang();
+    fillCategorySelect();
     render();
   });
   applyStatic($('#panel-todo'));
   applyPanelLang();
+  fillCategorySelect();
 
   $('#scope-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.scope-tab');
@@ -2555,7 +2834,12 @@ function initTodo() {
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
-    items.unshift({ id: uid(), text, done: false, scope, period, at: Date.now(), doneAt: null });
+    const picked = $('#todo-cat')?.value;
+    items.unshift({
+      id: uid(), text, done: false, scope, period,
+      category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
+      at: Date.now(), doneAt: null,
+    });
     input.value = '';
     persist();
     render();
@@ -2585,7 +2869,7 @@ function initTodo() {
 
   render();
 }
-  return { onTodoChange, getItems, revealItem, initTodo };
+  return { onTodoChange, getItems, revealItem, openDate, initTodo };
 })();
 
 /* ===== js/modules/weather.js ===== */
@@ -3903,8 +4187,44 @@ function updatePreview() {
   }
 }
 
+/**
+ * 방금 = 를 눌러 결과가 수식 칸에 들어가 있는 상태.
+ * 보통 계산기와 같게 동작시키려고 기억해 둡니다.
+ *   결과 뒤에 연산자를 누르면  -> 결과에 이어서 계산 (3 다음 + -> "3+")
+ *   결과 뒤에 숫자를 누르면    -> 새 계산 시작 (10 다음 7 -> "7")
+ */
+let justEvaluated = false;
+
+/** 새 숫자를 시작하는 입력. 이때는 이전 결과를 지웁니다. */
+const STARTS_NEW = /^[0-9.(]$/;
+
+/** 커서를 수식 끝으로 보냅니다. */
+function caretToEnd() {
+  const end = exprInput.value.length;
+  exprInput.focus();
+  exprInput.setSelectionRange(end, end);
+}
+
 // 커서 위치에 문자열을 삽입합니다.
 function insert(text) {
+  /*
+   * 포커스가 수식 칸에 없으면 selectionStart 가 0 이라 맨 앞에 끼어듭니다.
+   * = 버튼을 누르면 포커스가 그 버튼으로 옮겨 가므로 실제로 이 일이 일어났습니다.
+   * (1+2= 뒤에 +1 을 누르면 "+13" 이 되어 13 이 나왔습니다)
+   */
+  if (document.activeElement !== exprInput) caretToEnd();
+
+  if (justEvaluated) {
+    justEvaluated = false;
+    // 숫자로 시작하면 이전 결과를 버리고 새 식을 씁니다. 연산자면 결과에 이어 붙입니다.
+    if (STARTS_NEW.test(text)) {
+      exprInput.value = '';
+      exprInput.setSelectionRange(0, 0);
+    } else {
+      caretToEnd();
+    }
+  }
+
   const start = exprInput.selectionStart ?? exprInput.value.length;
   const end = exprInput.selectionEnd ?? exprInput.value.length;
   exprInput.value = exprInput.value.slice(0, start) + text + exprInput.value.slice(end);
@@ -3925,6 +4245,8 @@ function insertParen() {
 }
 
 function backspace() {
+  justEvaluated = false;
+  if (document.activeElement !== exprInput) caretToEnd();
   const start = exprInput.selectionStart ?? exprInput.value.length;
   const end = exprInput.selectionEnd ?? exprInput.value.length;
   if (start !== end) {
@@ -3939,6 +4261,7 @@ function backspace() {
 }
 
 function clearAll() {
+  justEvaluated = false;
   exprInput.value = '';
   resultBox.classList.remove('is-error');
   resultBox.textContent = '0';
@@ -4049,10 +4372,13 @@ function equals() {
     renderHistory();
     // 결과를 이어서 계산할 수 있도록 수식 자리에 결과를 넣습니다.
     exprInput.value = String(value);
-    exprInput.setSelectionRange(exprInput.value.length, exprInput.value.length);
+    justEvaluated = true;
+    // 포커스가 = 버튼에 있으면 커서가 0 으로 남으므로 여기서 끝으로 되돌립니다.
+    caretToEnd();
   } catch (err) {
     resultBox.classList.add('is-error');
     resultBox.textContent = err.message || '계산할 수 없습니다';
+    justEvaluated = false;
   }
 }
 
@@ -4084,7 +4410,8 @@ function initCalculator() {
     }
   });
 
-  exprInput.addEventListener('input', updatePreview);
+  // 키보드로 직접 고치면 '방금 계산함' 상태는 의미가 없어집니다.
+  exprInput.addEventListener('input', () => { justEvaluated = false; updatePreview(); });
   exprInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); equals(); }
     else if (e.key === 'Escape') { e.preventDefault(); clearAll(); }
@@ -4109,6 +4436,208 @@ function initCalculator() {
   });
 }
   return { initCalculator };
+})();
+
+/* ===== js/modules/calendar.js ===== */
+const __m_js_modules_calendar_js = (function () {
+  const { $, el } = __m_js_lib_dom_js;
+  const { t, getLang, onLangChange } = __m_js_lib_i18n_js;
+  const { emojiOf } = __m_js_lib_categories_js;
+  const { getItems, onTodoChange, openDate } = __m_js_modules_todo_js;
+/**
+ * calendar.js — TO DO 탭의 월 달력
+ *
+ * 어느 날에 무슨 일이 있는지 한눈에 보기 위한 화면입니다.
+ * 칸이 작아 내용을 다 쓸 수 없으므로 분류 이모지만 놓고,
+ * 날짜를 누르면 그 날의 할 일이 아래로 펼쳐집니다.
+ *
+ * 일간(day) 계획만 표시합니다.
+ * 주간/월간/연간은 특정 하루에 속하지 않아서, 달력에 올리면 어느 날인지 거짓으로 알려주게 됩니다.
+ */
+
+
+
+
+const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+let cursor = firstOfMonth(new Date());   // 지금 보고 있는 달
+let selected = null;                     // 펼쳐 놓은 날짜 (YYYY-MM-DD)
+
+const pad = (n) => String(n).padStart(2, '0');
+
+function firstOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/** Date -> 'YYYY-MM-DD'. period.js 의 keyOf('day') 와 같은 형식입니다. */
+function dayKey(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * 달력에 깔 날짜들.
+ * 1일이 속한 주의 일요일부터, 말일이 속한 주의 토요일까지 채웁니다.
+ * (달마다 줄 수가 달라지지만, 빈 줄을 억지로 만드는 것보다 낫습니다)
+ */
+function monthGrid(monthStart) {
+  const start = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+  start.setDate(start.getDate() - start.getDay());
+  const end = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  end.setDate(end.getDate() + (6 - end.getDay()));
+
+  const out = [];
+  const walk = new Date(start);
+  // 안전장치: 어떤 달도 6주(42칸)를 넘지 않습니다. 날짜 계산이 어긋나도 무한 루프가 되지 않게 막습니다.
+  while (walk <= end && out.length < 42) {
+    out.push(new Date(walk));
+    walk.setDate(walk.getDate() + 1);
+  }
+  return out;
+}
+
+/**
+ * 날짜별 일간 할 일 묶음.
+ * 손상된 항목이 섞여 있어도 달력 전체가 죽지 않도록 걸러냅니다.
+ */
+function groupByDay(items = getItems()) {
+  const map = new Map();
+  items.forEach((item) => {
+    if (!item || item.scope !== 'day' || typeof item.period !== 'string') return;
+    if (typeof item.text !== 'string') return;
+    if (!map.has(item.period)) map.set(item.period, []);
+    map.get(item.period).push(item);
+  });
+  return map;
+}
+
+function monthLabel(date, lang) {
+  try {
+    return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'ko-KR',
+      { year: 'numeric', month: 'long' });
+  } catch {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+  }
+}
+
+function renderDetail(dayItems) {
+  const box = $('#cal-detail');
+  if (!box) return;
+
+  if (!selected) {
+    box.replaceChildren(el('p', { class: 'card-sub' }, t('cal.pick')));
+    return;
+  }
+
+  const rows = dayItems.get(selected) || [];
+  const head = el('div', { class: 'cal-detail-head' },
+    el('span', { class: 'cal-detail-date' }, selected),
+    el('span', { class: 'card-sub' }, t('cal.count', rows.length)));
+
+  if (!rows.length) {
+    box.replaceChildren(head, el('p', { class: 'empty' }, t('cal.empty')));
+    return;
+  }
+
+  box.replaceChildren(head, el('ul', { class: 'cal-detail-list' },
+    ...rows.map((item) => {
+      const btn = el('button', {
+        class: `cal-detail-item${item.done ? ' done' : ''}`,
+        type: 'button',
+        'aria-label': `${item.text}. ${t('cal.goHint')}`,
+      },
+      el('span', { class: 'cal-detail-emoji', 'aria-hidden': 'true' }, emojiOf(item.category)),
+      el('span', { class: 'cal-detail-text' }, item.text));
+      // 누르면 계획표를 그 날짜로 옮기고 해당 항목을 강조합니다.
+      btn.addEventListener('click', () => openDate(selected, item.id));
+      return el('li', {}, btn);
+    })));
+}
+
+function render() {
+  const grid = $('#cal-grid');
+  if (!grid) return;
+  const lang = getLang();
+  const byDay = groupByDay();
+  const todayKey = dayKey(new Date());
+  const month = cursor.getMonth();
+
+  const labelEl = $('#cal-label');
+  if (labelEl) labelEl.textContent = monthLabel(cursor, lang);
+
+  grid.replaceChildren(
+    ...WEEKDAY_KEYS.map((key, i) => el('div', {
+      class: `cal-wd${i === 0 ? ' sun' : ''}${i === 6 ? ' sat' : ''}`,
+    }, t(`cal.wd.${key}`))),
+    ...monthGrid(cursor).map((date) => {
+      const key = dayKey(date);
+      const rows = byDay.get(key) || [];
+      const undone = rows.filter((r) => !r.done).length;
+      const outside = date.getMonth() !== month;
+
+      // 같은 분류가 여러 건이면 이모지를 한 번만 보여 줍니다. 칸이 금방 가득 차기 때문입니다.
+      const emojis = [...new Set(rows.map((r) => emojiOf(r.category)))];
+      const shown = emojis.slice(0, MAX_DOTS);
+      const more = emojis.length - shown.length;
+
+      const cell = el('button', {
+        class: [
+          'cal-day',
+          outside ? 'is-outside' : '',
+          key === todayKey ? 'is-today' : '',
+          key === selected ? 'is-selected' : '',
+          rows.length ? 'has-items' : '',
+        ].filter(Boolean).join(' '),
+        type: 'button',
+        dataset: { day: key },
+        'aria-pressed': String(key === selected),
+        'aria-label': rows.length
+          ? `${key}. ${t('cal.count', rows.length)}${undone ? `, ${t('cal.undone', undone)}` : ''}`
+          : `${key}. ${t('cal.empty')}`,
+      },
+      el('span', { class: 'cal-num' }, String(date.getDate())),
+      el('span', { class: 'cal-marks', 'aria-hidden': 'true' },
+        ...shown.map((e) => el('span', { class: 'cal-mark' }, e)),
+        more > 0 ? el('span', { class: 'cal-more' }, `+${more}`) : ''));
+
+      return cell;
+    }),
+  );
+
+  renderDetail(byDay);
+}
+
+/** 달을 옮깁니다. 보고 있던 날짜 선택은 유지합니다. */
+function moveMonth(delta) {
+  cursor = new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1);
+  render();
+}
+
+function initCalendar() {
+  const grid = $('#cal-grid');
+  if (!grid) return;
+
+  grid.addEventListener('click', (e) => {
+    const cell = e.target.closest('.cal-day');
+    if (!cell) return;
+    // 같은 날을 다시 누르면 접습니다. 펼친 뒤 닫을 방법이 없으면 답답합니다.
+    selected = selected === cell.dataset.day ? null : cell.dataset.day;
+    render();
+  });
+
+  $('#cal-prev')?.addEventListener('click', () => moveMonth(-1));
+  $('#cal-next')?.addEventListener('click', () => moveMonth(1));
+  $('#cal-today')?.addEventListener('click', () => {
+    cursor = firstOfMonth(new Date());
+    selected = dayKey(new Date());
+    render();
+  });
+
+  onTodoChange(render);
+  onLangChange(render);
+  render();
+}
+  return { dayKey, monthGrid, groupByDay, initCalendar };
 })();
 
 /* ===== js/modules/memo.js ===== */
@@ -4458,119 +4987,6 @@ function initQuote() {
   });
 }
   return { initQuote };
-})();
-
-/* ===== js/modules/music.js ===== */
-const __m_js_modules_music_js = (function () {
-  const { $, el, toast } = __m_js_lib_dom_js;
-  const { load, save } = __m_js_lib_store_js;
-/**
- * 음악 모듈
- *
- * [중요] 멜론/지니/유튜브뮤직은 외부 앱에서 계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.
- * Spotify 는 API 가 있으나 2026-02 정책 변경으로 개발 모드 앱은 소유자 Premium 필수 + 테스터 5명 제한,
- * 확장 쿼터는 법인/MAU 25만 이상만 신청 가능하여 개인 앱에서는 사실상 사용할 수 없습니다.
- * 따라서 실제 재생은 공식 임베드가 허용된 YouTube 만 지원하고, 나머지는 검색 딥링크로 처리합니다.
- */
-
-
-const LAST_KEY = 'music.last';
-
-// 각 서비스의 웹 검색 URL (공개된 검색 페이지 주소)
-const SERVICES = [
-  { id: 'melon', name: '멜론', icon: '🍈', url: (q) => `https://www.melon.com/search/total/index.htm?q=${encodeURIComponent(q)}` },
-  { id: 'genie', name: '지니', icon: '🧞', url: (q) => `https://www.genie.co.kr/search/searchMain?query=${encodeURIComponent(q)}` },
-  { id: 'ytmusic', name: 'YouTube Music', icon: '▶️', url: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}` },
-  { id: 'spotify', name: 'Spotify', icon: '🟢', url: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
-  { id: 'bugs', name: '벅스', icon: '🐞', url: (q) => `https://music.bugs.co.kr/search/integrated?q=${encodeURIComponent(q)}` },
-  { id: 'flo', name: 'FLO', icon: '🌊', url: (q) => `https://www.music-flo.com/search/all?keyword=${encodeURIComponent(q)}` },
-];
-
-/**
- * YouTube URL 또는 ID 를 파싱해 임베드 정보를 만듭니다.
- * @returns {{type:'video'|'playlist', id:string}|null}
- */
-function parseYouTube(input) {
-  const text = String(input || '').trim();
-  if (!text) return null;
-
-  // 재생목록 URL (list= 파라미터)
-  const listMatch = text.match(/[?&]list=([A-Za-z0-9_-]{10,})/);
-  // 영상 URL 의 여러 형태: watch?v=, youtu.be/, /embed/, /shorts/, /live/
-  const videoMatch = text.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-
-  if (videoMatch) return { type: 'video', id: videoMatch[1] };
-  if (listMatch) return { type: 'playlist', id: listMatch[1] };
-
-  // URL 이 아닌 순수 ID 입력
-  if (/^[A-Za-z0-9_-]{11}$/.test(text)) return { type: 'video', id: text };
-  if (/^(PL|UU|LL|OL|RD)[A-Za-z0-9_-]{10,}$/.test(text)) return { type: 'playlist', id: text };
-
-  return null;
-}
-
-function embedUrl(parsed) {
-  return parsed.type === 'playlist'
-    ? `https://www.youtube-nocookie.com/embed/videoseries?list=${parsed.id}`
-    : `https://www.youtube-nocookie.com/embed/${parsed.id}`;
-}
-
-function mount(parsed) {
-  $('#yt-holder').replaceChildren(el('iframe', {
-    class: 'yt-frame',
-    src: embedUrl(parsed),
-    title: 'YouTube 플레이어',
-    allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
-    allowfullscreen: true,
-    referrerpolicy: 'strict-origin-when-cross-origin',
-    loading: 'lazy',
-  }));
-  save(LAST_KEY, parsed);
-}
-
-function renderServices() {
-  const grid = $('#svc-grid');
-  grid.replaceChildren();
-  SERVICES.forEach((svc) => {
-    grid.append(el('a', {
-      class: 'svc-btn',
-      href: '#',
-      target: '_blank',
-      rel: 'noopener noreferrer',
-      onclick: (e) => {
-        e.preventDefault();
-        const query = $('#svc-query').value.trim();
-        if (!query) { toast('검색할 곡이나 아티스트를 입력해 주세요', 'error'); return; }
-        window.open(svc.url(query), '_blank', 'noopener');
-      },
-    }, el('span', {}, svc.icon), el('span', {}, svc.name)));
-  });
-}
-
-function initMusic() {
-  renderServices();
-
-  const last = load(LAST_KEY, null);
-  if (last && last.id && (last.type === 'video' || last.type === 'playlist')) mount(last);
-
-  $('#yt-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const parsed = parseYouTube($('#yt-input').value);
-    if (!parsed) {
-      toast('YouTube 영상/재생목록 주소를 확인해 주세요', 'error');
-      return;
-    }
-    mount(parsed);
-    $('#yt-input').value = '';
-  });
-
-  $('#yt-search-btn').addEventListener('click', () => {
-    const query = $('#yt-search').value.trim();
-    if (!query) { toast('검색어를 입력해 주세요', 'error'); return; }
-    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank', 'noopener');
-  });
-}
-  return { parseYouTube, initMusic };
 })();
 
 /* ===== js/modules/ai.js ===== */
@@ -5357,15 +5773,15 @@ const __m_js_main_js = (function () {
   const { initCalculator } = __m_js_modules_calculator_js;
   const { initWeather } = __m_js_modules_weather_js;
   const { initTodo } = __m_js_modules_todo_js;
+  const { initCalendar } = __m_js_modules_calendar_js;
   const { initTime } = __m_js_modules_time_js;
   const { initMemo } = __m_js_modules_memo_js;
   const { initQuote } = __m_js_modules_quote_js;
-  const { initMusic } = __m_js_modules_music_js;
   const { initAi } = __m_js_modules_ai_js;
   const { initBanner } = __m_js_modules_banner_js;
   const { initTheme, initSettings } = __m_js_modules_settings_js;
   const { initAppearance, refreshAppearance, applyTabLayout } = __m_js_modules_appearance_js;
-  const { initLang } = __m_js_lib_i18n_js;
+  const { initLang, t, onLangChange } = __m_js_lib_i18n_js;
   const { setNavigator, notifyTabChange } = __m_js_lib_nav_js;
   const { ALL_TABS, onPrefsChange } = __m_js_lib_prefs_js;
 /**
@@ -5437,10 +5853,13 @@ function setActiveTab(tab) {
 
   save(TAB_KEY, tab);
   runLazyInit(tab);
+  updateHeaderNow(tab);
 
-  // 선택한 탭 버튼이 가로 스크롤 밖에 있으면 보이게 합니다.
-  document.querySelector(`.tab[data-tab="${tab}"]`)
-    ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  // 서랍이 열려 있을 때만, 선택한 탭 버튼이 목록 밖에 있으면 보이게 합니다.
+  if (!$('#sidebar')?.hidden) {
+    document.querySelector(`.tab[data-tab="${tab}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
 
   notifyTabChange(tab);
 }
@@ -5534,10 +5953,79 @@ function syncTabLayout(prefs) {
   requestAnimationFrame(() => scrollToPanel(tab, false));
 }
 
+/* ---------- 메뉴 사이드바 ----------
+ * 탭 막대를 없앴으므로 메뉴는 이 서랍에만 있습니다.
+ * 열려 있는 동안 본문은 inert 로 막아, 화면 밖 메뉴 뒤쪽으로 포커스가 새지 않게 합니다.
+ */
+let lastMenuTrigger = null;
+
+function menuOpen() {
+  const bar = $('#sidebar');
+  const scrim = $('#sidebar-scrim');
+  // 이미 열려 있으면 아무것도 하지 않습니다.
+  if (!bar || !scrim || !bar.hidden) return;
+  lastMenuTrigger = document.activeElement;
+  bar.hidden = false;
+  scrim.hidden = false;
+  $('#menu-open')?.setAttribute('aria-expanded', 'true');
+  document.body.dataset.menu = 'open';
+  // 지금 보고 있는 탭에 포커스를 둬야 키보드로 바로 옆 항목으로 갈 수 있습니다.
+  (bar.querySelector('.tab[aria-selected="true"]') || bar.querySelector('.tab'))?.focus();
+}
+
+function menuClose() {
+  const bar = $('#sidebar');
+  const scrim = $('#sidebar-scrim');
+  if (!bar || bar.hidden) return;
+  bar.hidden = true;
+  if (scrim) scrim.hidden = true;
+  $('#menu-open')?.setAttribute('aria-expanded', 'false');
+  delete document.body.dataset.menu;
+  // 열 때 누른 버튼으로 포커스를 돌려줍니다. 안 그러면 포커스가 문서 맨 앞으로 튑니다.
+  const back = lastMenuTrigger && document.contains(lastMenuTrigger) ? lastMenuTrigger : $('#menu-open');
+  back?.focus();
+  lastMenuTrigger = null;
+}
+
+/** 서랍 안에서 Tab 키가 밖으로 나가지 않게 가둡니다. */
+function trapFocus(e) {
+  const bar = $('#sidebar');
+  if (!bar || bar.hidden || e.key !== 'Tab') return;
+  const items = [...bar.querySelectorAll('button:not([disabled])')];
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+function initMenu() {
+  onLangChange(() => updateHeaderNow(currentTab));
+  $('#menu-open')?.addEventListener('click', menuOpen);
+  $('#menu-close')?.addEventListener('click', menuClose);
+  $('#sidebar-scrim')?.addEventListener('click', menuClose);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') menuClose();
+    trapFocus(e);
+  });
+}
+
+/**
+ * 헤더에 지금 보고 있는 화면 이름을 씁니다. 탭 막대가 없어 이것이 유일한 표시입니다.
+ * 버튼의 텍스트를 긁으면 이모지가 붙어 나오므로 사전 문구를 씁니다.
+ */
+function updateHeaderNow(tab) {
+  const el = $('#header-now');
+  if (el) el.textContent = t(`tab.${tab}`);
+}
+
 function initTabs() {
   $('#tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.tab');
-    if (btn) activate(btn.dataset.tab);
+    if (!btn) return;
+    activate(btn.dataset.tab);
+    // 고르면 바로 닫힙니다. 서랍을 손으로 또 닫게 하면 두 번 일하는 셈입니다.
+    menuClose();
   });
   setNavigator(activate);
   watchPagerScroll();
@@ -5586,14 +6074,16 @@ function boot() {
   safeInit('배너', initBanner);
   safeInit('계산기', initCalculator);
   safeInit('할 일', initTodo);
+  // 달력은 할 일 데이터를 구독하므로 그 뒤에 초기화합니다.
+  safeInit('달력', initCalendar);
   safeInit('시계·타이머', initTime);
   safeInit('메모', initMemo);
   safeInit('글귀', initQuote);
-  safeInit('음악', initMusic);
   safeInit('AI', initAi);
   safeInit('설정', initSettings);
   // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
   safeInit('커스터마이즈', initAppearance);
+  safeInit('메뉴', initMenu);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);

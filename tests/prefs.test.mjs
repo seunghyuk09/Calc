@@ -51,7 +51,7 @@ test('모르는 값은 기본값으로 떨어진다', () => {
 
 test('탭 순서: 저장된 순서를 지키되 빠진 탭은 뒤에 붙는다', () => {
   wipe();
-  // 예전 버전에 'music' 이 없었다고 가정합니다. 앱이 업데이트돼도 사라지면 안 됩니다.
+  // 예전 버전에 'quote' 가 없었다고 가정합니다. 앱이 업데이트돼도 사라지면 안 됩니다.
   seed({ tabOrder: ['settings', 'calc'] });
   const p = getPrefs();
   assert.deepEqual(p.tabOrder.slice(0, 2), ['settings', 'calc']);
@@ -69,9 +69,9 @@ test('탭 순서: 중복과 모르는 이름을 걸러낸다', () => {
 
 test('숨김: 잠긴 탭은 숨길 수 없다', () => {
   wipe();
-  seed({ tabHidden: LOCKED_TABS.concat('music') });
+  seed({ tabHidden: LOCKED_TABS.concat('quote') });
   const p = getPrefs();
-  assert.deepEqual(p.tabHidden, ['music']);
+  assert.deepEqual(p.tabHidden, ['quote']);
   LOCKED_TABS.forEach((name) => assert.ok(visibleTabs(p).includes(name), `${name} 이 사라졌습니다`));
 });
 
@@ -125,7 +125,7 @@ test('카드: 기본값으로 되돌린 선택도 저장된다', () => {
 
 test('초기화: 전부 기본값으로 돌아온다', () => {
   wipe();
-  setPrefs({ skin: 'retro', accent: 'pink', tabHidden: ['music'], widgets: ['calc'] });
+  setPrefs({ skin: 'retro', accent: 'pink', tabHidden: ['quote'], widgets: ['calc'] });
   setCardPref('calc.pad', { size: 'compact' });
   resetPrefs();
   const p = getPrefs();
