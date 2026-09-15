@@ -38,3 +38,6 @@ xcuserdata/
 cert.b64
 profile.b64
 keystore.b64
+
+# E2E 스크린샷 등 테스트 부산물
+test-results/
