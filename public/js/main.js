@@ -17,7 +17,7 @@ import { initBanner } from './modules/banner.js';
 import { initTheme, initSettings } from './modules/settings.js';
 import { initAppearance, refreshAppearance, applyTabLayout } from './modules/appearance.js';
 import { initUpdate, registerServiceWorker } from './modules/update.js';
-import { initLang, t, onLangChange } from './lib/i18n.js';
+import { initLang, t, onLangChange, applyStatic } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
@@ -69,7 +69,8 @@ function setActiveTab(tab) {
 
   save(TAB_KEY, tab);
   runLazyInit(tab);
-  updateHeaderNow(tab);
+  showHeaderTab(tab);
+  announceTab(tab);
 
   // 서랍이 열려 있을 때만, 선택한 탭 버튼이 목록 밖에 있으면 보이게 합니다.
   if (!$('#sidebar')?.hidden) {
@@ -87,7 +88,16 @@ function scrollToPanel(tab, smooth = true) {
   const index = TABS.indexOf(tab);
   if (index < 0) return;
   // 패널 폭이 정확히 100% 라서 인덱스 x 폭이 곧 목표 위치입니다.
-  main.scrollTo({ left: index * main.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
+  const left = index * main.clientWidth;
+  /*
+   * 부드럽게 옮기는 동안에는 중간 탭들을 전부 지나갑니다.
+   * 그대로 두면 '오늘 -> 계산기 -> 날씨 -> ...' 로 이름이 촤르륵 깜빡이므로 목적지를 붙들어 둡니다.
+   * 이미 그 자리면 스크롤 이벤트가 오지 않아 풀 기회가 없으니, 움직일 때만 겁니다.
+   */
+  if (smooth && Math.abs(main.scrollLeft - left) > 1) lockPager(tab);
+  main.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
+  // 즉시 이동은 scroll 이벤트가 오지 않을 수 있습니다. 여기서 직접 한 번 그립니다.
+  if (!smooth) { unlockPager(); paintPager(); }
 }
 
 /** 탭 버튼이나 다른 모듈에서 부르는 진입점. 상태를 바꾸고 화면도 옮깁니다. */
@@ -106,16 +116,24 @@ function watchPagerScroll() {
   const main = $('#main');
   if (!main) return;
   let settleTimer = null;
-  const settle = () => {
-    const width = main.clientWidth;
-    if (!width) return;
-    const index = Math.round(main.scrollLeft / width);
-    const tab = TABS[Math.min(Math.max(index, 0), TABS.length - 1)];
-    if (tab && tab !== currentTab) setActiveTab(tab);
-  };
+  let painting = 0;
+  /*
+   * 손을 대는 순간, 버튼으로 옮기던 일은 끝난 것으로 봅니다.
+   * 이제부터는 손가락이 기준이어야 헤더 이름이 손을 따라옵니다.
+   */
+  ['pointerdown', 'touchstart', 'wheel'].forEach((type) => {
+    main.addEventListener(type, unlockPager, { passive: true });
+  });
+
   main.addEventListener('scroll', () => {
+    /*
+     * 헤더 표시는 멈추기를 기다리지 않고 바로 따라갑니다.
+     * 예전에는 settle 에서만 바꿔서, 넘기는 내내 어느 화면으로 가는지 알 수 없었습니다.
+     * 관성 중에는 이벤트가 초당 수십 번 들어오므로 한 프레임에 한 번만 그립니다.
+     */
+    if (!painting) painting = requestAnimationFrame(() => { painting = 0; paintPager(); });
     clearTimeout(settleTimer);
-    settleTimer = setTimeout(settle, 120);
+    settleTimer = setTimeout(settlePager, 120);
   }, { passive: true });
 
   // 창 크기가 바뀌면 스냅 위치가 어긋나므로 현재 탭으로 다시 맞춥니다.
@@ -163,6 +181,8 @@ function blockEdgeBackGesture(main) {
  */
 function syncTabLayout(prefs) {
   TABS = applyTabLayout(prefs);
+  // 숨겼다 다시 켠 탭은 DOM 에서 빠져 있는 동안의 언어 전환을 놓칩니다. 여기서 다시 맞춥니다.
+  applyStatic($('#tabs'));
   const tab = TABS.includes(currentTab) ? currentTab : (TABS[0] || DEFAULT_TAB);
   setActiveTab(tab);
   // DOM 을 옮긴 직후에는 패널 폭이 아직 확정되지 않아 스크롤 위치가 어긋납니다.
@@ -216,7 +236,18 @@ function trapFocus(e) {
 }
 
 function initMenu() {
-  onLangChange(() => updateHeaderNow(currentTab));
+  /*
+   * 서랍의 탭 이름도 같이 번역합니다.
+   * 헤더는 t() 로 쓰는데 버튼만 한국어로 남아 있어서, 영어로 바꾸면
+   * 헤더는 'Calculator', 메뉴는 '계산기' 로 서로 어긋나 있었습니다.
+   */
+  applyStatic($('#tabs'));
+  onLangChange(() => {
+    applyStatic($('#tabs'));
+    shownTab = null;   // 탭은 그대로여도 글자가 달라집니다
+    showHeaderTab(currentTab);
+    announceTab(currentTab);
+  });
   $('#menu-open')?.addEventListener('click', menuOpen);
   $('#menu-close')?.addEventListener('click', menuClose);
   $('#sidebar-scrim')?.addEventListener('click', menuClose);
@@ -226,13 +257,103 @@ function initMenu() {
   });
 }
 
-/**
- * 헤더에 지금 보고 있는 화면 이름을 씁니다. 탭 막대가 없어 이것이 유일한 표시입니다.
- * 버튼의 텍스트를 긁으면 이모지가 붙어 나오므로 사전 문구를 씁니다.
+/* ---------- 헤더의 '지금 이 화면' 표시 ----------
+ * 탭 막대가 없어서 이 표시가 유일한 표지입니다.
+ * 넘기기가 끝난 뒤에 바꾸면 넘기는 동안에는 아무 정보가 없으므로,
+ * 상태(currentTab) 갱신과 화면 표시를 따로 떼어 표시만 스크롤을 따라가게 했습니다.
  */
-function updateHeaderNow(tab) {
-  const el = $('#header-now');
+
+/** 버튼으로 옮기는 중의 목적지. 스크롤이 멈추면 풉니다. */
+let pagerIntent = null;
+let pagerIntentTimer = null;
+
+function lockPager(tab) {
+  pagerIntent = tab;
+  clearTimeout(pagerIntentTimer);
+  // 목적지에 닿지 못한 채 멈춘 경우(스크롤이 끊기는 등)에도 상태가 굳지 않게 풀고 다시 맞춥니다.
+  pagerIntentTimer = setTimeout(() => { pagerIntent = null; settlePager(); }, 1200);
+}
+
+function unlockPager() {
+  clearTimeout(pagerIntentTimer);
+  pagerIntent = null;
+}
+
+/** 탭 버튼 앞의 이모지. 목록이 HTML 한 군데에만 있도록 여기서 읽어 씁니다. */
+function iconOf(tab) {
+  const btn = document.querySelector(`.tab[data-tab="${tab}"] span`);
+  return btn ? btn.textContent.trim() : '';
+}
+
+/*
+ * 지금 헤더에 쓰여 있는 탭. 스크롤 중에는 한 프레임에 한 번씩 부르는데,
+ * 같은 글자를 다시 써도 그때마다 헤더(블러가 걸린 sticky 요소)가 다시 그려져 넘기기가 무거워집니다.
+ */
+let shownTab = null;
+
+/** 헤더 표시만 바꿉니다. 탭 상태는 건드리지 않습니다. */
+function showHeaderTab(tab) {
+  if (tab === shownTab) return;
+  shownTab = tab;
+  const name = $('#header-now-name');
+  const icon = $('#header-now-icon');
+  if (name) name.textContent = t(`tab.${tab}`);
+  if (icon) icon.textContent = iconOf(tab);
+}
+
+/**
+ * 넘기기가 끝났을 때만 한 번 읽어 줍니다.
+ * 보이는 글자에 aria-live 를 걸면 넘기는 내내 읽어 대서 오히려 방해가 됩니다.
+ */
+function announceTab(tab) {
+  const el = $('#tab-announce');
   if (el) el.textContent = t(`tab.${tab}`);
+}
+
+/** 위치 막대. at 은 0(첫 화면) ~ TABS.length-1(마지막) 사이의 실수입니다. */
+function showPagerRail(at) {
+  const thumb = $('#pager-thumb');
+  if (!thumb) return;
+  const count = Math.max(TABS.length, 1);
+  const width = `${100 / count}%`;
+  // 폭은 탭 개수가 바뀔 때만 씁니다. 스크롤마다 건드리면 배치 계산이 매번 다시 돕니다.
+  if (thumb.style.width !== width) thumb.style.width = width;
+  const clamped = Math.min(Math.max(at, 0), count - 1);
+  // 칸 하나의 폭이 곧 한 화면이라, 자기 폭의 배수로 밀면 위치가 그대로 맞습니다.
+  const shift = `translateX(${clamped * 100}%)`;
+  if (thumb.style.transform !== shift) thumb.style.transform = shift;
+}
+
+/**
+ * 넘기기가 멈췄을 때 탭 상태를 화면에 맞춥니다.
+ *
+ * 버튼으로 옮기는 중이라면 중간 탭에서는 아무것도 하지 않습니다.
+ * 예전에는 지나가던 탭을 활성 탭으로 잡아서, 느린 환경에서 '눌러 놓고 엉뚱한 탭이 켜지는'
+ * 일이 생겼습니다. (이 증상으로 e2e 검사가 반복해서 깨졌습니다)
+ */
+function settlePager() {
+  const main = $('#main');
+  if (!main) return;
+  const width = main.clientWidth;
+  if (!width) return;
+  const index = Math.min(Math.max(Math.round(main.scrollLeft / width), 0), TABS.length - 1);
+  const tab = TABS[index];
+  if (pagerIntent && tab !== pagerIntent) return;   // 아직 가는 중입니다
+  unlockPager();
+  paintPager();
+  if (tab && tab !== currentTab) setActiveTab(tab);
+}
+
+/** 지금 스크롤 위치를 그대로 헤더에 옮겨 그립니다. */
+function paintPager() {
+  const main = $('#main');
+  if (!main) return;
+  const width = main.clientWidth;
+  if (!width) return;   // 화면에 붙기 전에는 0 이 나옵니다
+  const at = main.scrollLeft / width;
+  showPagerRail(at);
+  const index = Math.min(Math.max(Math.round(at), 0), TABS.length - 1);
+  showHeaderTab(pagerIntent || TABS[index] || DEFAULT_TAB);
 }
 
 function initTabs() {

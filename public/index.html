@@ -21,11 +21,21 @@
     <div class="header-top">
       <button class="icon-btn menu-btn" id="menu-open" type="button"
               aria-label="메뉴 열기" aria-expanded="false" aria-controls="sidebar" title="메뉴">•••</button>
-      <div class="brand"><span class="brand-mark">DK</span> Daily Kit</div>
-      <!-- 탭 막대를 없앴으므로 지금 어느 화면인지 여기서 알려 줍니다. -->
-      <span class="header-now" id="header-now" aria-live="polite">오늘</span>
+      <span class="brand-mark" aria-hidden="true">DK</span>
+      <!-- 탭 막대를 없앴으므로 지금 어느 화면인지 여기서 알려 줍니다.
+           쓸어 넘기는 동안에도 실시간으로 바뀝니다. 그래서 여기에는 aria-live 를 걸지 않고,
+           넘기기가 끝난 뒤에 아래 안내 영역이 한 번만 읽어 주도록 나눠 뒀습니다. -->
+      <div class="header-now" id="header-now">
+        <span class="header-now-icon" id="header-now-icon" aria-hidden="true">🗓️</span>
+        <span class="header-now-name" id="header-now-name">오늘</span>
+      </div>
+      <span class="sr-only" id="tab-announce" aria-live="polite" role="status"></span>
       <button class="icon-btn" id="theme-toggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button>
     </div>
+
+    <!-- 몇 번째 화면인지. 쓸어 넘기는 동안 손가락을 따라 이어서 움직입니다.
+         헤더 맨 아래(배너 밑)에 두면 파란 배너에 묻혀 장식처럼 보여서, 이름 바로 밑에 붙였습니다. -->
+    <div class="pager-rail" id="pager-rail" aria-hidden="true"><span class="pager-thumb" id="pager-thumb"></span></div>
 
     <!-- 배너: 설정 탭에서 문구 편집 가능 -->
     <section class="banner" id="banner" aria-label="배너">
@@ -45,15 +55,15 @@
       <button class="icon-btn" id="menu-close" type="button" aria-label="메뉴 닫기" title="닫기">✕</button>
     </div>
     <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
-      <button class="tab" role="tab" data-tab="today"    aria-selected="true"><span>🗓️</span>오늘</button>
-      <button class="tab" role="tab" data-tab="calc"     aria-selected="false"><span>🧮</span>계산기</button>
-      <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span>🌤️</span>날씨</button>
-      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>TO DO</button>
-      <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
-      <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
-      <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
-      <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span>🤖</span>AI 검색</button>
-      <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span>⚙️</span>설정</button>
+      <button class="tab" role="tab" data-tab="today"    aria-selected="true"><span aria-hidden="true">🗓️</span><span data-i18n="tab.today">오늘</span></button>
+      <button class="tab" role="tab" data-tab="calc"     aria-selected="false"><span aria-hidden="true">🧮</span><span data-i18n="tab.calc">계산기</span></button>
+      <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span aria-hidden="true">🌤️</span><span data-i18n="tab.weather">날씨</span></button>
+      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span aria-hidden="true">✅</span><span data-i18n="tab.todo">TO DO</span></button>
+      <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span aria-hidden="true">⏱️</span><span data-i18n="tab.time">시계·타이머</span></button>
+      <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span aria-hidden="true">✏️</span><span data-i18n="tab.memo">메모·낙서</span></button>
+      <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span aria-hidden="true">💬</span><span data-i18n="tab.quote">글귀</span></button>
+      <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span aria-hidden="true">🤖</span><span data-i18n="tab.ai">AI 검색</span></button>
+      <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span aria-hidden="true">⚙️</span><span data-i18n="tab.settings">설정</span></button>
     </nav>
   </aside>
 
