@@ -15,7 +15,13 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const target = resolve(root, 'public/js/lib/version.js');
 
-const sha = (process.argv[2] || process.env.GITHUB_SHA || '').trim();
+/*
+ * 인자를 줬으면 그 값이 이깁니다. 비어 있어도 마찬가지입니다.
+ * 빈 인자일 때 조용히 GITHUB_SHA 로 넘어가면, 잘못 부른 것을 성공으로 오해합니다.
+ * (CI 에서는 GITHUB_SHA 가 늘 있어서 이 차이가 드러나지 않습니다)
+ */
+const explicit = process.argv[2];
+const sha = (explicit !== undefined ? explicit : (process.env.GITHUB_SHA || '')).trim();
 if (!/^[0-9a-f]{40}$/.test(sha)) {
   console.error(`[stamp] 40자리 커밋 SHA 가 필요합니다. 받은 값: "${sha}"`);
   process.exit(1);

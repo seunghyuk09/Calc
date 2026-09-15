@@ -34,11 +34,50 @@ test('스탬프 스크립트: 40자리 SHA 를 찍고 되돌릴 수 있다', () 
   assert.equal(readFileSync(path, 'utf-8'), before, '원래 내용으로 되돌리지 못했습니다');
 });
 
-test('스탬프 스크립트: 40자리가 아니면 거부한다', () => {
-  for (const bad of ['nope', '', 'ABCDEF', 'a'.repeat(39), 'z'.repeat(40)]) {
+/*
+ * 거부되어야 할 입력을 시험합니다.
+ * 스크립트가 예상과 달리 성공하면 version.js 가 더럽혀진 채 남아 다음 검사까지 깨지므로,
+ * 실패하든 통과하든 원래 내용으로 되돌립니다.
+ */
+function expectRejected(args, env, message) {
+  const path = 'public/js/lib/version.js';
+  const before = readFileSync(path, 'utf-8');
+  try {
     assert.throws(
-      () => execFileSync('node', ['scripts/stamp-build.mjs', bad], { stdio: 'pipe' }),
-      `"${bad}" 를 통과시켰습니다`,
+      () => execFileSync('node', ['scripts/stamp-build.mjs', ...args], { stdio: 'pipe', env }),
+      message,
     );
+  } finally {
+    writeFileSync(path, before, 'utf-8');
+  }
+}
+
+test('스탬프 스크립트: 40자리가 아니면 거부한다', () => {
+  // CI 에는 GITHUB_SHA 가 늘 설정돼 있습니다. 그대로 두면 빈 인자일 때
+  // 스크립트가 환경변수로 넘어가 성공해 버려, 검사가 환경에 따라 달라집니다.
+  const env = { ...process.env };
+  delete env.GITHUB_SHA;
+  for (const bad of ['nope', '', 'ABCDEF', 'a'.repeat(39), 'z'.repeat(40)]) {
+    expectRejected([bad], env, `"${bad}" 를 통과시켰습니다`);
+  }
+});
+
+test('스탬프 스크립트: 인자를 주면 GITHUB_SHA 보다 인자가 이긴다', () => {
+  // 빈 인자를 조용히 환경변수로 대체하면, 잘못 부른 것을 성공으로 오해합니다.
+  expectRejected([''], { ...process.env, GITHUB_SHA: 'c'.repeat(40) },
+    '빈 인자인데 GITHUB_SHA 로 넘어갔습니다');
+});
+
+test('스탬프 스크립트: 인자가 없으면 GITHUB_SHA 를 쓴다', () => {
+  const path = 'public/js/lib/version.js';
+  const before = readFileSync(path, 'utf-8');
+  const sha = 'd'.repeat(40);
+  try {
+    execFileSync('node', ['scripts/stamp-build.mjs'], {
+      stdio: 'pipe', env: { ...process.env, GITHUB_SHA: sha },
+    });
+    assert.ok(readFileSync(path, 'utf-8').includes(`commit: '${sha}'`));
+  } finally {
+    writeFileSync(path, before, 'utf-8');
   }
 });
