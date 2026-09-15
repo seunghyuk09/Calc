@@ -145,17 +145,8 @@ a { color: var(--accent); }
   min-height: 40px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: -.01em;
-  margin-right: auto;
-}
-
 .brand-mark {
+  flex: none;
   width: 26px; height: 26px;
   display: grid; place-items: center;
   border-radius: 8px;
@@ -178,7 +169,7 @@ a { color: var(--accent); }
 
 /* ---------- 배너 ---------- */
 .banner {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   border-radius: var(--radius);
   background: linear-gradient(100deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #8b5cf6));
   color: #fff;
@@ -203,10 +194,46 @@ a { color: var(--accent); }
    '메뉴는 거기에만 있다'는 규칙이 화면마다 달라져 헷갈립니다. */
 .menu-btn { font-size: 15px; letter-spacing: .06em; }
 
+/*
+ * 지금 보고 있는 화면 이름.
+ * 탭 막대가 없으니 이게 유일한 표지인데, 예전처럼 구석에 흐리게 두면
+ * 넘기는 도중에 눈에 들어오지 않습니다. 헤더에서 가장 먼저 읽히는 자리로 옮겼습니다.
+ */
 .header-now {
-  margin-left: auto;
-  font-size: 12.5px; font-weight: 600; color: var(--text-dim);
-  max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--text);
+}
+.header-now-icon { flex: none; font-size: 15px; line-height: 1; }
+.header-now-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/*
+ * 페이저 위치 막대.
+ * 이름은 절반을 넘어야 바뀌지만 이 막대는 손가락을 따라 이어서 움직여서,
+ * '넘어가고 있다'는 것과 '전체에서 어디쯤인지'를 같이 보여 줍니다.
+ * 헤더 아래 테두리 자리에 겹쳐 놓았기 때문에 헤더가 높아지지 않습니다.
+ */
+.pager-rail {
+  /* 전체 길이가 보여야 '아홉 중 셋째'로 읽힙니다. 토막만 떠 있으면 장식처럼 보입니다. */
+  margin: 6px 0 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+  pointer-events: none;
+}
+.pager-thumb {
+  display: block;
+  height: 100%;
+  width: 12%;   /* 자리표시자. 실제 값은 탭 개수에 맞춰 main.js 가 넣습니다 */
+  border-radius: 2px;
+  background: var(--accent-fill);
 }
 
 .sidebar-scrim {

@@ -1178,6 +1178,99 @@ export function isStamped() { return true; }`,
   check('헤더에 현재 화면 이름 표시',
     ((await page.textContent('#header-now')) || '').length > 0,
     await page.textContent('#header-now'));
+  check('헤더 이름이 지금 보고 있는 탭과 같음',
+    (await page.textContent('#header-now-name')).trim() === 'TO DO',
+    await page.textContent('#header-now-name'));
+  check('헤더에 탭 이모지도 함께 표시',
+    ((await page.textContent('#header-now-icon')) || '').trim().length > 0,
+    await page.textContent('#header-now-icon'));
+  // 구석의 흐린 글씨로는 넘기는 중에 눈에 들어오지 않아 크기를 키웠습니다.
+  const nowFont = await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('#header-now'));
+    return { size: parseFloat(cs.fontSize), weight: Number(cs.fontWeight) };
+  });
+  check('헤더 이름이 읽을 만한 크기 (15px 이상, 굵게)',
+    nowFont.size >= 15 && nowFont.weight >= 600,
+    `${nowFont.size}px / ${nowFont.weight}`);
+
+  /*
+   * 핵심: 넘기는 '도중'에 이름이 바뀌어야 합니다.
+   * 예전에는 스크롤이 멈춘 뒤(120ms 디바운스)에만 바뀌어서 넘기는 내내 알 수가 없었습니다.
+   * aria-selected 는 정착 처리에서만 옮겨지므로, 이름이 먼저 바뀌고
+   * aria-selected 는 아직 예전 탭에 있으면 '정착 전에 바뀌었다'는 증거가 됩니다.
+   */
+  const live = await page.evaluate(async () => {
+    const main = document.querySelector('#main');
+    const btns = [...document.querySelectorAll('#tabs .tab')];
+    const before = document.querySelector('.tab[aria-selected="true"]')?.dataset.tab;
+    // 지금 탭과 다른 곳으로, 스냅 지점에 정확히 맞춰 옮깁니다(스냅이 되돌리지 않도록).
+    const from = btns.findIndex((b) => b.dataset.tab === before);
+    // 0번으로 옮기면 뒤따르는 위치 막대 검사가 '0 == 0' 이 되어 아무것도 걸러내지 못합니다.
+    const to = from === 2 ? 4 : 2;
+    const t0 = performance.now();
+    main.scrollLeft = main.clientWidth * to;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const label = btns[to].querySelector('[data-i18n]');
+    return {
+      before,
+      want: (label ? label.textContent : btns[to].textContent).trim(),
+      got: (document.querySelector('#header-now-name').textContent || '').trim(),
+      selected: document.querySelector('.tab[aria-selected="true"]')?.dataset.tab,
+      ms: performance.now() - t0,
+    };
+  });
+  /*
+   * 세 가지를 한 번에 봅니다. 따로 두면 '정착 전이었다'만으로는 늘 통과해 쓸모가 없습니다.
+   *  - 이름이 넘어간 쪽으로 바뀌었는가
+   *  - 정착(120ms)이 돌기 전에 쟀는가
+   *  - 정착이 아직 안 돌았는가 (aria-selected 가 그대로인지로 확인)
+   */
+  check('쓸어 넘기면 멈추기 전에 헤더 이름이 따라 바뀜',
+    live.got === live.want && live.ms < 120 && live.selected === live.before,
+    `기대 "${live.want}" / 실제 "${live.got}" · ${Math.round(live.ms)}ms · 활성 탭 ${live.before} -> ${live.selected}`);
+
+  // 위치 막대: 몇 번째 화면인지, 넘기는 중에는 어디쯤인지 보여 줍니다.
+  const rail = await page.evaluate(() => {
+    const thumb = document.querySelector('#pager-thumb');
+    const count = document.querySelectorAll('#tabs .tab').length;
+    const main = document.querySelector('#main');
+    return {
+      count,
+      width: thumb.getBoundingClientRect().width,
+      railWidth: document.querySelector('#pager-rail').getBoundingClientRect().width,
+      left: thumb.getBoundingClientRect().left - document.querySelector('#pager-rail').getBoundingClientRect().left,
+      at: main.scrollLeft / main.clientWidth,
+      height: thumb.getBoundingClientRect().height,
+    };
+  });
+  check('위치 막대 폭이 탭 개수에 맞음',
+    Math.abs(rail.width - rail.railWidth / rail.count) < 0.5,
+    `${rail.width.toFixed(1)}px (기대 ${(rail.railWidth / rail.count).toFixed(1)}px, 탭 ${rail.count}개)`);
+  check('위치 막대가 지금 화면 자리에 있음',
+    Math.abs(rail.left - rail.at * rail.width) < 0.5,
+    `${rail.left.toFixed(1)}px (기대 ${(rail.at * rail.width).toFixed(1)}px)`);
+  /*
+   * 자리와 크기.
+   * 헤더 맨 아래(배너 밑)에 두면 파란 배너에 묻혀 보이지 않았습니다. 이름 바로 밑이어야 합니다.
+   * 그리고 헤더가 높아지는 만큼 본문이 줄어드니, 차지하는 높이도 같이 묶어 둡니다.
+   */
+  const railPlace = await page.evaluate(() => {
+    const top = document.querySelector('.header-top').getBoundingClientRect();
+    const rail = document.querySelector('#pager-rail').getBoundingClientRect();
+    const banner = document.querySelector('#banner').getBoundingClientRect();
+    return { nameBottom: top.bottom, railTop: rail.top, railBottom: rail.bottom, bannerTop: banner.top };
+  });
+  check('위치 막대가 탭 이름과 배너 사이에 있음',
+    railPlace.railTop >= railPlace.nameBottom && railPlace.railBottom <= railPlace.bannerTop + 0.5,
+    `이름 ${railPlace.nameBottom} / 막대 ${railPlace.railTop}~${railPlace.railBottom} / 배너 ${railPlace.bannerTop}`);
+  // 막대가 생기기 전 이 간격은 10px 이었습니다. 막대 몫으로 6px 넘게 더 쓰지 않아야 합니다.
+  check('위치 막대가 차지하는 높이가 16px 이하',
+    railPlace.bannerTop - railPlace.nameBottom <= 16,
+    `${(railPlace.bannerTop - railPlace.nameBottom).toFixed(1)}px`);
+
+  // 넘긴 뒤 상태를 원래대로 돌려 놓습니다. 뒤 검사들이 todo 탭을 기준으로 이어집니다.
+  await settlePagerOf(page);
+  await goTab(page, 'todo');
   check('음악 탭은 사라짐',
     await page.evaluate(() => !document.querySelector('.tab[data-tab="music"]')
       && !document.querySelector('#panel-music')));
