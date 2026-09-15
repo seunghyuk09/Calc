@@ -5,11 +5,19 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { extname, join, normalize, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// 스크린샷은 테스트 부산물이라 저장소에 커밋하지 않습니다.
+// docs/ 에 쓰면 npm test 를 돌릴 때마다 작업 트리가 더러워집니다.
+const SHOT_DIR = resolve(ROOT, 'test-results');
+const shot = (name) => {
+  mkdirSync(SHOT_DIR, { recursive: true });
+  return join(SHOT_DIR, name);
+};
 
 // 크롬 실행 파일 경로.
 // 개발 컨테이너에는 미리 설치된 크로미움이 있고, CI 에서는 Playwright 가 설치한 것을 씁니다.
@@ -568,11 +576,11 @@ const main = async () => {
   await page.fill('#calc-expr', '(1250+890)*1.1');
   await page.press('#calc-expr', 'Enter');
   await page.waitForTimeout(300);
-  await page.screenshot({ path: IS_FILE ? 'docs/screenshot-standalone.png' : 'docs/screenshot-desktop.png', fullPage: false });
+  await page.screenshot({ path: IS_FILE ? shot('screenshot-standalone.png') : shot('screenshot-desktop.png'), fullPage: false });
 
   await page.click('.tab[data-tab="weather"]');
   await page.waitForTimeout(500);
-  await page.screenshot({ path: IS_FILE ? 'docs/screenshot-standalone-weather.png' : 'docs/screenshot-weather.png', fullPage: false });
+  await page.screenshot({ path: IS_FILE ? shot('screenshot-standalone-weather.png') : shot('screenshot-weather.png'), fullPage: false });
 
   // 모바일 뷰포트
   const mobile = await context.newPage();
@@ -583,7 +591,7 @@ const main = async () => {
   await mobile.waitForSelector('body[data-ready="true"]');
   await mobile.click('.tab[data-tab="calc"]');
   await mobile.waitForTimeout(400);
-  await mobile.screenshot({ path: IS_FILE ? 'docs/screenshot-standalone-mobile.png' : 'docs/screenshot-mobile.png', fullPage: false });
+  await mobile.screenshot({ path: IS_FILE ? shot('screenshot-standalone-mobile.png') : shot('screenshot-mobile.png'), fullPage: false });
 
   // 모바일에서 가로 스크롤이 생기지 않아야 함
   const overflow = await mobile.evaluate(() =>
