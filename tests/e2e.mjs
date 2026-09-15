@@ -1345,6 +1345,58 @@ export function isStamped() { return true; }`,
     await page.evaluate(() => !document.querySelector('.tab[data-tab="music"]')
       && !document.querySelector('#panel-music')));
 
+  /*
+   * 주 시작일을 월요일(ISO)에서 일요일로 바꿨습니다.
+   * 같은 '2026-W38' 글자가 가리키는 7일이 달라지므로, 저장해 둔 주간 계획을 옮겨 줘야 합니다.
+   * 옮기지 않으면 적어 둔 주간 목표가 한 주 밀려 보입니다.
+   */
+  {
+    const ctx = await browser.newContext();
+    await ctx.addInitScript(() => {
+      // 예전 버전이 저장해 둔 모습 그대로: ISO 키이고, 이사했다는 표시가 없습니다.
+      localStorage.setItem('daily-kit:todo.items', JSON.stringify([
+        { id: 'shift', text: '한 주 밀리는 것', done: false, scope: 'week', period: '2027-W10', category: 'etc' },
+        { id: 'yearEnd', text: '연말에 걸친 것', done: false, scope: 'week', period: '2025-W53', category: 'etc' },
+        { id: 'same', text: '번호가 그대로인 것', done: false, scope: 'week', period: '2026-W38', category: 'etc' },
+        { id: 'notWeek', text: '옛 월간 목표', done: false, scope: 'month', period: '2026-09', category: 'etc' },
+      ]));
+      localStorage.removeItem('daily-kit:todo.weekBase');
+    });
+    const mp = await ctx.newPage();
+    await mp.goto(BASE, { waitUntil: 'networkidle' });
+    await mp.waitForSelector('body[data-ready="true"]');
+    await mp.waitForTimeout(400);
+    const after = await mp.evaluate(() => ({
+      items: JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]'),
+      flag: JSON.parse(localStorage.getItem('daily-kit:todo.weekBase') || 'null'),
+    }));
+    const at = (id) => after.items.find((x) => x.id === id)?.period;
+    check('주 시작일 이사: 주간 계획이 남아 있음', after.items.length === 4,
+      JSON.stringify(after.items.map((x) => `${x.id}:${x.period}`)));
+    check('주 시작일 이사: 표시가 남음', after.flag === 'sun', String(after.flag));
+    /*
+     * 기대값은 구현이 아니라 규칙에서 나옵니다.
+     * ISO 2027-W10 의 월요일은 3/8 이고, 그 날이 든 일요일 시작 주는 3/7~3/13 = 2027-W11 입니다.
+     * ISO 2025-W53 의 월요일은 12/29 이고, 그 주(12/27~1/2)는 1월 1일을 품어 2026-W01 입니다.
+     */
+    check('주 시작일 이사: 주 번호가 밀리는 계획을 옮김', at('shift') === '2027-W11', at('shift'));
+    check('주 시작일 이사: 연말에 걸친 계획도 옳은 해로 옮김', at('yearEnd') === '2026-W01', at('yearEnd'));
+    // ISO 2026-W38(9/14 월) 이 든 새 주도 2026-W38(9/13~9/19) 이라 번호가 그대로입니다. 괜히 건드리면 안 됩니다.
+    check('주 시작일 이사: 번호가 같은 계획은 그대로 둠', at('same') === '2026-W38', at('same'));
+    check('주 시작일 이사: 주간이 아닌 계획은 건드리지 않음', at('notWeek') === '2026-09', at('notWeek'));
+
+    // 두 번 돌면 한 주씩 계속 밀립니다. 새로고침해도 그대로여야 합니다.
+    await mp.reload({ waitUntil: 'networkidle' });
+    await mp.waitForSelector('body[data-ready="true"]');
+    await mp.waitForTimeout(300);
+    const again = await mp.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]'));
+    const at2 = (id) => again.find((x) => x.id === id)?.period;
+    check('주 시작일 이사: 새로고침해도 또 옮기지 않음',
+      at2('shift') === '2027-W11' && at2('yearEnd') === '2026-W01' && at2('same') === '2026-W38',
+      `${at2('shift')} / ${at2('yearEnd')} / ${at2('same')}`);
+    await ctx.close();
+  }
+
   // ---------- 10-c. TO DO 달력 ----------
   console.log('\n▶ 달력');
   const todayKey = await page.evaluate(() => {
@@ -1370,10 +1422,10 @@ export function isStamped() { return true; }`,
   check('달력이 그려짐', (await page.locator('#cal-grid .cal-day').count()) >= 28,
     `${await page.locator('#cal-grid .cal-day').count()}칸`);
   check('요일 머리글 7개', (await page.locator('#cal-grid .cal-wd').count()) === 7);
-  // 계획표의 '주간'이 ISO 주차(월요일 시작)라, 달력도 월요일에서 시작해야 한 주가 한 줄에 들어갑니다.
+  // 달력 한 줄과 계획표의 '주간' 단위가 겹쳐야 '이번 주'를 한 줄로 강조할 수 있습니다.
   // 이 시점의 언어는 앞선 검사에 따라 달라집니다. 두 표기를 모두 받습니다.
   const firstWd = (await page.locator('#cal-grid .cal-wd').first().textContent()).trim();
-  check('요일이 월요일에서 시작', firstWd === '월' || firstWd === 'Mon', firstWd);
+  check('요일이 일요일에서 시작', firstWd === '일' || firstWd === 'Sun', firstWd);
   check('달력이 목록보다 위에 있음',
     await page.evaluate(() => {
       const cal = document.querySelector('.cal-card').getBoundingClientRect();
@@ -1608,6 +1660,75 @@ export function isStamped() { return true; }`,
     String(await rootAttr('data-base')));
 
   /*
+   * 색을 고를 때 보고 있던 자리가 유지돼야 합니다.
+   *
+   * 예전에는 색만 바꿔도 applyTabLayout 이 모든 패널을 DOM 에서 다시 붙였고,
+   * appendChild 는 같은 자리로 옮겨도 그 요소의 스크롤을 0 으로 되돌립니다.
+   * 커스터마이즈는 설정 탭 아래쪽에 있어서, 색 하나 고를 때마다 맨 위로 튀었습니다.
+   */
+  const settingsTop = () => page.evaluate(() =>
+    Math.round(document.querySelector('#panel-settings').scrollTop));
+  /*
+   * 아래로 한참 내려간 상태에서 재야 의미가 있습니다.
+   * 맨 위에서는 잃을 위치가 없어 무엇을 해도 통과합니다.
+   *
+   * page.click 은 버튼이 화면 밖이면 보이도록 먼저 스크롤합니다. 그러면 깊이 내려간 상태를
+   * 유지할 수 없으므로, 스크롤을 건드리지 않는 element.click() 으로 누릅니다.
+   */
+  const scrollKeeps = async (sel) => {
+    await page.evaluate(() => { document.querySelector('#panel-settings').scrollTop = 700; });
+    await page.waitForTimeout(150);
+    const before = await settingsTop();
+    await page.$eval(`#customize ${sel}`, (node) => node.click());
+    await page.waitForTimeout(350);
+    return { before, after: await settingsTop() };
+  };
+  for (const [sel, what] of [
+    ['[data-base-opt="cool"]', '바탕색'],
+    ['[data-skin-opt="refined"]', '스킨'],
+    ['[data-accent-opt="green"]', '강조색'],
+    ['[data-card-row="calc.pad"] [data-size-opt="compact"]', '카드 크기'],
+  ]) {
+    const moved = await scrollKeeps(sel);
+    check(`${what}를 바꿔도 보고 있던 자리가 그대로`,
+      moved.before > 300 && moved.before === moved.after,
+      `${moved.before}px -> ${moved.after}px`);
+  }
+  /*
+   * 색만 바꿨는데 '탭을 옮겼다'는 신호가 돌면 안 됩니다.
+   * 그 신호를 듣는 쪽이 실제로 일을 합니다. update.js 는 설정 탭이 열릴 때마다 업데이트를
+   * 확인하러 나가고, today.js 는 화면을 다시 그립니다. 색 한 번에 한 번씩 돌면 낭비입니다.
+   * 단일 파일 빌드는 모듈이 문서 안에 인라인돼 있어 이 길로 잡을 수 없어 건너뜁니다.
+   */
+  if (!IS_FILE) {
+    const hooked = await page.evaluate(async () => {
+      const nav = await import('./js/lib/nav.js');
+      window.__tabFires = [];
+      nav.onTabChange((name) => window.__tabFires.push(name));
+      return typeof nav.onTabChange === 'function';
+    }).catch(() => false);
+    if (hooked) {
+      await page.$eval('#customize [data-base-opt="cool"]', (n) => n.click());
+      await page.waitForTimeout(300);
+      await page.$eval('#customize [data-accent-opt="green"]', (n) => n.click());
+      await page.waitForTimeout(300);
+      const fires = await page.evaluate(() => window.__tabFires);
+      check('색을 바꿔도 탭 전환 신호는 돌지 않음', fires.length === 0,
+        fires.length ? fires.join(',') : '0회');
+      await page.$eval('#customize [data-base-opt="default"]', (n) => n.click());
+      await page.waitForTimeout(200);
+    } else {
+      check('색을 바꿔도 탭 전환 신호는 돌지 않음', false, 'nav 모듈을 가져오지 못했습니다');
+    }
+  }
+
+  await page.$eval('#customize [data-card-row="calc.pad"] [data-size-opt="normal"]', (n) => n.click());
+  await page.waitForTimeout(200);
+  await page.click('#customize [data-skin-opt="default"]');
+  await page.click('#customize [data-base-opt="default"]');
+  await page.waitForTimeout(250);
+
+  /*
    * 카드 경계가 실제로 보이는지.
    * '미래' 스킨의 테두리가 rgba(255,255,255,.8) 이라 흰 카드 위의 흰 선이었고,
    * 화면에서 박스 경계가 아예 보이지 않았습니다. 색 이름만 봐서는 못 잡습니다.
@@ -1784,11 +1905,26 @@ export function isStamped() { return true; }`,
   await goTab(page, 'settings');
   await page.waitForTimeout(150);
   const orderBefore = await tabOrder();
-  await page.click('#customize [data-section="tabs"] .cz-row[data-row="calc"] [data-move="up"]');
-  await page.waitForTimeout(200);
+  /*
+   * 여기서는 배치가 '정말로' 바뀝니다. 패널을 다시 붙일 수밖에 없고,
+   * appendChild 는 옮긴 요소의 스크롤을 0 으로 되돌립니다.
+   * 순서를 손보는 동안에도 설정 화면은 계속 보고 있는 화면이라, 자리를 지켜 줘야 합니다.
+   * (아래로 내려간 상태에서 재야 의미가 있어 먼저 700px 로 내려 둡니다)
+   */
+  await page.evaluate(() => { document.querySelector('#panel-settings').scrollTop = 700; });
+  await page.waitForTimeout(150);
+  const orderTopBefore = await settingsTop();
+  // page.click 은 버튼을 보이게 하려고 먼저 스크롤합니다. 스크롤을 건드리지 않는 쪽으로 누릅니다.
+  await page.$eval('#customize [data-section="tabs"] .cz-row[data-row="calc"] [data-move="up"]',
+    (node) => node.click());
+  await page.waitForTimeout(300);
+  const orderTopAfter = await settingsTop();
   const orderAfter = await tabOrder();
   check('탭 순서를 위로 옮김', orderAfter[0] === 'calc' && orderBefore[0] === 'today',
     `${orderBefore.slice(0, 3).join(',')} -> ${orderAfter.slice(0, 3).join(',')}`);
+  check('탭 순서를 바꿔도 보고 있던 자리가 그대로',
+    orderTopBefore > 300 && orderTopBefore === orderTopAfter,
+    `${orderTopBefore}px -> ${orderTopAfter}px`);
   // 버튼만 옮기고 패널을 안 옮기면 스와이프했을 때 엉뚱한 화면이 나옵니다.
   check('패널 순서도 함께 바뀜',
     JSON.stringify(await panelOrder()) === JSON.stringify(orderAfter),

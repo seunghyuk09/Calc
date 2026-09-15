@@ -180,9 +180,22 @@ function blockEdgeBackGesture(main) {
  * 보고 있던 탭이 숨겨졌다면 첫 탭으로 옮깁니다. 빈 화면이 남는 것보다 낫습니다.
  */
 function syncTabLayout(prefs) {
-  TABS = applyTabLayout(prefs);
+  const next = applyTabLayout(prefs);
   // 숨겼다 다시 켠 탭은 DOM 에서 빠져 있는 동안의 언어 전환을 놓칩니다. 여기서 다시 맞춥니다.
   applyStatic($('#tabs'));
+
+  /*
+   * 탭 배치가 그대로면 여기서 끝냅니다.
+   *
+   * 색이나 카드 크기만 바꿔도 이 함수가 불립니다. 그때마다 setActiveTab 까지 가면
+   * '탭을 옮겼다'는 신호가 돌고, 그 신호를 듣는 쪽이 실제로 일을 합니다.
+   * update.js 는 설정 탭이 열릴 때마다 업데이트를 확인하러 나가고, today.js 는 화면을 다시 그립니다.
+   * 색 한 번 고를 때마다 이게 도는 것은 낭비라, 배치가 안 바뀌었으면 여기서 끊습니다.
+   */
+  const changed = next.length !== TABS.length || next.some((name, i) => name !== TABS[i]);
+  TABS = next;
+  if (!changed) return;
+
   const tab = TABS.includes(currentTab) ? currentTab : (TABS[0] || DEFAULT_TAB);
   setActiveTab(tab);
   // DOM 을 옮긴 직후에는 패널 폭이 아직 확정되지 않아 스크롤 위치가 어긋납니다.

@@ -75,12 +75,37 @@ export function applyTabLayout(prefs = getPrefs()) {
   if (!tabsBar || !main) return ALL_TABS.slice();
 
   const order = visibleTabs(prefs);
+
+  /*
+   * 배치가 그대로면 아무것도 건드리지 않습니다.
+   *
+   * appendChild 는 같은 자리로 옮겨도 그 요소의 스크롤 위치를 0 으로 되돌립니다.
+   * 색만 바꿔도 이 함수가 불리는데, 그때마다 모든 패널을 다시 붙이는 바람에
+   * 보고 있던 자리가 맨 위로 튀었습니다. (설정을 한참 내려서 색을 고르면 매번 그랬습니다)
+   */
+  const wanted = order.map((name) => tabNodes.get(name)?.panel).filter(Boolean);
+  const same = wanted.length === main.children.length
+    && wanted.every((panel, i) => main.children[i] === panel);
+  if (same) return order;
+
+  /*
+   * 정말로 옮겨야 할 때도 보고 있던 자리는 지켜 줍니다.
+   * 탭 순서를 바꾸는 중에도 설정 화면은 계속 보고 있는 화면이라, 맨 위로 튀면 흐름이 끊깁니다.
+   */
+  const scrolls = new Map();
+  tabNodes.forEach((node, name) => { scrolls.set(name, node.panel.scrollTop); });
+
   order.forEach((name) => {
     const node = tabNodes.get(name);
     if (!node) return;
     // appendChild 는 이미 문서에 있는 노드를 '옮깁니다'. 리스너는 #tabs 에 위임돼 있어 그대로입니다.
     tabsBar.appendChild(node.button);
     main.appendChild(node.panel);
+  });
+
+  scrolls.forEach((top, name) => {
+    const node = tabNodes.get(name);
+    if (node && top) node.panel.scrollTop = top;
   });
 
   const shown = new Set(order);
@@ -291,6 +316,17 @@ function countNow(on, total) {
 function renderCustomize() {
   const host = $('#customize');
   if (!host) return;
+  /*
+   * 갈아 끼우기 전후로 보고 있던 자리를 붙듭니다.
+   *
+   * 화면이 위로 튀던 주된 원인은 applyTabLayout 의 appendChild 였고 그쪽에서 막았습니다.
+   * 여기는 남은 안전장치입니다. 바뀐 내용의 높이가 달라지면 브라우저가 스크롤 기준점을
+   * 다시 잡으면서 자리를 옮길 수 있어서, 갈아 끼운 뒤 어긋났을 때만 되돌립니다.
+   * (Chromium 에서는 appendChild 를 막은 뒤로는 이 길로 들어오는 경우를 재현하지 못했습니다.
+   *  확인한 적 없는 효과를 확인한 척하지 않으려고 여기 적어 둡니다)
+   */
+  const panel = host.closest('.panel');
+  const keepTop = panel ? panel.scrollTop : 0;
   const prefs = getPrefs();
 
   const reset = el('button', {
@@ -313,6 +349,7 @@ function renderCustomize() {
     section('cards', 'cz.cards.title', 'cz.cards.hint', t('cz.nowCards', cardCount), renderCards(prefs)),
     el('div', { class: 'row', style: 'margin-top:14px' }, reset),
   );
+  if (panel && keepTop && panel.scrollTop !== keepTop) panel.scrollTop = keepTop;
 }
 
 /**

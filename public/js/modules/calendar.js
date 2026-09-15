@@ -8,22 +8,22 @@
  * 일간(day) 계획만 칸에 표시합니다.
  * 주간/월간/연간은 특정 하루에 속하지 않아서, 달력에 올리면 어느 날인지 거짓으로 알려주게 됩니다.
  *
- * 한 주는 월요일에서 시작합니다.
- * 계획표의 '주간' 단위가 ISO 주차(월요일 시작)라서, 일요일 시작으로 그리면
- * 한 주가 두 줄에 걸쳐 끊깁니다. 그러면 '이번 주'를 한 줄로 표시할 수가 없습니다.
+ * 한 주는 일요일에서 시작합니다.
+ * 계획표의 '주간' 단위와 달력의 한 줄이 정확히 겹쳐야 '이번 주'를 한 줄로 강조할 수 있어서,
+ * 둘 다 일요일 시작으로 맞춰 두었습니다. (period.js 의 weekParts 와 같은 기준)
  */
 import { $, el } from '../lib/dom.js';
 import { t, getLang, onLangChange } from '../lib/i18n.js';
 import { load, save } from '../lib/store.js';
 import { emojiOf } from '../lib/categories.js';
-import { keyOf, dateOf, weekRange, isoWeekParts } from '../lib/period.js';
+import { keyOf, dateOf, weekRange, weekParts } from '../lib/period.js';
 import { getItems, onTodoChange, onViewChange, getView, openDate } from './todo.js';
 
 const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
 const FOLD_KEY = 'cal.folded';
 
-/** 화면에 쓸 요일 머리글 순서. 월요일 시작입니다. */
-const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+/** 화면에 쓸 요일 머리글 순서. 일요일 시작입니다. */
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 /*
  * 지금 보고 있는 자리. '달'이 아니라 '날짜'로 들고 있습니다.
@@ -44,8 +44,8 @@ function firstOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-/** 월요일을 0 으로 두는 요일 번호. period.js 의 ISO 계산과 같은 기준입니다. */
-const isoDayIndex = (date) => (date.getDay() + 6) % 7;
+/** 일요일을 0 으로 두는 요일 번호. getDay() 그대로이고, period.js 와 같은 기준입니다. */
+const dayIndex = (date) => date.getDay();
 
 /** Date -> 'YYYY-MM-DD'. period.js 의 keyOf('day') 와 같은 형식입니다. */
 export function dayKey(date) {
@@ -53,11 +53,11 @@ export function dayKey(date) {
 }
 
 /**
- * 접었을 때 보여 줄 한 줄. 기준 날짜가 든 주의 월요일부터 7칸입니다.
+ * 접었을 때 보여 줄 한 줄. 기준 날짜가 든 주의 일요일부터 7칸입니다.
  */
 export function weekRow(anchor) {
   const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
-  start.setDate(start.getDate() - isoDayIndex(start));
+  start.setDate(start.getDate() - dayIndex(start));
   const out = [];
   for (let i = 0; i < 7; i += 1) {
     const d = new Date(start);
@@ -69,14 +69,14 @@ export function weekRow(anchor) {
 
 /**
  * 달력에 깔 날짜들.
- * 1일이 속한 주의 월요일부터, 말일이 속한 주의 일요일까지 채웁니다.
+ * 1일이 속한 주의 일요일부터, 말일이 속한 주의 토요일까지 채웁니다.
  * (달마다 줄 수가 달라지지만, 빈 줄을 억지로 만드는 것보다 낫습니다)
  */
 export function monthGrid(monthStart) {
   const start = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
-  start.setDate(start.getDate() - isoDayIndex(start));
+  start.setDate(start.getDate() - dayIndex(start));
   const end = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-  end.setDate(end.getDate() + (6 - isoDayIndex(end)));
+  end.setDate(end.getDate() + (6 - dayIndex(end)));
 
   const out = [];
   const walk = new Date(start);
@@ -120,7 +120,7 @@ function inView(date, view) {
   const key = dayKey(date);
   if (view.scope === 'day') return key === view.period;
   if (view.scope === 'week') {
-    const { year, week } = isoWeekParts(date);
+    const { year, week } = weekParts(date);
     return `${year}-W${pad(week)}` === view.period;
   }
   if (view.scope === 'month') {
@@ -228,7 +228,7 @@ function move(delta) {
 /** 보고 있는 기간이 바뀌면 달력도 그 달을 펼칩니다. */
 function followView(view) {
   try {
-    // 주간은 월요일이, 월간은 1일이 대표 날짜입니다. (period.js 의 dateOf 규칙)
+    // 주간은 일요일이, 월간은 1일이 대표 날짜입니다. (period.js 의 dateOf 규칙)
     cursor = dateOf(view.scope, view.period);
   } catch { /* 저장값이 손상된 경우 보고 있던 자리를 그대로 둡니다 */ }
   render();
@@ -267,5 +267,5 @@ export function shownMonth() {
   return `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}`;
 }
 
-/** 요일 머리글 순서. 월요일 시작인지 확인할 때 씁니다. */
+/** 요일 머리글 순서. 일요일 시작인지 확인할 때 씁니다. */
 export const WEEK_START_KEYS = WEEKDAY_KEYS;
