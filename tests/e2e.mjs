@@ -849,6 +849,173 @@ const main = async () => {
   });
   check('되돌리기 동작', undonePixels < drawnPixels, `${drawnPixels}px -> ${undonePixels}px`);
 
+  /* ---------- 메모를 이미지로 만들어 낙서판에 올리기 ----------
+   *
+   * 회의 메모를 낙서판에 깔고 그 위에 동그라미를 치는 흐름입니다.
+   * 글을 '그림'으로 바꾸는 것이므로, 판에 실제로 잉크가 찍혀야 합니다.
+   */
+  const canvasStats = () => page.evaluate(() => {
+    const c = document.querySelector('#draw-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let ink = 0;
+    let paper = 0;
+    // 성기게 훑습니다. 픽셀 하나하나를 다 보면 큰 판에서 너무 느립니다.
+    for (let i = 0; i < d.length; i += 4 * 40) {
+      if (d[i + 3] === 0) continue;
+      if (d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240) paper += 1;
+      else ink += 1;
+    }
+    return { w: c.width, h: c.height, cssH: c.style.height, ink, paper };
+  });
+
+  await page.click('#draw-clear');
+  await page.waitForTimeout(200);
+  const beforeMemo = await canvasStats();
+
+  // 저장해 둔 메모('회의 3시 / 장소: 2층')를 낙서판으로 보냅니다.
+  check('메모 줄에 낙서판으로 보내는 버튼이 있음',
+    (await page.locator('#memo-list [data-memo-draw]').count()) === 1);
+  await page.$eval('#memo-list [data-memo-draw]', (n) => n.click());
+  await page.waitForTimeout(600);
+  const afterMemo = await canvasStats();
+
+  check('메모를 올리면 판에 글씨가 찍힘', afterMemo.ink > beforeMemo.ink + 10,
+    `잉크 ${beforeMemo.ink} -> ${afterMemo.ink}`);
+  check('메모를 올리면 바탕이 흰 종이가 됨 (지우개 색과 맞아야 합니다)',
+    afterMemo.paper > 100, `흰 픽셀 ${afterMemo.paper}`);
+  check('올린 뒤 상태가 안내됨',
+    (await page.textContent('#draw-status')).includes('메모를 올렸습니다'),
+    await page.textContent('#draw-status'));
+  check('원본 메모는 목록에 그대로 남음',
+    (await page.locator('#memo-list .memo-item').count()) === 1);
+
+  // 올린 그림 위에 실제로 그릴 수 있어야 합니다. 그게 이 기능의 목적입니다.
+  {
+    const cbox = await page.locator('#draw-canvas').boundingBox();
+    await page.mouse.move(cbox.x + 30, cbox.y + cbox.height - 30);
+    await page.mouse.down();
+    await page.mouse.move(cbox.x + 200, cbox.y + cbox.height - 40, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    const drawnOver = await canvasStats();
+    check('올린 메모 위에 그릴 수 있음', drawnOver.ink > afterMemo.ink,
+      `${afterMemo.ink} -> ${drawnOver.ink}`);
+  }
+
+  // 긴 메모는 판을 길게 늘여 담습니다. 입력칸이 한 메모를 2000자로 막고 있어 그게 상한입니다.
+  const longMemo = Array.from({ length: 200 }, (_, i) => (
+    `${i + 1}. 아주 긴 회의록 한 줄입니다. 한국어는 띄어쓰기가 없어도 계속 이어집니다.`
+  )).join('\n');
+  await page.fill('#memo-input', longMemo);
+  const typed = await page.evaluate(() => document.querySelector('#memo-input').value.length);
+  check('입력칸이 한 메모를 2000자로 막음', typed === 2000, `${typed}자`);
+  await page.click('#memo-form button[type="submit"]');
+  await page.waitForTimeout(300);
+  const shortBoard = await canvasStats();
+  await page.$eval('#memo-list [data-memo-draw]', (n) => n.click());
+  await page.waitForTimeout(700);
+  const longBoard = await canvasStats();
+  check('긴 메모를 올리면 판이 길어짐', longBoard.h > shortBoard.h,
+    `${shortBoard.cssH} -> ${longBoard.cssH}`);
+  /*
+   * 입력칸이 허용하는 최대 길이(2000자)는 잘리지 않아야 합니다.
+   * 회의록을 올렸는데 뒷부분이 사라지면 이 기능을 쓸 수가 없습니다.
+   */
+  check('최대 길이 메모는 잘리지 않음',
+    !/담지 못했습니다/.test(await page.textContent('#draw-status')),
+    await page.textContent('#draw-status'));
+
+  // 되돌리기는 판 크기까지 되돌려야 합니다. 안 그러면 앞 그림이 늘어나 찌그러집니다.
+  await page.click('#draw-undo');
+  await page.waitForTimeout(600);
+  const undoneBoard = await canvasStats();
+  check('되돌리면 판 크기도 함께 돌아옴',
+    undoneBoard.h === shortBoard.h && undoneBoard.w === shortBoard.w,
+    `${longBoard.cssH} -> ${undoneBoard.cssH} (기대 ${shortBoard.cssH})`);
+
+  /*
+   * 그래도 넘치는 경우의 안전망.
+   * 입력칸으로는 2000자를 넘길 수 없지만 저장소에는 더 긴 값이 들어 있을 수 있습니다.
+   * (예전 버전이 남긴 값이거나 손으로 넣은 값) 그때 조용히 자르면 안 됩니다.
+   */
+  {
+    const over = await context.newPage();
+    await over.addInitScript(() => {
+      const huge = Array.from({ length: 900 }, (_, i) => `${i + 1}. 아주 긴 줄입니다.`).join('\n');
+      localStorage.setItem('daily-kit:memo.items',
+        JSON.stringify([{ id: 'huge', text: huge, at: Date.now() }]));
+    });
+    await over.goto(BASE, { waitUntil: 'networkidle' });
+    await over.waitForSelector('body[data-ready="true"]');
+    await goTab(over, 'memo');
+    await over.waitForTimeout(500);
+    const stored = await over.evaluate(() => (
+      JSON.parse(localStorage.getItem('daily-kit:memo.items'))[0].text.length));
+    check('안전망: 입력칸 상한보다 긴 값이 저장에 들어 있음', stored > 2000, `${stored}자`);
+    await over.$eval('#memo-list [data-memo-draw]', (n) => n.click());
+    await over.waitForTimeout(700);
+    check('안전망: 다 담지 못하면 몇 줄이 잘렸는지 알려 줌',
+      /\d+줄은 담지 못했습니다/.test(await over.textContent('#draw-status')),
+      await over.textContent('#draw-status'));
+    await over.close();
+  }
+
+  /*
+   * 창 크기가 바뀌어도 올려 둔 메모가 뭉개지면 안 됩니다.
+   *
+   * 캔버스는 창 크기가 바뀌면 다시 만들어집니다. 그때 기본 높이로 되돌리면
+   * 메모 때문에 길어졌던 판이 확 줄면서 글씨가 세로로 눌립니다. (1142px -> 225px 였습니다)
+   * 전화기를 돌리기만 해도 회의록이 읽을 수 없게 됩니다.
+   */
+  {
+    const rot = await context.newPage();
+    await rot.setViewportSize({ width: 390, height: 844 });
+    await rot.goto(BASE, { waitUntil: 'networkidle' });
+    await rot.waitForSelector('body[data-ready="true"]');
+    await goTab(rot, 'memo');
+    await rot.waitForTimeout(500);
+    const boardOf = () => rot.evaluate(() => {
+      const c = document.querySelector('#draw-canvas');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      for (let i = 0; i < d.length; i += 4 * 40) {
+        if (d[i + 3] && !(d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240)) ink += 1;
+      }
+      return { h: Math.round(parseFloat(c.style.height)), w: c.width, ink };
+    });
+    const many = Array.from({ length: 60 }, (_, i) => (
+      `${i + 1}. 회의록 한 줄입니다. 조금 길게 적어 둡니다.`
+    )).join('\n');
+    await rot.fill('#memo-input', many);
+    await rot.click('#memo-form button[type="submit"]');
+    await rot.waitForTimeout(300);
+    await rot.$eval('#memo-list [data-memo-draw]', (n) => n.click());
+    await rot.waitForTimeout(700);
+    const placed = await boardOf();
+    check('회전 검사: 메모를 올려 판이 기본보다 길어짐', placed.h > 500, `${placed.h}px`);
+
+    // 화면을 돌린 셈 치고 가로로 넓힙니다.
+    await rot.setViewportSize({ width: 844, height: 390 });
+    await rot.waitForTimeout(900);
+    const turned = await boardOf();
+    check('창 크기가 바뀌어도 판이 기본 높이로 줄지 않음', turned.h > 500,
+      `${placed.h}px -> ${turned.h}px`);
+    check('창 크기가 바뀌어도 글씨가 남아 있음', turned.ink > placed.ink * 0.7,
+      `잉크 ${placed.ink} -> ${turned.ink}`);
+    check('창 크기가 바뀌면 판 폭도 따라감 (늘여 붙이지 않고 다시 그립니다)',
+      turned.w !== placed.w, `${placed.w} -> ${turned.w}`);
+    await rot.close();
+  }
+
+  // 뒷 검사(영속성)가 메모 1개를 기대하므로 늘어난 메모를 지웁니다.
+  await page.$$eval('#memo-list .memo-item button', (btns) => {
+    const del = btns.filter((b) => b.textContent.trim() === '삭제');
+    if (del.length > 1) del[0].click();
+  });
+  await page.waitForTimeout(300);
+  check('정리: 메모가 하나만 남음', (await page.locator('#memo-list .memo-item').count()) === 1,
+    String(await page.locator('#memo-list .memo-item').count()));
+
   // ---------- 6. 글귀 ----------
   console.log('\n▶ 글귀');
   await goTab(page, 'quote');
