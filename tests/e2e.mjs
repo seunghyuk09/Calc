@@ -122,7 +122,23 @@ const main = async () => {
   });
   const page = await context.newPage();
 
-  page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+  /*
+   * 브라우저가 스스로 내는 잡음은 앱 오류가 아닙니다.
+   * compute-pressure 는 앱 어디에서도 쓰지 않는 API 인데(scripts/verify-assets.mjs 가 강제),
+   * file:// 문서에서는 이 권한이 기본 차단이라 브라우저 내부가 건드리면 위반 메시지가 납니다.
+   * 근거: 같은 커밋(306ac37)이 CI 에서 한 번 실패하고 재실행에서 통과했습니다.
+   *       로컬 3회 재현되지 않았고, main 은 같은 시간대에 통과했습니다.
+   * 앱이 쓰지 않는 기능만 이름으로 짚어 거릅니다. 나머지 콘솔 에러는 그대로 실패시킵니다.
+   */
+  const IGNORED_CONSOLE = [
+    /Permissions policy violation: compute-pressure is not allowed/,
+  ];
+  page.on('console', (msg) => {
+    if (msg.type() !== 'error') return;
+    const text = msg.text();
+    if (IGNORED_CONSOLE.some((re) => re.test(text))) return;
+    consoleErrors.push(text);
+  });
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
   // 외부 API 를 모의 응답으로 가로챕니다.

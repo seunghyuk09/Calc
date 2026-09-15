@@ -60,6 +60,24 @@ jsFiles.forEach((file) => {
 
 // 5) iOS 앱 아이콘: 알파 채널이 있으면 App Store 업로드가 거부됩니다(ERROR ITMS-90717).
 //    또한 arm64 전용 바이너리는 UIRequiredDeviceCapabilities 에 arm64 가 있어야 합니다(ERROR ITMS-90502).
+// 6) E2E 가 무시하기로 한 브라우저 API 를 앱이 실제로 쓰기 시작하면 안 됩니다.
+//    tests/e2e.mjs 의 콘솔 검사는 compute-pressure 권한 위반을 '브라우저 잡음'으로 거릅니다.
+//    앱이 이 API 를 쓰게 되면 그 필터가 진짜 오류를 가리므로, 여기서 먼저 막습니다.
+const IGNORED_BROWSER_APIS = ['PressureObserver', 'compute-pressure'];
+[...sw.matchAll(/'\.\/(js\/[^']+)'/g)].map((m) => m[1]).concat('js/main.js')
+  .filter((file) => existsSync(resolve(publicDir, file)))
+  .forEach((file) => {
+    const code = readFileSync(resolve(publicDir, file), 'utf-8');
+    IGNORED_BROWSER_APIS.forEach((api) => {
+      if (code.includes(api)) {
+        problems.push(
+          `${file} 가 ${api} 를 씁니다. E2E 콘솔 검사가 이 API 의 권한 위반을 무시하도록 돼 있어`
+          + ' 진짜 오류가 가려집니다. tests/e2e.mjs 의 IGNORED_CONSOLE 을 먼저 손보세요',
+        );
+      }
+    });
+  });
+
 const iosIcon = resolve(root, 'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png');
 if (existsSync(iosIcon)) {
   const png = readFileSync(iosIcon);
