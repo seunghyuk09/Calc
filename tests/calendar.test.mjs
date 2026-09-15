@@ -27,45 +27,48 @@ test('dayKey: 로컬 시간대 기준 YYYY-MM-DD', () => {
 });
 
 /*
- * 한 주는 월요일에서 시작합니다.
- * 계획표의 '주간' 단위가 ISO 주차(월요일 시작)라서, 일요일 시작으로 그리면
- * 한 주가 두 줄에 걸쳐 끊겨 '이번 주'를 한 줄로 강조할 수가 없습니다.
+ * 한 주는 일요일에서 시작합니다.
+ * 달력의 한 줄과 계획표의 '주간' 단위가 정확히 겹쳐야 '이번 주'를 한 줄로 강조할 수 있어서,
+ * 둘 다 일요일 시작으로 맞춰 두었습니다. 한쪽만 바꾸면 한 주가 두 줄에 걸쳐 끊깁니다.
  */
-test('monthGrid: 월요일에서 시작해 일요일에서 끝난다', () => {
+test('monthGrid: 일요일에서 시작해 토요일에서 끝난다', () => {
   const grid = monthGrid(new Date(2026, 8, 1)); // 2026-09
-  assert.equal(grid[0].getDay(), 1, '첫 칸이 월요일이 아닙니다');
-  assert.equal(grid[grid.length - 1].getDay(), 0, '마지막 칸이 일요일이 아닙니다');
+  assert.equal(grid[0].getDay(), 0, '첫 칸이 일요일이 아닙니다');
+  assert.equal(grid[grid.length - 1].getDay(), 6, '마지막 칸이 토요일이 아닙니다');
   assert.equal(grid.length % 7, 0, '칸 수가 7의 배수가 아닙니다');
 });
 
-test('monthGrid: 모든 줄이 월요일에서 시작한다 (주 강조가 한 줄에 들어가야 합니다)', () => {
+test('monthGrid: 모든 줄이 일요일에서 시작한다 (주 강조가 한 줄에 들어가야 합니다)', () => {
   for (let m = 0; m < 12; m += 1) {
     const grid = monthGrid(new Date(2026, m, 1));
     for (let i = 0; i < grid.length; i += 7) {
-      assert.equal(grid[i].getDay(), 1, `${2026}-${m + 1} 의 ${i / 7 + 1}번째 줄이 월요일로 시작하지 않습니다`);
+      assert.equal(grid[i].getDay(), 0, `${2026}-${m + 1} 의 ${i / 7 + 1}번째 줄이 일요일로 시작하지 않습니다`);
     }
   }
 });
 
-test('weekRow: 기준 날짜가 든 주의 월요일부터 7칸', () => {
+test('weekRow: 기준 날짜가 든 주의 일요일부터 7칸', () => {
   const row = weekRow(new Date(2026, 8, 17));   // 목요일
   assert.equal(row.length, 7);
-  assert.equal(dayKey(row[0]), '2026-09-14');   // 월
-  assert.equal(dayKey(row[6]), '2026-09-20');   // 일
+  assert.equal(dayKey(row[0]), '2026-09-13');   // 일
+  assert.equal(dayKey(row[6]), '2026-09-19');   // 토
   assert.ok(row.map(dayKey).includes('2026-09-17'));
 });
 
 test('weekRow 와 daysOfWeek 가 같은 주를 가리킨다 (달력과 목록이 어긋나면 안 됩니다)', () => {
-  // 2026-09-17 은 39주차가 아니라 38주차입니다. 두 경로가 같은 답을 내야 합니다.
+  // 달력 한 줄(weekRow)과 목록이 묶는 7일(daysOfWeek)이 정확히 같아야 합니다.
   const fromCal = weekRow(new Date(2026, 8, 17)).map(dayKey);
   const fromTodo = daysOfWeek('2026-W38');
   assert.deepEqual(fromCal, fromTodo);
 });
 
 test('daysOfWeek: 연말에 걸친 주도 7일을 준다', () => {
-  const week = daysOfWeek('2026-W53');
-  assert.equal(week.length, 7);
-  assert.equal(new Set(week).size, 7, '같은 날짜가 두 번 들어 있습니다');
+  // 2026-W52 는 12월 20일(일)~26일(토), 그다음 주가 해를 넘깁니다.
+  for (const key of ['2026-W52', '2026-W53', '2027-W01']) {
+    const week = daysOfWeek(key);
+    assert.equal(week.length, 7, `${key} 가 7일이 아닙니다`);
+    assert.equal(new Set(week).size, 7, `${key} 에 같은 날짜가 두 번 들어 있습니다`);
+  }
 });
 
 test('monthGrid: 해당 달의 모든 날짜를 담는다', () => {

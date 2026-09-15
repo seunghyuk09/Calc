@@ -4,9 +4,14 @@
  *
  * 키 형식
  *   day   : 2026-09-14
- *   week  : 2026-W38   (ISO 8601 주차 — 월요일 시작, 첫 목요일이 있는 주가 1주차)
+ *   week  : 2026-W38   (일요일 시작. 1월 1일이 든 주가 그 해 1주차)
  *   month : 2026-09
  *   year  : 2026
+ *
+ * 주 시작일을 월요일(ISO 8601)에서 일요일로 바꿨습니다.
+ * 달력을 일~토로 보는 쪽이 익숙하고, 달력의 한 줄과 '주간' 단위가 정확히 겹쳐야
+ * '이번 주'를 한 줄로 표시할 수 있기 때문입니다.
+ * 예전 키로 저장된 주간 계획은 fromLegacyIsoWeek 로 옮깁니다.
  *
  * 주의: 모든 계산은 로컬 시간 기준입니다.
  * toISOString() 은 UTC 로 변환되어 한국 시간 오전에는 전날로 밀리므로 쓰지 않습니다.
@@ -19,31 +24,63 @@ const pad = (n) => String(n).padStart(2, '0');
 /** 시/분/초를 버린 로컬 날짜를 만듭니다. */
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-/** 월요일을 0 으로 두는 요일 번호 (ISO 기준) */
-const isoDayIndex = (date) => (date.getDay() + 6) % 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/**
- * ISO 8601 주차를 계산합니다.
- * 규칙: 그 주의 목요일이 속한 해가 그 주의 연도이고, 1월 4일이 항상 1주차에 포함됩니다.
- */
-export function isoWeekParts(date) {
-  const thursday = startOfDay(date);
-  // 해당 주의 목요일로 이동 (월=0 이므로 +3 이 목요일)
-  thursday.setDate(thursday.getDate() - isoDayIndex(thursday) + 3);
-  const isoYear = thursday.getFullYear();
-
-  // 그 해 1월 4일이 속한 주의 목요일 = 1주차의 목요일
-  const jan4 = new Date(isoYear, 0, 4);
-  const week1Thursday = new Date(isoYear, 0, 4 - isoDayIndex(jan4) + 3);
-
-  const week = 1 + Math.round((thursday - week1Thursday) / (7 * 24 * 60 * 60 * 1000));
-  return { year: isoYear, week };
+/** 그 날짜가 속한 주의 일요일. */
+export function weekStart(date) {
+  const d = startOfDay(date);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
 }
 
-/** ISO 주차의 월요일 날짜를 반환합니다. */
-export function isoWeekStart(isoYear, week) {
-  const jan4 = new Date(isoYear, 0, 4);
-  return new Date(isoYear, 0, 4 - isoDayIndex(jan4) + (week - 1) * 7);
+/** 그 해 1주차(= 1월 1일이 든 주)의 일요일. */
+function firstWeekStart(year) {
+  return weekStart(new Date(year, 0, 1));
+}
+
+/**
+ * 주차를 계산합니다.
+ * 규칙: 1월 1일이 든 주가 그 해 1주차입니다. 한 주는 일요일에서 시작합니다.
+ * 12월 말이라도 그 주에 다음 해 1월 1일이 들어 있으면 다음 해 1주차가 됩니다.
+ */
+export function weekParts(date) {
+  const start = weekStart(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
+  // 이 주가 다음 해 1월 1일을 품고 있으면 그 해의 1주차입니다.
+  const nextJan1 = new Date(end.getFullYear(), 0, 1);
+  if (end.getFullYear() !== start.getFullYear() && start <= nextJan1 && nextJan1 <= end) {
+    return { year: end.getFullYear(), week: 1 };
+  }
+  const year = start.getFullYear();
+  // 날짜 뺄셈은 서머타임이 있는 지역에서 한 시간씩 어긋납니다. 반올림으로 흡수합니다.
+  const week = 1 + Math.round((start - firstWeekStart(year)) / (7 * DAY_MS));
+  return { year, week };
+}
+
+/** 주차의 일요일 날짜를 돌려줍니다. */
+export function weekStartOf(year, week) {
+  const d = firstWeekStart(year);
+  d.setDate(d.getDate() + (week - 1) * 7);
+  return d;
+}
+
+/**
+ * 예전 ISO 주차 키(월요일 시작)를 지금 키(일요일 시작)로 옮깁니다.
+ * 그 주의 월요일이 든 '일요일 시작 주'로 보냅니다. 하루 앞당겨진 같은 주입니다.
+ * 주 시작일을 바꾸기 전에 저장해 둔 주간 계획이 엉뚱한 주로 가지 않게 하려는 용도입니다.
+ */
+export function fromLegacyIsoWeek(key) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(key);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const week = Number(m[2]);
+  // ISO 규칙: 1월 4일이 든 주가 1주차, 월요일 시작
+  const jan4 = new Date(year, 0, 4);
+  const isoIdx = (jan4.getDay() + 6) % 7;
+  const monday = new Date(year, 0, 4 - isoIdx + (week - 1) * 7);
+  return keyOf('week', monday);
 }
 
 /** 날짜와 단위로부터 기간 키를 만듭니다. */
@@ -52,7 +89,7 @@ export function keyOf(scope, date = new Date()) {
   switch (scope) {
     case 'day': return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     case 'week': {
-      const { year, week } = isoWeekParts(d);
+      const { year, week } = weekParts(d);
       return `${year}-W${pad(week)}`;
     }
     case 'month': return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
@@ -71,7 +108,7 @@ export function dateOf(scope, key) {
   if (scope === 'week') {
     const m = /^(\d{4})-W(\d{2})$/.exec(key);
     if (!m) throw new Error(`잘못된 week 키: ${key}`);
-    return isoWeekStart(Number(m[1]), Number(m[2]));
+    return weekStartOf(Number(m[1]), Number(m[2]));
   }
   if (scope === 'month') {
     const m = /^(\d{4})-(\d{2})$/.exec(key);
@@ -100,8 +137,9 @@ export function shift(scope, key, delta) {
 }
 
 const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WEEKDAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
+// getDay() 가 일요일을 0 으로 주므로 일요일부터 적습니다.
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_KO = ['일', '월', '화', '수', '목', '금', '토'];
 
 /**
  * 주의 날짜 범위만. ('2026년 38주차 · ' 같은 앞머리가 없습니다)
@@ -135,8 +173,8 @@ export function label(scope, key, lang = 'en') {
 
   if (scope === 'day') {
     return ko
-      ? `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS_KO[isoDayIndex(d)]})`
-      : `${WEEKDAYS_EN[isoDayIndex(d)]}, ${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      ? `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS_KO[d.getDay()]})`
+      : `${WEEKDAYS_EN[d.getDay()]}, ${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   }
 
   if (scope === 'week') {

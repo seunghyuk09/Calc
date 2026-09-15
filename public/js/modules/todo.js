@@ -15,7 +15,7 @@
 import { $, $$, el, uid, toast } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 import { t, getLang, onLangChange, applyStatic } from '../lib/i18n.js';
-import { keyOf, shift, label, isCurrent, dateOf, SCOPES } from '../lib/period.js';
+import { keyOf, shift, label, isCurrent, dateOf, fromLegacyIsoWeek, SCOPES } from '../lib/period.js';
 import {
   allCategories, allCategoriesIncludingHidden, emojiOf, labelOf, isCategory,
   addCategory, removeCategory, setCategoryEmoji, hideCategory,
@@ -25,6 +25,7 @@ import {
 const KEY = 'todo.items';
 const VIEW_KEY = 'todo.view';
 const CAT_KEY = 'todo.lastCategory';
+const WEEK_BASE_KEY = 'todo.weekBase';
 
 let items = [];
 let scope = 'day';
@@ -74,9 +75,14 @@ const saveView = () => { save(VIEW_KEY, { scope, period }); notifyView(); };
 /**
  * 예전 형식(기간 없이 저장된 할 일)을 오늘 계획으로 옮깁니다.
  * 분류가 없던 시절의 항목에는 기본 분류를 넣어 줍니다.
+ *
+ * 옮긴 결과를 저장할지 판단할 수 있게 changed 를 같이 돌려줍니다.
+ * 메모리에서만 옮기면 화면은 맞는데 저장소에는 옛 값이 그대로 남습니다.
+ * 주 시작일 이사는 '한 번만' 도는 표시를 남기므로, 저장하지 않으면 다음에 켤 때
+ * 이미 옮긴 줄 알고 건너뛰면서 옛 키가 영영 그대로 남습니다.
  */
 function migrate(raw) {
-  if (!Array.isArray(raw)) return [];
+  if (!Array.isArray(raw)) return { list: [], changed: false };
   const today = keyOf('day');
   let moved = 0;
   const result = raw.map((item) => {
@@ -86,7 +92,41 @@ function migrate(raw) {
     return { ...withCat, scope: 'day', period: today };
   });
   if (moved) console.info(`[planner] 이전 형식의 할 일 ${moved}건을 오늘 계획으로 옮겼습니다.`);
-  return result;
+
+  const weeks = migrateWeekBase(result);
+  // 분류를 채운 것도 '바뀐 것'입니다. 원본과 같은 객체가 아니면 어딘가 손을 댄 것입니다.
+  const touched = weeks.length !== raw.length || weeks.some((item, i) => item !== raw[i]);
+  return { list: weeks, changed: touched };
+}
+
+/** 주 시작일 이사가 아직 안 돌았는지. */
+function weekBaseNeeded() {
+  return load(WEEK_BASE_KEY, null) !== 'sun';
+}
+
+/**
+ * 주 시작일을 월요일(ISO)에서 일요일로 바꿨습니다.
+ *
+ * '2026-W38' 이라는 같은 글자가 가리키는 7일이 달라지므로, 그냥 두면 저장해 둔 주간 계획이
+ * 엉뚱한 주로 밀립니다. 예전 키가 가리키던 주의 월요일을 찾아, 그 월요일이 든 새 주로 옮깁니다.
+ * (하루 앞당겨진 같은 주입니다)
+ *
+ * 한 번만 돌아야 합니다. 두 번 돌면 한 주씩 계속 밀립니다.
+ * 다 돌았다는 표시는 여기서 남기지 않습니다. 옮긴 항목을 저장한 뒤에 남겨야
+ * 저장이 어긋났을 때 표시만 남고 값은 옛것인 상태가 되지 않습니다. (initTodo 가 남깁니다)
+ */
+function migrateWeekBase(list) {
+  if (!weekBaseNeeded()) return list;
+  let moved = 0;
+  const out = list.map((item) => {
+    if (!item || item.scope !== 'week' || typeof item.period !== 'string') return item;
+    const next = fromLegacyIsoWeek(item.period);
+    if (!next || next === item.period) return item;
+    moved += 1;
+    return { ...item, period: next };
+  });
+  if (moved) console.info(`[planner] 주 시작일이 일요일로 바뀌어 주간 계획 ${moved}건을 옮겼습니다.`);
+  return out;
 }
 
 /* ---------- 기간 계산 ---------- */
@@ -94,7 +134,7 @@ function migrate(raw) {
 const pad = (n) => String(n).padStart(2, '0');
 const dayKeyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** 주 키('2026-W38')에 속한 7일의 날짜 키. 월요일부터입니다. */
+/** 주 키('2026-W38')에 속한 7일의 날짜 키. 일요일부터입니다. */
 export function daysOfWeek(weekKey) {
   const start = dateOf('week', weekKey);
   const out = [];
@@ -507,7 +547,17 @@ function renderCategoryEditor() {
 }
 
 export function initTodo() {
-  items = migrate(load(KEY, []));
+  /*
+   * 옮긴 결과는 반드시 저장까지 해야 합니다.
+   * 주 시작일 이사는 '다 돌았다'는 표시를 남기고 한 번만 돕니다. 메모리에서만 옮기고 끝내면
+   * 다음에 켤 때 이미 옮긴 줄 알고 건너뛰는데, 저장소에는 옛 키가 그대로라 주간 계획이
+   * 한 주 밀린 채로 굳습니다. 표시는 저장이 끝난 뒤에 남깁니다.
+   */
+  const needsWeekBase = weekBaseNeeded();
+  const migrated = migrate(load(KEY, []));
+  items = migrated.list;
+  if (migrated.changed) save(KEY, items);
+  if (needsWeekBase) save(WEEK_BASE_KEY, 'sun');
   notifyChange(); // 첫 로드 결과도 '오늘' 탭에 반영합니다
 
   const view = load(VIEW_KEY, null);
