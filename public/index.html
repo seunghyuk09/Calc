@@ -114,11 +114,6 @@
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
-          <!-- 이 기능의 표시 언어 -->
-          <div class="lang-switch" id="lang-switch" role="group" data-i18n-aria="todo.lang.label">
-            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
-            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
-          </div>
         </div>
 
         <!-- 계획 단위: 일 / 주 / 월 / 연 -->
@@ -341,6 +336,14 @@
             <option value="dark">다크</option>
           </select>
         </div>
+        <div class="row" style="margin-bottom:14px">
+          <span class="card-sub grow">TO DO 표시 언어</span>
+          <div class="lang-switch" id="lang-switch" role="group" aria-label="TO DO 표시 언어">
+            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
+            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
+          </div>
+        </div>
+        <p class="card-sub" style="margin:-6px 0 14px">TO DO 탭의 버튼과 날짜 표기 언어입니다. 입력한 계획 내용은 바뀌지 않습니다.</p>
         <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
         <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
         <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>

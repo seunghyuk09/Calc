@@ -4,6 +4,7 @@ import { load, save, remove, clearAll, exportAll, importAll, isPersistent,
   saveSecret, loadSecret, removeSecret, isSharedStorage } from '../lib/store.js';
 import { BANNER_KEY, parseBannerText, saveBanner } from './banner.js';
 import { APIKEY_KEY, MODEL_KEY, refreshAiMode } from './ai.js';
+import { getLang, setLang, onLangChange, LANGS } from '../lib/i18n.js';
 
 export const THEME_KEY = 'ui.theme';
 
@@ -46,7 +47,23 @@ function downloadJson(filename, data) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** 언어 전환 버튼의 눌림 상태를 현재 언어에 맞춥니다. */
+function renderLangSwitch() {
+  document.querySelectorAll('.lang-btn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
+  });
+}
+
 export function initSettings() {
+  // --- TO DO 표시 언어 ---
+  // 컨트롤은 여기 있고, 실제 화면 갱신은 TO DO 모듈이 onLangChange 로 받아 처리합니다.
+  $('#lang-switch').addEventListener('click', (e) => {
+    const btn = e.target.closest('.lang-btn');
+    if (btn && LANGS.includes(btn.dataset.lang)) setLang(btn.dataset.lang);
+  });
+  onLangChange(renderLangSwitch);
+  renderLangSwitch();
+
   // --- 테마 선택 ---
   const themeSelect = $('#set-theme');
   themeSelect.value = load(THEME_KEY, 'auto');

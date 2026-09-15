@@ -7,7 +7,7 @@
 import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 import { keyOf, shift, label, isCurrent, SCOPES } from '../lib/period.js';
-import { t, getLang, setLang, onLangChange, applyStatic, LANGS } from '../lib/i18n.js';
+import { t, getLang, onLangChange, applyStatic } from '../lib/i18n.js';
 
 const KEY = 'todo.items';
 const VIEW_KEY = 'todo.view';
@@ -160,13 +160,6 @@ function applyPanelLang() {
   $('#panel-todo').setAttribute('lang', getLang());
 }
 
-/** 언어 전환 버튼의 눌림 상태를 현재 언어에 맞춥니다. */
-function renderLangSwitch() {
-  document.querySelectorAll('.lang-btn').forEach((b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
-  });
-}
-
 export function initTodo() {
   items = migrate(load(KEY, []));
 
@@ -183,20 +176,14 @@ export function initTodo() {
     b.setAttribute('aria-selected', String(b.dataset.scope === scope));
   });
 
-  // 언어 전환: 정적 문구와 목록을 모두 다시 그립니다.
-  $('#lang-switch').addEventListener('click', (e) => {
-    const btn = e.target.closest('.lang-btn');
-    if (btn && LANGS.includes(btn.dataset.lang)) setLang(btn.dataset.lang);
-  });
+  // 언어는 설정 탭에서 바꿉니다. 여기서는 바뀐 결과만 받아 다시 그립니다.
   onLangChange(() => {
     applyStatic($('#panel-todo'));
     applyPanelLang();
-    renderLangSwitch();
     render();
   });
   applyStatic($('#panel-todo'));
   applyPanelLang();
-  renderLangSwitch();
 
   $('#scope-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.scope-tab');
