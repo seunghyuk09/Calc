@@ -16,6 +16,9 @@ android/local.properties
 *.aab
 *.keystore
 *.jks
+# 디버그 서명 키만 예외입니다. 비밀이 아니고(공개 관례값 android/androiddebugkey),
+# CI 마다 서명이 달라져 기존 설치본을 덮어쓰지 못하는 문제를 막으려면 고정돼야 합니다.
+!android/app/debug.keystore
 
 # --- Capacitor / iOS ---
 ios/App/App/public/

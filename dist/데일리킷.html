@@ -252,7 +252,14 @@ a { color: var(--accent); }
 /* 화면 밖 패널은 키보드 탭 이동과 스크린리더에서 빠집니다. */
 .panel[inert] { pointer-events: none; }
 
-.grid { display: grid; gap: 14px; align-items: start; }
+/*
+ * align-content 를 start 로 고정합니다.
+ * .panel 은 플렉스 아이템이라 화면 높이만큼 늘어나고, 그 위에 display:grid 가 얹힙니다.
+ * 그리드의 align-content 기본값 normal 은 stretch 로 동작해서, 내용이 화면보다 짧으면
+ * 남는 세로 공간을 행들 사이에 나눠 넣습니다. 그래서 '오늘' 탭처럼 카드가 적은 화면에서
+ * 날짜 줄과 카드 사이가 500px 넘게 벌어졌습니다. (1800x1400 에서 실측 527px)
+ */
+.grid { display: grid; gap: 14px; align-items: start; align-content: start; }
 /*
  * 그리드 아이템의 기본 min-width 는 auto(= min-content)입니다.
  * 안에 줄바꿈 없는 긴 글이 하나라도 있으면 칼럼이 그만큼 벌어져

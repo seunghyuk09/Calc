@@ -910,6 +910,37 @@ const main = async () => {
     overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
 
+  // ---------- 11-b. 넓고 긴 화면에서 세로 여백 ----------
+  // .panel 은 플렉스 아이템이라 화면 높이만큼 늘어나고 그 위에 display:grid 가 얹힙니다.
+  // 그리드의 align-content 기본값(normal = stretch)은 남는 세로 공간을 행 사이에 나눠 넣어,
+  // 카드가 적은 '오늘' 탭에서 날짜 줄과 카드 사이가 500px 넘게 벌어졌습니다.
+  // 모바일(390x844)에서는 내용이 화면을 채워 드러나지 않으므로 넓고 긴 창으로 따로 봅니다.
+  const desktop = await browser.newPage();
+  await desktop.route('**/api.open-meteo.com/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+  await desktop.setViewportSize({ width: 1440, height: 1200 });
+  await desktop.goto(BASE, { waitUntil: 'networkidle' });
+  await desktop.waitForSelector('body[data-ready="true"]');
+  await desktop.waitForTimeout(300);
+
+  const headToCard = await desktop.evaluate(() => {
+    const panel = document.querySelector('#panel-today');
+    const head = panel.querySelector('.today-head');
+    const card = panel.querySelector('#today-weather-card');
+    if (!head || !card) return -1;
+    return Math.round(card.getBoundingClientRect().top - head.getBoundingClientRect().bottom);
+  });
+  // gap 은 14px 입니다. 여유를 둬도 40px 을 넘으면 늘어난 것입니다.
+  check('넓은 화면 오늘 탭: 날짜 줄과 카드가 붙어 있음', headToCard >= 0 && headToCard <= 40,
+    `간격 ${headToCard}px (기대 <= 40)`);
+
+  const stretched = await desktop.evaluate(() => [...document.querySelectorAll('.panel.grid')]
+    .filter((p) => !['start', 'flex-start'].includes(getComputedStyle(p).alignContent))
+    .map((p) => `${p.id}(${getComputedStyle(p).alignContent})`));
+  check('모든 그리드 패널이 위에서부터 쌓임', stretched.length === 0,
+    stretched.length ? stretched.join(', ') : '전부 start');
+  await desktop.close();
+
   // ---------- 12. 콘솔 에러 ----------
   console.log('\n▶ 콘솔');
   const realErrors = consoleErrors.filter((e) =>
