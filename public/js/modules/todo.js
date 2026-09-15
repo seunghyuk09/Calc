@@ -1,11 +1,13 @@
 /**
- * Planner 모듈 (UI 는 영문)
+ * TO DO (계획표) 모듈
  * 일(day) · 주(week) · 월(month) · 연(year) 단위로 계획을 나눠 관리합니다.
  * 각 항목은 { scope, period } 로 어느 기간에 속하는지 기록합니다.
+ * 화면 문구는 한국어/영어 중에서 고를 수 있습니다. (i18n.js)
  */
 import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 import { keyOf, shift, label, isCurrent, SCOPES } from '../lib/period.js';
+import { t, getLang, setLang, onLangChange, applyStatic, LANGS } from '../lib/i18n.js';
 
 const KEY = 'todo.items';
 const VIEW_KEY = 'todo.view';
@@ -46,7 +48,7 @@ function visible() {
 
 function renderHeader() {
   const labelEl = $('#period-label');
-  labelEl.textContent = label(scope, period);
+  labelEl.textContent = label(scope, period, getLang());
   labelEl.classList.toggle('is-current', isCurrent(scope, period));
 
   const rows = items.filter(inPeriod);
@@ -60,7 +62,7 @@ function renderHeader() {
 
   // 전체 통계 (모든 기간 합계)
   const total = items.length;
-  $('#todo-count').textContent = total ? `${total} plan${total === 1 ? '' : 's'} total` : '';
+  $('#todo-count').textContent = total ? t('todo.count.total', total) : '';
 }
 
 function render() {
@@ -71,30 +73,52 @@ function render() {
   const rows = visible();
   if (!rows.length) {
     list.append(el('li', { class: 'empty' },
-      filter === 'all' ? 'No plans for this period yet.' : 'Nothing matches this filter.'));
+      t(filter === 'all' ? 'todo.empty.none' : 'todo.empty.filter')));
     return;
   }
 
   rows.forEach((item) => {
-    const checkbox = el('input', { type: 'checkbox', 'aria-label': 'Mark as done' });
+    const checkbox = el('input', { type: 'checkbox', 'aria-label': t('todo.aria.done') });
     checkbox.checked = item.done;
     checkbox.addEventListener('change', () => {
       item.done = checkbox.checked;
       item.doneAt = checkbox.checked ? Date.now() : null;
       persist();
-      render();
+      // 다시 그리면 DOM 이 교체되어 포커스가 body 로 날아갑니다. 같은 자리로 되돌립니다.
+      renderKeepingFocus({ id: item.id, kind: 'check' });
     });
-    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}` },
+    list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
       checkbox,
       el('span', { class: 'todo-text' }, item.text),
       el('button', {
         class: 'btn btn-sm btn-ghost',
-        title: 'Delete',
-        'aria-label': 'Delete',
-        onclick: () => { items = items.filter((t) => t.id !== item.id); persist(); render(); },
+        title: t('todo.aria.delete'),
+        'aria-label': t('todo.aria.delete'),
+        onclick: () => {
+          // 삭제 후에는 다음 항목의 삭제 버튼으로, 없으면 입력창으로 포커스를 넘깁니다.
+          const rest = visible().filter((t) => t.id !== item.id);
+          const idx = rows.findIndex((t) => t.id === item.id);
+          const nextId = rest[Math.min(idx, rest.length - 1)]?.id;
+          items = items.filter((t) => t.id !== item.id);
+          persist();
+          renderKeepingFocus(nextId ? { id: nextId, kind: 'delete' } : null);
+        },
       }, '✕'),
     ));
   });
+}
+
+/**
+ * 목록을 다시 그린 뒤 포커스를 복원합니다.
+ * 항목이 필터로 사라졌으면 입력창으로 보냅니다. (포커스가 사라지면 키보드 사용자가 길을 잃습니다)
+ */
+function renderKeepingFocus(hint) {
+  render();
+  if (!hint) { $('#todo-input').focus(); return; }
+  const li = [...$('#todo-list').children].find((n) => n.dataset?.id === hint.id);
+  if (!li) { $('#todo-input').focus(); return; }
+  const target = hint.kind === 'check' ? li.querySelector('input') : li.querySelector('button');
+  target?.focus();
 }
 
 function setScope(next) {
@@ -118,13 +142,29 @@ function carryOver() {
   const from = shift(scope, period, -1);
   const pending = items.filter((t) => t.scope === scope && t.period === from && !t.done);
   if (!pending.length) {
-    toast('Nothing to carry over from the previous period');
+    toast(t('todo.toast.nothingToCarry'));
     return;
   }
-  pending.forEach((t) => { t.period = period; });
+  pending.forEach((item) => { item.period = period; });
   persist();
   render();
-  toast(`Moved ${pending.length} unfinished item${pending.length === 1 ? '' : 's'} here`);
+  toast(t('todo.toast.carried', pending.length));
+}
+
+/**
+ * 패널의 lang 속성을 현재 언어로 맞춥니다.
+ * 이게 없으면 스크린리더가 영어 문구를 한국어 발음으로 읽습니다. (WCAG 3.1.2)
+ * 사용자가 입력한 항목은 #todo-list 에 lang="ko" 가 고정돼 있어 영향받지 않습니다.
+ */
+function applyPanelLang() {
+  $('#panel-todo').setAttribute('lang', getLang());
+}
+
+/** 언어 전환 버튼의 눌림 상태를 현재 언어에 맞춥니다. */
+function renderLangSwitch() {
+  document.querySelectorAll('.lang-btn').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
+  });
 }
 
 export function initTodo() {
@@ -142,6 +182,21 @@ export function initTodo() {
   document.querySelectorAll('.scope-tab').forEach((b) => {
     b.setAttribute('aria-selected', String(b.dataset.scope === scope));
   });
+
+  // 언어 전환: 정적 문구와 목록을 모두 다시 그립니다.
+  $('#lang-switch').addEventListener('click', (e) => {
+    const btn = e.target.closest('.lang-btn');
+    if (btn && LANGS.includes(btn.dataset.lang)) setLang(btn.dataset.lang);
+  });
+  onLangChange(() => {
+    applyStatic($('#panel-todo'));
+    applyPanelLang();
+    renderLangSwitch();
+    render();
+  });
+  applyStatic($('#panel-todo'));
+  applyPanelLang();
+  renderLangSwitch();
 
   $('#scope-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.scope-tab');
@@ -186,7 +241,7 @@ export function initTodo() {
     persist();
     render();
     const removed = before - items.length;
-    toast(removed ? `Cleared ${removed} completed item${removed === 1 ? '' : 's'}` : 'No completed items in this period');
+    toast(removed ? t('todo.toast.cleared', removed) : t('todo.toast.nothingToClear'));
   });
 
   render();

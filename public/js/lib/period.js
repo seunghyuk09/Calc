@@ -99,26 +99,49 @@ export function shift(scope, key, delta) {
   return keyOf(scope, d);
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 
-/** 화면에 보여줄 기간 이름 (영문) */
-export function label(scope, key) {
+/**
+ * 화면에 보여줄 기간 이름.
+ * @param {'day'|'week'|'month'|'year'} scope
+ * @param {string} key
+ * @param {'ko'|'en'} lang 기본값 'en'
+ */
+export function label(scope, key, lang = 'en') {
   const d = dateOf(scope, key);
+  const ko = lang === 'ko';
+
   if (scope === 'day') {
-    return `${WEEKDAYS[isoDayIndex(d)]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    return ko
+      ? `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS_KO[isoDayIndex(d)]})`
+      : `${WEEKDAYS_EN[isoDayIndex(d)]}, ${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   }
+
   if (scope === 'week') {
     const end = new Date(d);
     end.setDate(end.getDate() + 6);
-    const [, week] = key.split('-W');
-    const range = d.getMonth() === end.getMonth()
-      ? `${MONTHS[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
-      : `${MONTHS[d.getMonth()]} ${d.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}`;
-    return `Week ${Number(week)} · ${range}`;
+    const week = Number(key.split('-W')[1]);
+    const isoYear = Number(key.split('-W')[0]);
+    const sameMonth = d.getMonth() === end.getMonth();
+    if (ko) {
+      const range = sameMonth
+        ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
+        : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
+      return `${isoYear}년 ${week}주차 · ${range}`;
+    }
+    const range = sameMonth
+      ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
+      : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
+    return `Week ${week}, ${isoYear} · ${range}`;
   }
-  if (scope === 'month') return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-  return String(d.getFullYear());
+
+  if (scope === 'month') {
+    return ko ? `${d.getFullYear()}년 ${d.getMonth() + 1}월` : `${MONTHS_EN[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  return ko ? `${d.getFullYear()}년` : String(d.getFullYear());
 }
 
 /** 지금이 속한 기간인지 */

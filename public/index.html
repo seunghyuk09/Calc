@@ -35,7 +35,7 @@
     <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
       <button class="tab" role="tab" data-tab="calc"     aria-selected="true"><span>🧮</span>계산기</button>
       <button class="tab" role="tab" data-tab="weather"  aria-selected="false"><span>🌤️</span>날씨</button>
-      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>Planner</button>
+      <button class="tab" role="tab" data-tab="todo"     aria-selected="false"><span>✅</span>TO DO</button>
       <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
       <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
       <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
@@ -108,28 +108,33 @@
       </div>
     </section>
 
-    <!-- ================= Planner (영문 UI) ================= -->
-    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="Planner" hidden>
+    <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
+    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko" hidden>
       <div class="card">
         <div class="card-head">
-          <h2 class="card-title">Planner</h2>
+          <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
+          <!-- 이 기능의 표시 언어 -->
+          <div class="lang-switch" id="lang-switch" role="group" data-i18n-aria="todo.lang.label">
+            <button class="lang-btn" data-lang="ko" type="button" lang="ko" aria-pressed="true">한국어</button>
+            <button class="lang-btn" data-lang="en" type="button" lang="en" aria-pressed="false">English</button>
+          </div>
         </div>
 
         <!-- 계획 단위: 일 / 주 / 월 / 연 -->
-        <div class="scope-tabs" id="scope-tabs" role="tablist" aria-label="Planning scope">
-          <button class="scope-tab" data-scope="day"   role="tab" aria-selected="true">Day</button>
-          <button class="scope-tab" data-scope="week"  role="tab" aria-selected="false">Week</button>
-          <button class="scope-tab" data-scope="month" role="tab" aria-selected="false">Month</button>
-          <button class="scope-tab" data-scope="year"  role="tab" aria-selected="false">Year</button>
+        <div class="scope-tabs" id="scope-tabs" role="tablist" data-i18n-aria="todo.aria.scopeTabs">
+          <button class="scope-tab" data-scope="day"   role="tab" aria-selected="true"  data-i18n="todo.scope.day">일간</button>
+          <button class="scope-tab" data-scope="week"  role="tab" aria-selected="false" data-i18n="todo.scope.week">주간</button>
+          <button class="scope-tab" data-scope="month" role="tab" aria-selected="false" data-i18n="todo.scope.month">월간</button>
+          <button class="scope-tab" data-scope="year"  role="tab" aria-selected="false" data-i18n="todo.scope.year">연간</button>
         </div>
 
         <!-- 기간 이동 -->
         <div class="period-nav">
-          <button class="icon-btn" id="period-prev" type="button" aria-label="Previous period">‹</button>
-          <div class="period-label" id="period-label">—</div>
-          <button class="icon-btn" id="period-next" type="button" aria-label="Next period">›</button>
-          <button class="btn btn-sm" id="period-today" type="button">Today</button>
+          <button class="icon-btn" id="period-prev" type="button" data-i18n-aria="todo.nav.prev">‹</button>
+          <div class="period-label" id="period-label" aria-live="polite" aria-atomic="true">—</div>
+          <button class="icon-btn" id="period-next" type="button" data-i18n-aria="todo.nav.next">›</button>
+          <button class="btn btn-sm" id="period-today" type="button" data-i18n="todo.nav.today">오늘</button>
         </div>
 
         <!-- 진행률 -->
@@ -139,18 +144,19 @@
         </div>
 
         <form class="row" id="todo-form" style="margin:12px 0">
-          <input class="field grow" id="todo-input" placeholder="Add a plan and press Enter" maxlength="200" autocomplete="off">
-          <button class="btn btn-primary" type="submit">Add</button>
+          <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
+                 data-i18n-placeholder="todo.input.placeholder">
+          <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
         </form>
 
         <div class="row" style="margin-bottom:6px">
-          <button class="chip" data-filter="all" aria-pressed="true">All</button>
-          <button class="chip" data-filter="active" aria-pressed="false">Active</button>
-          <button class="chip" data-filter="done" aria-pressed="false">Done</button>
-          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button">↩ Carry over</button>
-          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button">Clear done</button>
+          <button class="chip" data-filter="all" aria-pressed="true" data-i18n="todo.filter.all">전체</button>
+          <button class="chip" data-filter="active" aria-pressed="false" data-i18n="todo.filter.active">진행 중</button>
+          <button class="chip" data-filter="done" aria-pressed="false" data-i18n="todo.filter.done">완료</button>
+          <button class="btn btn-sm btn-ghost" id="todo-carry" type="button" data-i18n-title="todo.btn.carryHint"><span aria-hidden="true">↩ </span><span data-i18n="todo.btn.carry">이월</span></button>
+          <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
         </div>
-        <ul class="todo-list" id="todo-list"></ul>
+        <ul class="todo-list" id="todo-list" lang="ko"></ul>
       </div>
     </section>
 

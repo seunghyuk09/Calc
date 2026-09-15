@@ -171,10 +171,61 @@ const main = async () => {
   const histCount = await page.locator('#calc-history .hist-item').count();
   check('계산 기록이 쌓임', histCount >= 4, `${histCount}건`);
 
-  // ---------- 2. Planner (일/주/월/연) ----------
-  console.log('\n▶ Planner');
+  // ---------- 2. TO DO (일/주/월/연 계획표, 한/영) ----------
+  console.log('\n▶ TO DO');
+  check('탭 이름이 TO DO', (await page.textContent('.tab[data-tab="todo"]')).includes('TO DO'),
+    await page.textContent('.tab[data-tab="todo"]'));
   await page.click('.tab[data-tab="todo"]');
   await page.waitForSelector('#scope-tabs', { timeout: 5000 });
+
+  // 기본 언어는 한국어
+  check('기본 언어 한국어', (await page.getAttribute('.lang-btn[data-lang="ko"]', 'aria-pressed')) === 'true');
+  check('한국어 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간',
+    await page.textContent('.scope-tab[data-scope="day"]'));
+  check('한국어 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === '추가');
+  check('한국어 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === '계획을 입력하고 Enter');
+  check('한국어 기간 표기', /^\d{4}년 \d{1,2}월 \d{1,2}일 \(.\)$/.test(await page.textContent('#period-label')),
+    await page.textContent('#period-label'));
+
+  // 영어로 전환
+  await page.click('.lang-btn[data-lang="en"]');
+  await page.waitForTimeout(200);
+  check('영어 전환 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
+  check('영어 전환 — 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === 'Add');
+  check('영어 전환 — 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === 'Add a plan and press Enter');
+  check('영어 전환 — 기간 표기', /^\w{3}, \w{3} \d{1,2}, \d{4}$/.test(await page.textContent('#period-label')),
+    await page.textContent('#period-label'));
+  check('영어 전환 — 필터 라벨', (await page.textContent('.chip[data-filter="active"]')) === 'Active');
+  check('영어 전환 — 이월 버튼', (await page.textContent('#todo-carry')).includes('Carry over'));
+  // 지적 반영: 전환되는 문구를 넓게 확인 (이전에는 6개만 단언)
+  for (const [sel, expected] of [
+    ['.scope-tab[data-scope="week"]', 'Week'],
+    ['.scope-tab[data-scope="month"]', 'Month'],
+    ['.scope-tab[data-scope="year"]', 'Year'],
+    ['.chip[data-filter="all"]', 'All'],
+    ['.chip[data-filter="done"]', 'Done'],
+    ['#period-today', 'Today'],
+    ['#todo-clear-done', 'Clear done'],
+    ['#panel-todo .card-title', 'Planner'],
+  ]) {
+    check(`영어 전환 — ${expected}`, (await page.textContent(sel)).trim() === expected,
+      `실제: ${(await page.textContent(sel)).trim()}`);
+  }
+  check('영어 전환 — 패널 lang 속성', (await page.getAttribute('#panel-todo', 'lang')) === 'en',
+    `실제: ${await page.getAttribute('#panel-todo', 'lang')}`);
+  check('사용자 입력 영역은 lang 고정', (await page.getAttribute('#todo-list', 'lang')) === 'ko');
+  check('이월 버튼에 설명 title', (await page.getAttribute('#todo-carry', 'title')).includes('previous period'),
+    await page.getAttribute('#todo-carry', 'title'));
+
+  // 한국어로 되돌리기 (역방향 전환이 검증된 적 없었음)
+  await page.click('.lang-btn[data-lang="ko"]');
+  await page.waitForTimeout(200);
+  check('한국어 복귀 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간');
+  check('한국어 복귀 — 패널 lang', (await page.getAttribute('#panel-todo', 'lang')) === 'ko');
+  check('한국어 복귀 — 이전 버튼 눌림 해제',
+    (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'false');
+  await page.click('.lang-btn[data-lang="en"]');
+  await page.waitForTimeout(200);
 
   check('기본 단위는 Day', (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
   const dayLabel = await page.textContent('#period-label');
@@ -195,14 +246,58 @@ const main = async () => {
   check('완료 체크 반영', (await page.locator('#todo-list .todo-item.done').count()) === 1);
   check('진행률 1/2 로 갱신', (await page.textContent('#todo-progress-text')) === '1 / 2');
 
+  // 동적 생성 요소의 언어 전환 (이전에는 전혀 검증되지 않음)
+  check('동적 요소 — 영어 체크박스 이름',
+    (await page.getAttribute('#todo-list .todo-item input', 'aria-label')) === 'Mark as done');
+  check('동적 요소 — 영어 삭제 버튼 이름',
+    (await page.getAttribute('#todo-list .todo-item button', 'aria-label')) === 'Delete');
+  await page.click('.lang-btn[data-lang="ko"]');
+  await page.waitForTimeout(200);
+  check('동적 요소 — 한국어 체크박스 이름',
+    (await page.getAttribute('#todo-list .todo-item input', 'aria-label')) === '완료 표시');
+  check('동적 요소 — 한국어 삭제 버튼 이름',
+    (await page.getAttribute('#todo-list .todo-item button', 'aria-label')) === '삭제');
+  await page.click('.lang-btn[data-lang="en"]');
+  await page.waitForTimeout(200);
+
   await page.click('.chip[data-filter="active"]');
   check('Active 필터', (await page.locator('#todo-list .todo-item').count()) === 1);
+
+  // 결과가 없는 필터의 안내 문구 (한 번도 렌더된 적 없었음)
+  await page.click('.chip[data-filter="done"]');
+  await page.waitForTimeout(150);
+  check('Done 필터 — 완료 1건 표시', (await page.locator('#todo-list .todo-item').count()) === 1);
+  await page.click('.chip[data-filter="active"]');
+  await page.waitForTimeout(150);
+  // 체크하면 이 항목은 Active 필터에서 사라집니다. check() 는 클릭 후 사라진 노드의
+  // 상태를 확인하려다 멈추므로 click() 을 씁니다.
+  await page.locator('#todo-list .todo-item input').first().click();
+  await page.waitForTimeout(250);
+  check('필터로 결과가 비면 전용 안내 문구',
+    (await page.textContent('#todo-list .empty')) === 'Nothing matches this filter.',
+    await page.textContent('#todo-list .empty'));
+  // 체크로 항목이 사라지면 포커스가 입력창으로 이동해야 함 (body 로 날아가면 키보드 사용자가 길을 잃음)
+  check('항목이 필터에서 사라지면 포커스가 입력창으로',
+    (await page.evaluate(() => document.activeElement?.id)) === 'todo-input',
+    await page.evaluate(() => document.activeElement?.id || '(none)'));
   await page.click('.chip[data-filter="all"]');
+  await page.waitForTimeout(150);
+  // check()/uncheck() 는 클릭 후 상태를 재검증하는데, 이 앱은 클릭 즉시 목록을 다시 그려
+  // 노드가 교체되므로 검증이 stale 노드를 봅니다. click() 으로 누르고 상태는 따로 확인합니다.
+  await page.locator('#todo-list .todo-item input').first().click();
+  await page.waitForTimeout(250);
+  check('체크 후에도 체크박스에 포커스 유지 (전체 필터)',
+    (await page.evaluate(() => document.activeElement?.type)) === 'checkbox',
+    await page.evaluate(() => document.activeElement?.tagName || '(none)'));
+  check('전체 필터에서는 항목이 사라지지 않음',
+    (await page.locator('#todo-list .todo-item').count()) === 2);
 
   // 기간 이동: 다음 날에는 항목이 없어야 함 (기간별로 분리되는지)
   await page.click('#period-next');
   check('다음 날은 빈 목록', (await page.locator('#todo-list .todo-item').count()) === 0,
     await page.textContent('#period-label'));
+  check('빈 목록 안내가 영어', (await page.textContent('#todo-list .empty')) === 'No plans for this period yet.',
+    await page.textContent('#todo-list .empty'));
   check('다음 날은 현재 기간 아님', !(await page.evaluate(() =>
     document.querySelector('#period-label').classList.contains('is-current'))));
 
@@ -218,7 +313,7 @@ const main = async () => {
 
   // 단위 전환: Week / Month / Year 는 각각 독립된 목록
   for (const [sc, text, pattern] of [
-    ['week', 'Ship v1 beta', /^Week \d+ · /],
+    ['week', 'Ship v1 beta', /^Week \d+, \d{4} · /],
     ['month', 'Hire designer', /^\w{3} \d{4}$/],
     ['year', 'Launch product', /^\d{4}$/],
   ]) {
@@ -238,7 +333,7 @@ const main = async () => {
   // 총합 5건: 오늘 1(완료) + 내일 1(이월됨) + week/month/year 각 1
   // 이월은 항목을 옮기는 것이지 복제하는 것이 아니므로 총합은 늘지 않습니다.
   check('전체 계획 수 집계 (이월은 복제가 아님)',
-    (await page.textContent('#todo-count')).includes('5 plans total'),
+    (await page.textContent('#todo-count')).includes('5 plans all-time'),
     await page.textContent('#todo-count'));
 
   // ---------- 3. 날씨 (모의 응답) ----------
@@ -401,6 +496,9 @@ const main = async () => {
   check('새로고침 후 Planner 단위/기간 복원',
     (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
   check('새로고침 후 Day 계획 유지', (await page.locator('#todo-list .todo-item').count()) === 1);
+  check('새로고침 후 선택한 언어(영어) 유지',
+    (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'true'
+    && (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
   await page.click('.tab[data-tab="memo"]');
   await page.waitForTimeout(400);
   check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);
