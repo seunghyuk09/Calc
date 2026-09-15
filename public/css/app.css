@@ -1200,3 +1200,17 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .upd-msg.is-error { color: var(--danger); }
 .upd-msg[data-state="latest"] { color: var(--success); }
 .upd-msg[data-state="ready"] { color: var(--accent); font-weight: 600; }
+
+/* 새 버전이 있을 때 메뉴와 '설정' 줄에 찍는 점.
+   설정 탭 맨 아래 카드에만 두면 끝까지 스크롤해야 알게 됩니다. */
+body[data-has-update="true"] #menu-open,
+body[data-has-update="true"] .tab[data-tab="settings"] { position: relative; }
+body[data-has-update="true"] #menu-open::after,
+body[data-has-update="true"] .tab[data-tab="settings"]::after {
+  content: '';
+  position: absolute; top: 5px; right: 5px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+body[data-has-update="true"] .tab[data-tab="settings"]::after { top: 50%; right: 10px; margin-top: -4px; }

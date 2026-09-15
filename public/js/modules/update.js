@@ -12,10 +12,25 @@
  */
 import { $, el, toast } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
+import { load, save } from '../lib/store.js';
+import { onTabChange } from '../lib/nav.js';
 import { BUILD, shortVersion, isStamped } from '../lib/version.js';
 
 const RELEASE_API = 'https://api.github.com/repos/seunghyuk09/Calc/releases/tags/nightly';
 const APK_URL = 'https://github.com/seunghyuk09/Calc/releases/download/nightly/dailykit-debug.apk';
+
+const LAST_CHECK_KEY = 'update.lastCheck';
+/*
+ * 자동 확인 간격.
+ * GitHub API 는 로그인 없이 시간당 60회까지라 앱을 열 때마다 두드리면 안 됩니다.
+ * 하루 한 번보다는 자주, 여는 족족보다는 드물게 잡았습니다.
+ */
+const AUTO_INTERVAL_MS = 60 * 60 * 1000;
+/*
+ * 앱을 열자마자 확인하면 날씨 같은 첫 화면 요청과 겹칩니다.
+ * 급한 일이 아니므로 뒤로 미룹니다.
+ */
+const AUTO_DELAY_MS = 3000;
 
 let registration = null;
 let reloading = false;
@@ -44,6 +59,7 @@ export function updateMode() {
 function setState(next, text = '') {
   state = next;
   detail = text;
+  syncBadge();
   render();
 }
 
@@ -144,20 +160,56 @@ async function checkNative() {
 
 /* ---------- 공통 ---------- */
 
-export async function checkForUpdate() {
+/**
+ * @param {{silent?: boolean}} opts
+ *   silent 이면 사용자가 누르지 않은 확인입니다.
+ *   실패해도 화면에 에러를 띄우지 않습니다. 묻지도 않았는데 빨간 글씨가 뜨면 방해입니다.
+ */
+export async function checkForUpdate({ silent = false } = {}) {
   const mode = updateMode();
-  if (mode === 'none') { setState('none', t('upd.unsupported')); return; }
-  setState('checking');
+  if (mode === 'none') {
+    if (!silent) setState('none', t('upd.unsupported'));
+    return;
+  }
+  const before = state;
+  if (!silent) setState('checking');
   try {
     if (mode === 'native') await checkNative();
     else await checkWeb();
   } catch (err) {
     console.warn('[update] 확인 실패', err);
-    setState('error', t('upd.failed'));
+    if (silent) setState(before, detail);
+    else setState('error', t('upd.failed'));
+    return;
   }
+  // 조용한 확인이 실패로 끝났으면 원래 상태로 되돌립니다.
+  if (silent && state === 'error') setState(before, detail);
+}
+
+/** 마지막 확인 이후 충분히 지났을 때만 조용히 확인합니다. */
+export async function autoCheck() {
+  if (updateMode() === 'none') return;
+  const last = load(LAST_CHECK_KEY, 0);
+  const now = Date.now();
+  // 저장값이 손상돼 미래 시각이면 그대로 두고 한 번 확인합니다. 영영 안 도는 것보다 낫습니다.
+  if (typeof last === 'number' && last <= now && now - last < AUTO_INTERVAL_MS) return;
+  save(LAST_CHECK_KEY, now);
+  await checkForUpdate({ silent: true });
+}
+
+/**
+ * 새 버전이 있으면 메뉴 버튼과 사이드바의 '설정' 줄에 점을 찍습니다.
+ * 설정 탭 맨 아래 카드에만 두면 끝까지 스크롤해야 알게 되어, 자동 확인이 무의미해집니다.
+ */
+function syncBadge() {
+  const on = state === 'ready';
+  if (on) document.body.dataset.hasUpdate = 'true';
+  else delete document.body.dataset.hasUpdate;
 }
 
 function apply() {
+  // 내려받기로 넘어가면 이 화면에서 할 일은 끝났습니다. 표시를 지웁니다.
+  delete document.body.dataset.hasUpdate;
   if (updateMode() === 'native') {
     // 앱에서는 브라우저로 내려받기를 엽니다. 설치 화면은 사용자가 직접 거칩니다.
     window.open(downloadUrl || APK_URL, '_blank', 'noopener');
@@ -204,4 +256,7 @@ function render() {
 
 export function initUpdate() {
   render();
+  // 설정 탭을 열 때마다 (간격 제한 안에서) 다시 확인합니다.
+  onTabChange((tab) => { if (tab === 'settings') autoCheck(); });
+  setTimeout(() => { autoCheck(); }, AUTO_DELAY_MS);
 }

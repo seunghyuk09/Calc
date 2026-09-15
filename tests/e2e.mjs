@@ -945,6 +945,12 @@ const main = async () => {
   await goTab(page, 'settings');
   await page.waitForSelector('#update-body');
   check('업데이트 카드가 그려짐', (await page.locator('#update-action').count()) === 1);
+  check('업데이트 카드가 설정 탭 맨 아래에 있음',
+    await page.evaluate(() => {
+      const last = document.querySelector('#panel-settings')?.lastElementChild;
+      return last?.dataset?.card === 'settings.update';
+    }),
+    await page.evaluate(() => document.querySelector('#panel-settings')?.lastElementChild?.dataset?.card));
   check('현재 버전 표시', ((await page.textContent('#update-body')) || '').includes('dev'),
     (await page.textContent('#update-body'))?.slice(0, 60));
 
@@ -1032,6 +1038,92 @@ export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
     // 앱에서는 '적용' 이 아니라 '내려받기' 여야 합니다. 앱은 스스로 설치할 수 없습니다.
     check('앱: 버튼이 내려받기로 바뀜',
       newer.btn.includes('내려받기') || newer.btn.includes('Download'), newer.btn);
+
+    /*
+     * 자동 감지.
+     * 버튼을 누르지 않아도 새 버전을 찾아내고, 설정 탭까지 들어가지 않아도
+     * 알 수 있게 표시가 떠야 합니다. 표시가 없으면 맨 아래 카드는 아무도 못 봅니다.
+     */
+    {
+      const ctx = await browser.newContext();
+      let apiCalls = 0;
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      await ctx.route('**/js/lib/version.js', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: `export const BUILD = Object.freeze({ commit: '${'1'.repeat(40)}', builtAt: '' });
+export function shortVersion() { return BUILD.commit.slice(0, 7); }
+export function isStamped() { return true; }`,
+      }));
+      await ctx.route('**/api.github.com/**', (route) => {
+        apiCalls += 1;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ target_commitish: '2'.repeat(40) }),
+        });
+      });
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const ap = await ctx.newPage();
+      await ap.goto(BASE, { waitUntil: 'networkidle' });
+      await ap.waitForSelector('body[data-ready="true"]');
+
+      // 시작 3초 뒤에 도는 확인입니다. 버튼은 누르지 않습니다.
+      const found = await ap.waitForFunction(
+        () => document.body.dataset.hasUpdate === 'true', null, { timeout: 12000 },
+      ).then(() => true).catch(() => false);
+      check('앱: 버튼을 누르지 않아도 새 버전을 감지함', found === true,
+        `body[data-has-update]=${await ap.evaluate(() => document.body.dataset.hasUpdate)}`);
+
+      // 표시가 실제로 눈에 보이는 자리에 찍혀야 합니다.
+      const dot = await ap.evaluate(() => {
+        const after = getComputedStyle(document.querySelector('#menu-open'), '::after');
+        return { content: after.content, w: after.width };
+      });
+      check('앱: 메뉴 버튼에 새 버전 표시가 찍힘', dot.content !== 'none' && dot.w !== 'auto',
+        `content=${dot.content} width=${dot.w}`);
+
+      const callsAfterBoot = apiCalls;
+      // 설정 탭을 여러 번 오가도 간격 제한 안에서는 다시 두드리지 않아야 합니다.
+      await goTab(ap, 'settings');
+      await goTab(ap, 'today');
+      await goTab(ap, 'settings');
+      await ap.waitForTimeout(500);
+      check('앱: 간격 제한이 있어 열 때마다 서버를 두드리지 않음', apiCalls === callsAfterBoot,
+        `부팅 후 ${callsAfterBoot}회 -> 탭 왕복 뒤 ${apiCalls}회`);
+      await ctx.close();
+    }
+
+    /* 조용한 확인이 실패해도 에러를 띄우면 안 됩니다. 묻지도 않았는데 빨간 글씨가 뜹니다. */
+    {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      await ctx.route('**/js/lib/version.js', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: `export const BUILD = Object.freeze({ commit: '${'1'.repeat(40)}', builtAt: '' });
+export function shortVersion() { return BUILD.commit.slice(0, 7); }
+export function isStamped() { return true; }`,
+      }));
+      await ctx.route('**/api.github.com/**', (route) => route.abort('failed'));
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const ep = await ctx.newPage();
+      await ep.goto(BASE, { waitUntil: 'networkidle' });
+      await ep.waitForSelector('body[data-ready="true"]');
+      await ep.waitForTimeout(5000);   // 자동 확인(3초)이 지나갈 시간
+      await goTab(ep, 'settings');
+      await ep.waitForSelector('#update-msg');
+      const quietState = await ep.getAttribute('#update-msg', 'data-state');
+      check('앱: 자동 확인이 실패해도 에러를 띄우지 않음',
+        quietState !== 'error',
+        `상태: ${quietState}`);
+      check('앱: 자동 확인 실패 시 표시도 찍히지 않음',
+        (await ep.evaluate(() => document.body.dataset.hasUpdate)) === undefined);
+      await ctx.close();
+    }
   }
 
   // ---------- 10-b. 메뉴 사이드바 ----------
