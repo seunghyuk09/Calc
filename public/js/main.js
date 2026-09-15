@@ -33,19 +33,34 @@ const lazyWeather = once(initWeather);
 const lazyInit = { weather: lazyWeather, today: lazyWeather };
 const lazyDone = new Set();
 
-function activate(name) {
-  const tab = TABS.includes(name) ? name : DEFAULT_TAB;
-  TABS.forEach((id) => {
-    const panel = $(`#panel-${id}`);
-    if (panel) panel.hidden = id !== tab;
-  });
-  $$('.tab').forEach((btn) => btn.setAttribute('aria-selected', String(btn.dataset.tab === tab)));
-  save(TAB_KEY, tab);
+let currentTab = DEFAULT_TAB;
 
-  if (lazyInit[tab] && !lazyDone.has(tab)) {
-    lazyDone.add(tab);
-    try { lazyInit[tab](); } catch (err) { console.error(`[${tab}] 초기화 실패`, err); }
+const panelOf = (id) => $(`#panel-${id}`);
+
+/** 처음 열릴 때만 돌려야 하는 초기화(네트워크 호출 등)를 실행합니다. */
+function runLazyInit(tab) {
+  if (!lazyInit[tab] || lazyDone.has(tab)) return;
+  lazyDone.add(tab);
+  try { lazyInit[tab](); } catch (err) { console.error(`[${tab}] 초기화 실패`, err); }
+}
+
+/**
+ * 스크롤은 건드리지 않고 '지금 보이는 탭' 상태만 맞춥니다.
+ * 손으로 쓸어 넘겼을 때도 이 함수가 뒤따라 불립니다.
+ */
+function setActiveTab(tab) {
+  currentTab = tab;
+  $$('.tab').forEach((btn) => btn.setAttribute('aria-selected', String(btn.dataset.tab === tab)));
+
+  // 화면 밖 패널은 키보드 탭 이동과 스크린리더에서 빼 둡니다.
+  // inert 를 모르는 브라우저(iOS 15 등)에서는 그냥 건너뜁니다. 화면 동작에는 영향이 없습니다.
+  if ('inert' in HTMLElement.prototype) {
+    TABS.forEach((id) => { const panel = panelOf(id); if (panel) panel.inert = id !== tab; });
   }
+
+  save(TAB_KEY, tab);
+  runLazyInit(tab);
+
   // 선택한 탭 버튼이 가로 스크롤 밖에 있으면 보이게 합니다.
   document.querySelector(`.tab[data-tab="${tab}"]`)
     ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
@@ -53,75 +68,81 @@ function activate(name) {
   notifyTabChange(tab);
 }
 
-/** 현재 탭에서 delta 칸 떨어진 탭으로 이동합니다. 양 끝에서는 더 가지 않습니다. */
-function moveTab(delta) {
-  const current = TABS.indexOf(load(TAB_KEY, DEFAULT_TAB));
-  const next = current + delta;
-  // 순환시키면 '오늘'에서 왼쪽으로 쓸었을 때 설정으로 튀어 방향 감각이 깨집니다.
-  if (next < 0 || next >= TABS.length) return;
-  activate(TABS[next]);
+/** 해당 패널이 화면에 오도록 가로로 스크롤합니다. */
+function scrollToPanel(tab, smooth = true) {
+  const main = $('#main');
+  if (!main) return;
+  const index = TABS.indexOf(tab);
+  if (index < 0) return;
+  // 패널 폭이 정확히 100% 라서 인덱스 x 폭이 곧 목표 위치입니다.
+  main.scrollTo({ left: index * main.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
 }
 
-const SWIPE_MIN_PX = 60;     // 이보다 적게 움직이면 그냥 탭(클릭)으로 봅니다
-const SWIPE_RATIO = 1.5;     // 가로 이동이 세로보다 이 배 이상이어야 스와이프입니다
-
-/** target 에서 위로 올라가며 가로 스크롤이 가능한 조상이 있는지 봅니다. */
-function insideHorizontalScroller(target, root) {
-  for (let node = target; node && node !== root; node = node.parentElement) {
-    if (!(node instanceof Element)) continue;
-    if (node.scrollWidth > node.clientWidth + 2) {
-      const overflowX = getComputedStyle(node).overflowX;
-      if (overflowX === 'auto' || overflowX === 'scroll') return true;
-    }
-  }
-  return false;
+/** 탭 버튼이나 다른 모듈에서 부르는 진입점. 상태를 바꾸고 화면도 옮깁니다. */
+function activate(name, { smooth = true } = {}) {
+  const tab = TABS.includes(name) ? name : DEFAULT_TAB;
+  // inert 인 패널로는 스크롤이 되지 않으므로 상태를 먼저 풉니다.
+  setActiveTab(tab);
+  scrollToPanel(tab, smooth);
 }
 
 /**
- * 좌우로 쓸어 탭을 넘깁니다.
- * 세로 스크롤, 글자 선택, 낙서판 그리기, 가로 스크롤 영역은 건드리지 않습니다.
+ * 손으로 쓸어 넘긴 결과를 탭 상태에 반영합니다.
+ * scroll 이벤트는 관성 중에도 계속 오므로, 멈춘 뒤에 한 번만 처리합니다.
  */
-function initSwipe() {
+function watchPagerScroll() {
   const main = $('#main');
   if (!main) return;
-  let start = null;
-  let swiped = false;
+  let settleTimer = null;
+  const settle = () => {
+    const width = main.clientWidth;
+    if (!width) return;
+    const index = Math.round(main.scrollLeft / width);
+    const tab = TABS[Math.min(Math.max(index, 0), TABS.length - 1)];
+    if (tab && tab !== currentTab) setActiveTab(tab);
+  };
+  main.addEventListener('scroll', () => {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settle, 120);
+  }, { passive: true });
 
-  main.addEventListener('pointerdown', (e) => {
-    start = null;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    // 입력·그리기 영역에서 시작한 제스처는 그쪽 것입니다.
-    if (e.target.closest?.('input, textarea, select, canvas, [data-no-swipe]')) return;
-    if (insideHorizontalScroller(e.target, main)) return;
-    start = { x: e.clientX, y: e.clientY };
+  // 창 크기가 바뀌면 스냅 위치가 어긋나므로 현재 탭으로 다시 맞춥니다.
+  window.addEventListener('resize', () => {
+    clearTimeout(settleTimer);
+    scrollToPanel(currentTab, false);
   });
 
-  main.addEventListener('pointerup', (e) => {
-    if (!start) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    start = null;
-    if (Math.abs(dx) < SWIPE_MIN_PX) return;
-    if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
-    // 드래그로 글자를 고르던 중이었다면 탭을 바꾸지 않습니다.
-    if (String(window.getSelection?.() ?? '').length > 0) return;
+  blockEdgeBackGesture(main);
+}
 
-    swiped = true;
-    // click 이 오지 않는 경우(패널이 숨겨져 이벤트가 사라짐)를 대비한 안전장치입니다.
-    setTimeout(() => { swiped = false; }, 400);
-    moveTab(dx < 0 ? 1 : -1);
-  });
+/**
+ * 첫 장에서 오른쪽으로 더 쓸면 브라우저가 '뒤로가기'로 받아들여 앱을 벗어납니다.
+ * (히스토리가 없으면 about:blank 로 나가버립니다)
+ * overscroll-behavior 로는 막히지 않아, 양 끝에서 바깥으로 향하는 터치만 직접 취소합니다.
+ * passive: false 여야 preventDefault 가 먹습니다.
+ */
+function blockEdgeBackGesture(main) {
+  let startX = 0;
+  let startY = 0;
 
-  main.addEventListener('pointercancel', () => { start = null; });
+  main.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
 
-  // 스와이프로 끝난 제스처의 click 은 삼킵니다.
-  // 없으면 계산기 키를 누른 채 쓸었을 때 숫자가 입력되면서 탭까지 바뀝니다.
-  main.addEventListener('click', (e) => {
-    if (!swiped) return;
-    swiped = false;
-    e.preventDefault();
-    e.stopPropagation();
-  }, true);
+  main.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // 세로로 움직이는 제스처는 패널 스크롤이므로 건드리지 않습니다.
+    if (Math.abs(dx) <= Math.abs(dy)) return;
+
+    const max = main.scrollWidth - main.clientWidth;
+    const atStart = main.scrollLeft <= 0 && dx > 0;
+    const atEnd = main.scrollLeft >= max - 1 && dx < 0;
+    if (atStart || atEnd) e.preventDefault();
+  }, { passive: false });
 }
 
 function initTabs() {
@@ -130,9 +151,13 @@ function initTabs() {
     if (btn) activate(btn.dataset.tab);
   });
   setNavigator(activate);
-  initSwipe();
+  watchPagerScroll();
+
   // 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
-  activate(load(TAB_KEY, DEFAULT_TAB));
+  const startTab = load(TAB_KEY, DEFAULT_TAB);
+  setActiveTab(TABS.includes(startTab) ? startTab : DEFAULT_TAB);
+  // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
+  requestAnimationFrame(() => scrollToPanel(currentTab, false));
 }
 
 /** 모듈 하나가 실패해도 나머지 앱은 살아 있도록 개별적으로 감쌉니다. */

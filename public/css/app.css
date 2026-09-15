@@ -69,7 +69,13 @@
 
 * { box-sizing: border-box; }
 
-html, body { height: 100%; }
+/*
+ * overscroll-behavior 를 뷰포트에도 걸어야 합니다.
+ * 가로 페이저의 첫 장에서 오른쪽으로 쓸면 브라우저의 '뒤로가기 제스처'가 발동해
+ * 앱을 벗어나 버립니다(히스토리가 없으면 about:blank 로 나갑니다).
+ * .app-main 에만 contain 을 걸면 막히지 않습니다.
+ */
+html, body { height: 100%; overscroll-behavior: none; }
 
 body {
   margin: 0;
@@ -80,7 +86,6 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -88,15 +93,22 @@ button { cursor: pointer; }
 a { color: var(--accent); }
 
 /* ---------- 레이아웃 ---------- */
+/*
+ * 앱 셸: 헤더는 고정, 본문만 좌우로 넘어갑니다.
+ * 높이를 화면에 고정해야 패널이 각자 세로로 스크롤할 수 있습니다.
+ */
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100vh;    /* dvh 를 모르는 브라우저(iOS 15 등)용 폴백 */
+  height: 100dvh;
+  overflow: hidden;
   max-width: 1180px;
   margin: 0 auto;
 }
 
 .app-header {
+  flex: none;   /* 본문이 남은 높이를 다 쓰도록 헤더는 줄어들지 않게 고정합니다 */
   position: sticky;
   top: 0;
   z-index: 30;
@@ -191,20 +203,45 @@ a { color: var(--accent); }
 .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ---------- 본문 ---------- */
+/*
+ * 가로 페이저.
+ * 제스처를 직접 계산하지 않고 브라우저의 스크롤 스냅에 맡깁니다.
+ * 직접 계산하면 손가락을 따라오지 못하고(손을 떼야 넘어감) 관성도 없습니다.
+ */
 .app-main {
   flex: 1;
-  padding: 16px;
-  padding-bottom: 32px;
+  min-height: 0;          /* flex 아이템이 내용 때문에 안 줄어드는 것을 막습니다 */
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
 }
+.app-main::-webkit-scrollbar { display: none; }
 /*
  * hidden 속성은 UA 스타일시트의 display:none 이라서
  * .icon-btn { display: grid } 같은 클래스 규칙 하나에도 밀립니다.
  * 전역으로 한 번 못박아 두지 않으면 el.hidden = true 가 조용히 무시됩니다.
  */
 [hidden] { display: none !important; }
-.panel[hidden] { display: none !important; }
-.panel { animation: fade .18s ease; }
-@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.panel {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;   /* 한 번에 한 장씩만 넘어갑니다 */
+  /*
+   * overflow-y 만 auto 로 두면 overflow-x 가 visible -> auto 로 계산돼
+   * 패널 자신이 가로 스크롤 컨테이너가 되고, 좌우 스와이프를 삼켜서
+   * 페이저가 움직이지 않습니다. 반드시 가로를 명시해서 막아야 합니다.
+   */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 16px 16px 32px;
+  scrollbar-width: thin;
+}
+/* 화면 밖 패널은 키보드 탭 이동과 스크린리더에서 빠집니다. */
+.panel[inert] { pointer-events: none; }
 
 .grid { display: grid; gap: 14px; align-items: start; }
 /*
@@ -459,7 +496,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 }
 
 @media (max-width: 420px) {
-  .app-main { padding: 12px; }
+  .panel { padding: 12px 12px 28px; }
   .key { height: 54px; font-size: 18px; }
 }
 
