@@ -912,6 +912,23 @@ const main = async () => {
 
   // ---------- 11-a. 커스터마이즈 (테마 · 탭 · 위젯 · 카드 크기) ----------
   console.log('\n▶ 커스터마이즈');
+
+  /*
+   * 가로 페이저가 멈출 때까지 기다립니다.
+   * 탭 전환은 부드러운 스크롤이라 즉시 끝나지 않고, 스크롤 도중에는
+   * watchPagerScroll 의 정착 처리가 중간 패널을 활성 탭으로 잡습니다.
+   * 고정 대기(400ms)로는 느린 CI 에서 4장을 다 넘기지 못해 실제로 실패했습니다.
+   */
+  const settleMain = async (page2 = page) => {
+    let prev = -1;
+    for (let i = 0; i < 50; i += 1) {
+      const now = await page2.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
+      if (now === prev) return now;
+      prev = now;
+      await page2.waitForTimeout(100);
+    }
+    return prev;
+  };
   await page.click('.tab[data-tab="settings"]');
   await page.waitForSelector('#customize .cz-section');
 
@@ -1005,15 +1022,16 @@ const main = async () => {
 
   // 시계 위젯이 실제로 시간을 보여주는지 (껍데기만 그리고 끝나는 경우를 잡습니다)
   await page.click('.tab[data-tab="today"]');
-  await page.waitForTimeout(200);
+  await settleMain();
   const widgetClock = (await page.textContent('#today-clock')) || '';
   check('시계 위젯이 시각을 표시함', /^\d{2}:\d{2}:\d{2}$/.test(widgetClock.trim()), widgetClock);
 
   // 위젯을 누르면 해당 탭으로 이동해야 합니다.
   await page.click('#today-clock');
-  await page.waitForTimeout(400);
-  check('위젯을 누르면 해당 탭으로 이동',
-    (await page.getAttribute('.tab[data-tab="time"]', 'aria-selected')) === 'true');
+  await settleMain();
+  const czActiveTab = await page.evaluate(() => (
+    document.querySelector('.tab[aria-selected="true"]')?.dataset.tab ?? '(없음)'));
+  check('위젯을 누르면 해당 탭으로 이동', czActiveTab === 'time', `실제: ${czActiveTab}`);
 
   // --- 탭 순서와 숨김 ---
   const tabOrder = () => page.evaluate(() => (
@@ -1074,13 +1092,7 @@ const main = async () => {
   // 스와이프 인덱스가 새 순서로 다시 계산되는지. 탭 개수가 바뀐 뒤 가장 깨지기 쉬운 부분입니다.
   await page.click('.tab[data-tab="weather"]');
   // 부드러운 스크롤이 끝날 때까지 기다립니다. 고정 대기는 느린 CI 에서 흔들립니다.
-  let czLeft = -1;
-  for (let i = 0; i < 40; i += 1) {
-    const now = await page.evaluate(() => document.querySelector('#main').scrollLeft);
-    if (now === czLeft) break;
-    czLeft = now;
-    await page.waitForTimeout(100);
-  }
+  await settleMain();
   const snapOk = await page.evaluate(() => {
     const main = document.querySelector('#main');
     const tabs = [...document.querySelectorAll('#tabs .tab')].map((b) => b.dataset.tab);
