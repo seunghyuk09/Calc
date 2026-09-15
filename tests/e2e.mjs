@@ -122,7 +122,23 @@ const main = async () => {
   });
   const page = await context.newPage();
 
-  page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+  /*
+   * 브라우저가 스스로 내는 잡음은 앱 오류가 아닙니다.
+   * compute-pressure 는 앱 어디에서도 쓰지 않는 API 인데(scripts/verify-assets.mjs 가 강제),
+   * file:// 문서에서는 이 권한이 기본 차단이라 브라우저 내부가 건드리면 위반 메시지가 납니다.
+   * 근거: 같은 커밋(306ac37)이 CI 에서 한 번 실패하고 재실행에서 통과했습니다.
+   *       로컬 3회 재현되지 않았고, main 은 같은 시간대에 통과했습니다.
+   * 앱이 쓰지 않는 기능만 이름으로 짚어 거릅니다. 나머지 콘솔 에러는 그대로 실패시킵니다.
+   */
+  const IGNORED_CONSOLE = [
+    /Permissions policy violation: compute-pressure is not allowed/,
+  ];
+  page.on('console', (msg) => {
+    if (msg.type() !== 'error') return;
+    const text = msg.text();
+    if (IGNORED_CONSOLE.some((re) => re.test(text))) return;
+    consoleErrors.push(text);
+  });
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
   // 외부 API 를 모의 응답으로 가로챕니다.
@@ -183,6 +199,65 @@ const main = async () => {
   // 계산 기록 누적
   const histCount = await page.locator('#calc-history .hist-item').count();
   check('계산 기록이 쌓임', histCount >= 4, `${histCount}건`);
+
+  // --- PC: 괄호와 기호를 키보드로 직접 입력 ---
+  // 수식창을 클릭하지 않고도 쳐지는지 봅니다. (전역 keydown 경로)
+  await page.click('#calc-result');   // 입력칸이 아닌 곳에 포커스
+  await page.keyboard.type('(12+8)*3%');
+  const typedExpr = await page.inputValue('#calc-expr');
+  check('PC 키보드로 괄호·기호 입력', typedExpr.endsWith('(12+8)*3%'),
+    `실제: ${typedExpr}`);
+  await page.keyboard.press('Escape');
+  check('Escape 로 초기화', (await page.inputValue('#calc-expr')) === '');
+
+  // PC 에서는 시스템 키보드를 막을 이유가 없습니다.
+  check('PC 에서는 inputmode 가 text', (await page.getAttribute('#calc-expr', 'inputmode')) === 'text',
+    `실제: ${await page.getAttribute('#calc-expr', 'inputmode')}`);
+
+  // --- 다른 탭에서 누른 키가 계산기로 새지 않아야 함 ---
+  // 가로 페이저로 바꾸면서 패널이 hidden 을 안 쓰게 됐는데,
+  // 계산기가 hidden 으로 활성 여부를 판단하고 있어 모든 탭에서 입력을 가로챘습니다.
+  await page.click('.tab[data-tab="quote"]');
+  await page.waitForTimeout(400);
+  await page.keyboard.press('7');
+  await page.keyboard.press('7');
+  await page.waitForTimeout(150);
+  check('다른 탭에서 누른 숫자가 계산기로 새지 않음',
+    (await page.inputValue('#calc-expr')) === '',
+    `실제: ${await page.inputValue('#calc-expr')}`);
+  await page.click('.tab[data-tab="calc"]');
+  await page.waitForTimeout(400);
+
+  // --- 계산 기록 메모 ---
+  const firstRow = page.locator('#calc-history .hist-item').first();
+  await firstRow.locator('.hist-note-btn').click();
+  await page.fill('#calc-history .hist-note-input', '9월 정산 견적');
+  await page.click('#calc-history .hist-note-form button[type="submit"]');
+  await page.waitForTimeout(250);
+  check('계산 기록에 메모 저장',
+    (await firstRow.locator('.hist-note').textContent()) === '9월 정산 견적',
+    `실제: ${await firstRow.locator('.hist-note').count()}건`);
+
+  // 메모가 있는 줄은 버튼 모양이 바뀌어야 알아볼 수 있습니다.
+  check('메모가 있으면 버튼 표시가 바뀜',
+    (await firstRow.locator('.hist-note-btn').textContent()) === '📝');
+
+  // 값 넣기 버튼과 메모 버튼이 분리돼 있어야 오조작이 없습니다.
+  await page.click('#calc-expr');
+  await page.fill('#calc-expr', '');
+  await firstRow.locator('.hist-main').click();
+  check('기록의 값 버튼은 수식에 값을 넣음',
+    (await page.inputValue('#calc-expr')).length > 0,
+    `실제: ${await page.inputValue('#calc-expr')}`);
+
+  // 메모를 비우면 지워집니다.
+  await firstRow.locator('.hist-note-btn').click();
+  await page.fill('#calc-history .hist-note-input', '');
+  await page.click('#calc-history .hist-note-form button[type="submit"]');
+  await page.waitForTimeout(250);
+  check('메모를 비우면 삭제됨', (await firstRow.locator('.hist-note').count()) === 0);
+
+  await page.fill('#calc-expr', '');
 
   // ---------- 2. TO DO (일/주/월/연 계획표, 한/영) ----------
   console.log('\n▶ TO DO');
@@ -529,6 +604,11 @@ const main = async () => {
   };
   const selectedTab = () => sp.evaluate(() =>
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab ?? '(앱 이탈)');
+
+  // 폰에서는 시스템 키보드가 계산기 자판을 가리므로 띄우지 않습니다.
+  check('폰에서는 계산기 입력칸의 inputmode 가 none',
+    (await sp.getAttribute('#calc-expr', 'inputmode')) === 'none',
+    `실제: ${await sp.getAttribute('#calc-expr', 'inputmode')}`);
 
   const W = await sp.evaluate(() => document.querySelector('#main').clientWidth);
   check('첫 화면은 페이저 첫 장', (await pagerLeft()) === 0 && (await selectedTab()) === 'today',
