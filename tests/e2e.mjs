@@ -73,6 +73,17 @@ function startStaticServer(dir) {
   });
 }
 
+/**
+ * 탭 이동. 탭 버튼은 이제 '•••' 메뉴 서랍 안에만 있습니다.
+ * 서랍을 열고 -> 고르고 -> 닫히는 것까지 기다립니다.
+ * (고르면 자동으로 닫히는 것이 앱의 동작이라, 닫힘까지 확인해야 다음 조작이 안 막힙니다)
+ */
+async function goTab(pg, name) {
+  if (await pg.locator('#sidebar').isHidden()) await pg.click('#menu-open');
+  await pg.click(`.tab[data-tab="${name}"]`);
+  await pg.waitForSelector('#sidebar', { state: 'hidden' });
+}
+
 const results = [];
 let consoleErrors = [];
 let pageErrors = [];
@@ -161,7 +172,7 @@ const main = async () => {
 
   // ---------- 1. 계산기 ----------
   console.log('\n▶ 계산기');
-  await page.click('.tab[data-tab="calc"]');
+  await goTab(page, 'calc');
   const press = async (label) => { await page.click(`#keypad button:text-is("${label}")`); };
 
   await press('7'); await press('×'); await press('8'); await press('=');
@@ -170,6 +181,32 @@ const main = async () => {
 
   await press('AC');
   check('AC 로 초기화', (await page.textContent('#calc-result')) === '0');
+
+  /*
+   * = 뒤에 이어서 계산하기.
+   * = 를 누르면 포커스가 그 버튼으로 옮겨 가 수식 칸의 커서가 0 으로 초기화됐고,
+   * 그 자리에 입력이 끼어들어 1+2= 뒤에 +1 을 누르면 "+13" 이 되어 13 이 나왔습니다.
+   */
+  await press('AC');
+  await press('1'); await press('+'); await press('2'); await press('=');
+  check('1+2= 는 3', (await page.textContent('#calc-result')) === '3',
+    `실제: ${await page.textContent('#calc-result')}`);
+  await press('+'); await press('1');
+  check('= 뒤에 연산자를 누르면 결과에 이어 붙음 (3+1)',
+    (await page.inputValue('#calc-expr')) === '3+1',
+    `실제 수식: ${await page.inputValue('#calc-expr')}`);
+  await press('=');
+  check('이어서 계산한 결과가 4', (await page.textContent('#calc-result')) === '4',
+    `실제: ${await page.textContent('#calc-result')}`);
+
+  // 보통 계산기는 = 뒤에 숫자를 누르면 새 식을 시작합니다.
+  await press('AC');
+  await press('5'); await press('+'); await press('5'); await press('=');
+  await press('7');
+  check('= 뒤에 숫자를 누르면 새 식 시작 (10 다음 7 -> 7)',
+    (await page.inputValue('#calc-expr')) === '7',
+    `실제 수식: ${await page.inputValue('#calc-expr')}`);
+  await press('AC');
 
   // 소수점 오차 검증
   await page.fill('#calc-expr', '0.1+0.2');
@@ -217,7 +254,7 @@ const main = async () => {
   // --- 다른 탭에서 누른 키가 계산기로 새지 않아야 함 ---
   // 가로 페이저로 바꾸면서 패널이 hidden 을 안 쓰게 됐는데,
   // 계산기가 hidden 으로 활성 여부를 판단하고 있어 모든 탭에서 입력을 가로챘습니다.
-  await page.click('.tab[data-tab="quote"]');
+  await goTab(page, 'quote');
   await page.waitForTimeout(400);
   await page.keyboard.press('7');
   await page.keyboard.press('7');
@@ -225,7 +262,7 @@ const main = async () => {
   check('다른 탭에서 누른 숫자가 계산기로 새지 않음',
     (await page.inputValue('#calc-expr')) === '',
     `실제: ${await page.inputValue('#calc-expr')}`);
-  await page.click('.tab[data-tab="calc"]');
+  await goTab(page, 'calc');
   await page.waitForTimeout(400);
 
   // --- 계산 기록 메모 ---
@@ -263,16 +300,16 @@ const main = async () => {
   console.log('\n▶ TO DO');
   check('탭 이름이 TO DO', (await page.textContent('.tab[data-tab="todo"]')).includes('TO DO'),
     await page.textContent('.tab[data-tab="todo"]'));
-  await page.click('.tab[data-tab="todo"]');
+  await goTab(page, 'todo');
   await page.waitForSelector('#scope-tabs', { timeout: 5000 });
 
   // 언어 전환은 설정 탭에 있으므로, 거기서 바꾸고 TO DO 로 돌아옵니다.
   const setLanguage = async (lang) => {
-    await page.click('.tab[data-tab="settings"]');
+    await goTab(page, 'settings');
     await page.waitForSelector('#lang-switch', { timeout: 5000 });
     await page.click(`.lang-btn[data-lang="${lang}"]`);
     await page.waitForTimeout(150);
-    await page.click('.tab[data-tab="todo"]');
+    await goTab(page, 'todo');
     await page.waitForTimeout(150);
   };
 
@@ -280,13 +317,13 @@ const main = async () => {
   // 언어 전환은 설정 탭에 있습니다 (TO DO 카드에는 없어야 함)
   check('TO DO 카드에는 언어 버튼이 없음',
     (await page.locator('#panel-todo .lang-switch').count()) === 0);
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.waitForTimeout(150);
   check('설정 탭에 언어 전환이 있음', (await page.locator('#panel-settings #lang-switch').count()) === 1);
   check('기본 언어 한국어', (await page.getAttribute('.lang-btn[data-lang="ko"]', 'aria-pressed')) === 'true');
   const langBox = await page.locator('.lang-btn[data-lang="ko"]').boundingBox();
   check('언어 버튼이 충분히 큼 (최소 높이 36px)', langBox.height >= 36, `실제 ${Math.round(langBox.height)}px`);
-  await page.click('.tab[data-tab="todo"]');
+  await goTab(page, 'todo');
   await page.waitForTimeout(150);
   check('한국어 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간',
     await page.textContent('.scope-tab[data-scope="day"]'));
@@ -328,11 +365,11 @@ const main = async () => {
   await setLanguage('ko');
   check('한국어 복귀 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === '일간');
   check('한국어 복귀 — 패널 lang', (await page.getAttribute('#panel-todo', 'lang')) === 'ko');
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.waitForTimeout(150);
   check('한국어 복귀 — 이전 버튼 눌림 해제',
     (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'false');
-  await page.click('.tab[data-tab="todo"]');
+  await goTab(page, 'todo');
   await setLanguage('en');
 
   check('기본 단위는 Day', (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
@@ -444,7 +481,7 @@ const main = async () => {
 
   // ---------- 3. 날씨 (모의 응답) ----------
   console.log('\n▶ 날씨');
-  await page.click('.tab[data-tab="weather"]');
+  await goTab(page, 'weather');
   await page.waitForSelector('.wx-temp', { timeout: 8000 });
   check('현재 기온 렌더링', (await page.textContent('.wx-temp')) === '24.3°',
     `실제: ${await page.textContent('.wx-temp')}`);
@@ -464,7 +501,7 @@ const main = async () => {
   console.log('\n▶ 오늘');
 
   // 순환이 돌려면 보이는 줄 수(3)보다 많은 미완료 항목이 필요합니다.
-  await page.click('.tab[data-tab="todo"]');
+  await goTab(page, 'todo');
   await page.click('.scope-tab[data-scope="day"]');
   await page.waitForTimeout(120);
   for (const text of ['오늘 A', '오늘 B', '오늘 C', '오늘 D',
@@ -476,7 +513,7 @@ const main = async () => {
   // 새로고침 뒤 유지되는지 확인할 때 쓸 기준값입니다. (고정 숫자를 박으면 검사 추가마다 깨집니다)
   const dayPlanCount = await page.locator('#todo-list .todo-item').count();
 
-  await page.click('.tab[data-tab="today"]');
+  await goTab(page, 'today');
   await page.waitForTimeout(200);
 
   const rotCount = await page.locator('#today-rot .today-rot-item').count();
@@ -540,7 +577,7 @@ const main = async () => {
     `기대: ${firstTaskText}`);
 
   // 날씨 카드를 누르면 날씨 탭으로
-  await page.click('.tab[data-tab="today"]');
+  await goTab(page, 'today');
   await page.click('#today-weather-card');
   await page.waitForTimeout(200);
   check('날씨 카드 클릭 -> 날씨 탭으로 이동',
@@ -643,7 +680,7 @@ const main = async () => {
     `scrollLeft=${await pagerLeft()} tab=${await selectedTab()}`);
 
   // 마지막 장에서 왼쪽으로 쓸 때도 같습니다.
-  await sp.click('.tab[data-tab="settings"]');
+  await goTab(sp, 'settings');
   const lastLeft = await settlePager();
   const urlBeforeLastEdge = sp.url();
   await swipe(-W * 0.7);
@@ -654,15 +691,18 @@ const main = async () => {
     `${lastIndex}번째 장 유지 여부: scrollLeft ${lastLeft} -> ${await pagerLeft()}, url ${sp.url().slice(-20)}`);
 
   // 탭 버튼으로도 같은 자리로 가야 합니다.
-  await sp.click('.tab[data-tab="today"]');
+  await goTab(sp, 'today');
   await settlePager();
-  await sp.click('.tab[data-tab="settings"]');
+  await goTab(sp, 'settings');
   const settingsLeft = await settlePager();
-  check('탭 버튼을 누르면 그 장으로 스크롤', Math.round(settingsLeft / W) === 9,
-    `기대 9번째 장(${W * 9}), 실제 ${settingsLeft}`);
+  // 탭 개수는 바뀔 수 있으므로(음악 제거 등) 고정 숫자 대신 실제 목록에서 자리를 셉니다.
+  const settingsIndex = await sp.evaluate(() => (
+    [...document.querySelectorAll('#tabs .tab')].findIndex((b) => b.dataset.tab === 'settings')));
+  check('탭 버튼을 누르면 그 장으로 스크롤', Math.round(settingsLeft / W) === settingsIndex,
+    `기대 ${settingsIndex}번째 장(${W * settingsIndex}), 실제 ${settingsLeft}`);
 
   // 낙서판 위에서는 페이저가 움직이면 안 됩니다 (그림이 끊깁니다).
-  await sp.click('.tab[data-tab="memo"]');
+  await goTab(sp, 'memo');
   const memoLeft = await settlePager();
   const cBox = await sp.locator('#draw-canvas').boundingBox();
   const cy = cBox.y + cBox.height / 2;
@@ -683,7 +723,7 @@ const main = async () => {
 
   // ---------- 4. 시계 · 타이머 ----------
   console.log('\n▶ 시계 · 타이머');
-  await page.click('.tab[data-tab="time"]');
+  await goTab(page, 'time');
   await page.waitForTimeout(1100);
   const clockText = await page.textContent('#clock-time');
   check('시계가 HH:MM:SS 형식', /^\d{2}:\d{2}:\d{2}$/.test(clockText), `실제: ${clockText}`);
@@ -715,7 +755,7 @@ const main = async () => {
 
   // ---------- 5. 메모 · 낙서판 ----------
   console.log('\n▶ 메모 · 낙서판');
-  await page.click('.tab[data-tab="memo"]');
+  await goTab(page, 'memo');
   await page.waitForTimeout(300);
 
   await page.fill('#memo-input', '회의 3시\n장소: 2층');
@@ -758,7 +798,7 @@ const main = async () => {
 
   // ---------- 6. 글귀 ----------
   console.log('\n▶ 글귀');
-  await page.click('.tab[data-tab="quote"]');
+  await goTab(page, 'quote');
   const firstQuote = await page.textContent('#quote-text');
   check('기본 격언 표시', firstQuote.length > 3, `"${firstQuote.slice(0, 20)}…"`);
   await page.fill('#quote-input', '오늘의 집중이 내일을 만든다');
@@ -768,19 +808,9 @@ const main = async () => {
   check('등록 후 내 글귀가 표시됨', (await page.textContent('#quote-text')).includes('오늘의 집중'),
     `실제: ${await page.textContent('#quote-text')}`);
 
-  // ---------- 7. 음악 ----------
-  console.log('\n▶ 음악');
-  await page.click('.tab[data-tab="music"]');
-  await page.fill('#yt-input', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  await page.click('#yt-form button[type="submit"]');
-  await page.waitForSelector('#yt-holder iframe', { timeout: 5000 });
-  const src = await page.getAttribute('#yt-holder iframe', 'src');
-  check('YouTube 임베드 생성', src.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ'), src);
-  check('음악 서비스 바로가기 6개', (await page.locator('#svc-grid .svc-btn').count()) === 6);
-
   // ---------- 8. AI (키 없는 상태) ----------
   console.log('\n▶ AI 검색');
-  await page.click('.tab[data-tab="ai"]');
+  await goTab(page, 'ai');
   check('키 미설정 안내 표시', (await page.textContent('#ai-mode')).includes('키 미설정'),
     `실제: ${await page.textContent('#ai-mode')}`);
   await page.fill('#ai-input', '테스트 질문');
@@ -790,7 +820,7 @@ const main = async () => {
 
   // ---------- 9. 설정 ----------
   console.log('\n▶ 설정');
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.fill('#set-banner', '집중 시간 | 오후 2시까지 마무리\n목표 | 주 3회 운동');
   await page.click('#set-banner-save');
   await page.waitForTimeout(300);
@@ -818,7 +848,7 @@ const main = async () => {
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('body[data-ready="true"]');
   check('새로고침 후 설정 탭 복원', (await page.getAttribute('.tab[data-tab="settings"]', 'aria-selected')) === 'true');
-  await page.click('.tab[data-tab="todo"]');
+  await goTab(page, 'todo');
   await page.waitForTimeout(200);
   check('새로고침 후 Planner 단위/기간 복원',
     (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
@@ -828,15 +858,15 @@ const main = async () => {
   check('새로고침 후 선택한 언어(영어) 유지',
     (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day',
     await page.textContent('.scope-tab[data-scope="day"]'));
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.waitForTimeout(150);
   check('새로고침 후 설정 탭 버튼 상태도 복원',
     (await page.getAttribute('.lang-btn[data-lang="en"]', 'aria-pressed')) === 'true');
-  await page.click('.tab[data-tab="todo"]');
-  await page.click('.tab[data-tab="memo"]');
+  await goTab(page, 'todo');
+  await goTab(page, 'memo');
   await page.waitForTimeout(400);
   check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);
-  await page.click('.tab[data-tab="todo"]');
+  await goTab(page, 'todo');
   await page.waitForTimeout(200);
 
   if (IS_FILE) {
@@ -875,13 +905,13 @@ const main = async () => {
   }
 
   // ---------- 11. 스크린샷 ----------
-  await page.click('.tab[data-tab="calc"]');
+  await goTab(page, 'calc');
   await page.fill('#calc-expr', '(1250+890)*1.1');
   await page.press('#calc-expr', 'Enter');
   await page.waitForTimeout(300);
   await page.screenshot({ path: IS_FILE ? shot('screenshot-standalone.png') : shot('screenshot-desktop.png'), fullPage: false });
 
-  await page.click('.tab[data-tab="weather"]');
+  await goTab(page, 'weather');
   await page.waitForTimeout(500);
   await page.screenshot({ path: IS_FILE ? shot('screenshot-standalone-weather.png') : shot('screenshot-weather.png'), fullPage: false });
 
@@ -892,7 +922,7 @@ const main = async () => {
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.goto(BASE, { waitUntil: 'networkidle' });
   await mobile.waitForSelector('body[data-ready="true"]');
-  await mobile.click('.tab[data-tab="calc"]');
+  await goTab(mobile, 'calc');
   await mobile.waitForTimeout(400);
   await mobile.screenshot({ path: IS_FILE ? shot('screenshot-standalone-mobile.png') : shot('screenshot-mobile.png'), fullPage: false });
 
@@ -909,6 +939,91 @@ const main = async () => {
   check('모바일(390px) 모든 탭에서 가로 넘침 없음', overflowing.length === 0,
     overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
+
+  // ---------- 10-b. 메뉴 사이드바 ----------
+  console.log('\n▶ 메뉴 사이드바');
+  const barHidden = () => page.locator('#sidebar').isHidden();
+  check('처음에는 서랍이 닫혀 있음', await barHidden());
+  check('탭 막대가 헤더에 남아 있지 않음',
+    await page.evaluate(() => !document.querySelector('.app-header #tabs')));
+  await page.click('#menu-open');
+  check('••• 버튼으로 열림', !(await barHidden()));
+  check('열리면 aria-expanded 가 true',
+    (await page.getAttribute('#menu-open', 'aria-expanded')) === 'true');
+  check('열리면 보고 있던 탭에 포커스',
+    await page.evaluate(() => document.activeElement?.classList.contains('tab') === true));
+  await page.keyboard.press('Escape');
+  check('Esc 로 닫힘', await barHidden());
+  check('닫히면 포커스가 ••• 버튼으로 돌아옴',
+    await page.evaluate(() => document.activeElement?.id === 'menu-open'));
+  await page.click('#menu-open');
+  await page.click('#sidebar-scrim');
+  check('바깥을 눌러도 닫힘', await barHidden());
+  await page.click('#menu-open');
+  await page.click('#menu-close');
+  check('✕ 로도 닫힘', await barHidden());
+  await goTab(page, 'todo');
+  check('탭을 고르면 서랍이 자동으로 닫힘', await barHidden());
+  check('헤더에 현재 화면 이름 표시',
+    ((await page.textContent('#header-now')) || '').length > 0,
+    await page.textContent('#header-now'));
+  check('음악 탭은 사라짐',
+    await page.evaluate(() => !document.querySelector('.tab[data-tab="music"]')
+      && !document.querySelector('#panel-music')));
+
+  // ---------- 10-c. TO DO 달력 ----------
+  console.log('\n▶ 달력');
+  // 앞선 계획표 검사에서 만든 일간 항목들이 오늘 날짜에 들어 있습니다.
+  const todayKey = await page.evaluate(() => {
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  });
+  check('달력이 그려짐', (await page.locator('#cal-grid .cal-day').count()) >= 28,
+    `${await page.locator('#cal-grid .cal-day').count()}칸`);
+  check('요일 머리글 7개', (await page.locator('#cal-grid .cal-wd').count()) === 7);
+  check('오늘 칸이 표시됨',
+    (await page.locator(`.cal-day[data-day="${todayKey}"].is-today`).count()) === 1);
+
+  // 분류를 골라 등록하면 그 날 칸에 이모지가 붙어야 합니다.
+  await page.selectOption('#todo-cat', 'health');
+  await page.fill('#todo-input', '달력 확인용 운동');
+  await page.press('#todo-input', 'Enter');
+  await page.waitForTimeout(250);
+  const todayCell = page.locator(`.cal-day[data-day="${todayKey}"]`);
+  const marks = (await todayCell.locator('.cal-mark').allTextContents()).join('');
+  check('고른 분류의 이모지가 달력에 표시됨', marks.includes('🏃'), `표시: ${marks || '(없음)'}`);
+  check('목록에도 분류 이모지가 붙음',
+    (await page.locator('#todo-list .todo-cat').count()) >= 1);
+
+  // 날짜를 누르면 그 날의 할 일이 펼쳐집니다.
+  await todayCell.click();
+  await page.waitForTimeout(200);
+  check('날짜를 누르면 상세가 펼쳐짐',
+    (await page.locator('#cal-detail .cal-detail-item').count()) >= 1,
+    `${await page.locator('#cal-detail .cal-detail-item').count()}건`);
+  check('펼친 날짜가 선택 표시됨',
+    (await page.locator(`.cal-day[data-day="${todayKey}"].is-selected`).count()) === 1);
+  await todayCell.click();
+  await page.waitForTimeout(200);
+  check('같은 날짜를 다시 누르면 접힘',
+    (await page.locator('#cal-detail .cal-detail-item').count()) === 0);
+
+  // 빈 날짜에는 이모지가 없어야 합니다. (모든 칸에 다 찍히는 버그를 잡습니다)
+  const emptyDayMarks = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('.cal-day:not(.has-items)')];
+    return cells.reduce((n, c) => n + c.querySelectorAll('.cal-mark').length, 0);
+  });
+  check('일정 없는 날에는 이모지가 없음', emptyDayMarks === 0, `${emptyDayMarks}개`);
+
+  // 상세에서 항목을 누르면 계획표가 그 날짜로 이동해야 합니다.
+  await page.click('#cal-prev');
+  await page.waitForTimeout(150);
+  const prevLabel = await page.textContent('#cal-label');
+  await page.click('#cal-next');
+  await page.waitForTimeout(150);
+  check('달 이동이 동작함', prevLabel !== (await page.textContent('#cal-label')),
+    `이전: ${prevLabel} / 지금: ${await page.textContent('#cal-label')}`);
 
   // ---------- 11-a. 커스터마이즈 (테마 · 탭 · 위젯 · 카드 크기) ----------
   console.log('\n▶ 커스터마이즈');
@@ -929,7 +1044,7 @@ const main = async () => {
     }
     return prev;
   };
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.waitForSelector('#customize .cz-section');
 
   // 편집 UI 가 실제로 그려졌는지부터 확인합니다. 빈 상자면 아래 검사가 전부 무의미합니다.
@@ -964,6 +1079,27 @@ const main = async () => {
   const accentPink = await cssVar('--accent');
   check('강조색이 실제로 바뀜', accentPink !== accentBefore && accentPink.length > 0,
     `${accentBefore} -> ${accentPink}`);
+
+  /*
+   * 파스텔 계열은 칠하는 색(--accent-fill)과 글자/테두리 색(--accent)을 갈라 씁니다.
+   * 파스텔을 글자색으로 그대로 쓰면 읽히지 않기 때문입니다.
+   * 둘이 같아지면 그 분리가 깨진 것이므로 여기서 잡습니다.
+   */
+  await page.click('#customize [data-accent-opt="pastellilac"]');
+  await page.waitForTimeout(120);
+  const pAccent = await cssVar('--accent');
+  const pFill = await cssVar('--accent-fill');
+  check('파스텔 강조색 적용', (await rootAttr('data-accent')) === 'pastellilac');
+  check('파스텔은 칠하는 색과 글자색이 다름', pAccent !== pFill && pFill.length > 0,
+    `글자 ${pAccent} / 칠 ${pFill}`);
+  // 일반 강조색은 둘이 같아야 합니다. (--accent-fill 기본값이 --accent)
+  await page.click('#customize [data-accent-opt="teal"]');
+  await page.waitForTimeout(120);
+  check('일반 강조색은 칠하는 색이 글자색과 같음',
+    (await cssVar('--accent')) === (await cssVar('--accent-fill')),
+    `${await cssVar('--accent')} / ${await cssVar('--accent-fill')}`);
+  await page.click('#customize [data-accent-opt="pink"]');
+  await page.waitForTimeout(120);
 
   // --- 스킨 x 다크 모드 ---
   // 스킨마다 라이트/다크 값을 따로 적어야 하므로, 한쪽만 넣고 빠뜨리기 쉽습니다.
@@ -1021,7 +1157,7 @@ const main = async () => {
     (await widgetNames()).join(', '));
 
   // 시계 위젯이 실제로 시간을 보여주는지 (껍데기만 그리고 끝나는 경우를 잡습니다)
-  await page.click('.tab[data-tab="today"]');
+  await goTab(page, 'today');
   await settleMain();
   const widgetClock = (await page.textContent('#today-clock')) || '';
   check('시계 위젯이 시각을 표시함', /^\d{2}:\d{2}:\d{2}$/.test(widgetClock.trim()), widgetClock);
@@ -1039,7 +1175,7 @@ const main = async () => {
   const panelOrder = () => page.evaluate(() => (
     [...document.querySelectorAll('#main .panel')].map((p2) => p2.id.replace('panel-', ''))));
 
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.waitForTimeout(150);
   const orderBefore = await tabOrder();
   await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="calc"] [data-move="up"]');
@@ -1052,10 +1188,10 @@ const main = async () => {
     JSON.stringify(await panelOrder()) === JSON.stringify(orderAfter),
     (await panelOrder()).slice(0, 3).join(','));
 
-  await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="music"] .cz-toggle');
+  await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="quote"] .cz-toggle');
   await page.waitForTimeout(200);
   check('숨긴 탭은 버튼과 패널에서 모두 빠짐',
-    !(await tabOrder()).includes('music') && !(await panelOrder()).includes('music'),
+    !(await tabOrder()).includes('quote') && !(await panelOrder()).includes('quote'),
     (await tabOrder()).join(','));
 
   const lockedDisabled = await page.evaluate(() => (
@@ -1069,14 +1205,14 @@ const main = async () => {
   check('새로고침 후 강조색 유지', (await rootAttr('data-accent')) === 'pink');
   check('새로고침 후 탭 순서 유지', (await tabOrder())[0] === 'calc',
     (await tabOrder()).slice(0, 3).join(','));
-  check('새로고침 후 숨김 유지', !(await tabOrder()).includes('music'));
+  check('새로고침 후 숨김 유지', !(await tabOrder()).includes('quote'));
   check('새로고침 후 카드 크기 유지',
     (await page.getAttribute('[data-card="calc.hist"]', 'data-size')) === 'large');
   check('새로고침 후 위젯 구성 유지', (await widgetNames()).includes('clock'),
     (await widgetNames()).join(', '));
 
   // --- 초기화 ---
-  await page.click('.tab[data-tab="settings"]');
+  await goTab(page, 'settings');
   await page.waitForSelector('#customize .cz-section');
   page.once('dialog', (d) => d.accept());
   await page.click('#cz-reset');
@@ -1085,12 +1221,12 @@ const main = async () => {
     String(await rootAttr('data-accent')));
   check('초기화: 탭 순서가 기본으로', (await tabOrder())[0] === 'today',
     (await tabOrder()).slice(0, 3).join(','));
-  check('초기화: 숨긴 탭이 돌아옴', (await tabOrder()).includes('music'));
+  check('초기화: 숨긴 탭이 돌아옴', (await tabOrder()).includes('quote'));
   check('초기화: 카드 크기가 기본으로',
     (await page.getAttribute('[data-card="calc.hist"]', 'data-size')) === null);
 
   // 스와이프 인덱스가 새 순서로 다시 계산되는지. 탭 개수가 바뀐 뒤 가장 깨지기 쉬운 부분입니다.
-  await page.click('.tab[data-tab="weather"]');
+  await goTab(page, 'weather');
   // 부드러운 스크롤이 끝날 때까지 기다립니다. 고정 대기는 느린 CI 에서 흔들립니다.
   await settleMain();
   const snapOk = await page.evaluate(() => {

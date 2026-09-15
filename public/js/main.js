@@ -8,15 +8,15 @@ import { initToday } from './modules/today.js';
 import { initCalculator } from './modules/calculator.js';
 import { initWeather } from './modules/weather.js';
 import { initTodo } from './modules/todo.js';
+import { initCalendar } from './modules/calendar.js';
 import { initTime } from './modules/time.js';
 import { initMemo } from './modules/memo.js';
 import { initQuote } from './modules/quote.js';
-import { initMusic } from './modules/music.js';
 import { initAi } from './modules/ai.js';
 import { initBanner } from './modules/banner.js';
 import { initTheme, initSettings } from './modules/settings.js';
 import { initAppearance, refreshAppearance, applyTabLayout } from './modules/appearance.js';
-import { initLang } from './lib/i18n.js';
+import { initLang, t, onLangChange } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
@@ -68,10 +68,13 @@ function setActiveTab(tab) {
 
   save(TAB_KEY, tab);
   runLazyInit(tab);
+  updateHeaderNow(tab);
 
-  // 선택한 탭 버튼이 가로 스크롤 밖에 있으면 보이게 합니다.
-  document.querySelector(`.tab[data-tab="${tab}"]`)
-    ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  // 서랍이 열려 있을 때만, 선택한 탭 버튼이 목록 밖에 있으면 보이게 합니다.
+  if (!$('#sidebar')?.hidden) {
+    document.querySelector(`.tab[data-tab="${tab}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
 
   notifyTabChange(tab);
 }
@@ -165,10 +168,79 @@ function syncTabLayout(prefs) {
   requestAnimationFrame(() => scrollToPanel(tab, false));
 }
 
+/* ---------- 메뉴 사이드바 ----------
+ * 탭 막대를 없앴으므로 메뉴는 이 서랍에만 있습니다.
+ * 열려 있는 동안 본문은 inert 로 막아, 화면 밖 메뉴 뒤쪽으로 포커스가 새지 않게 합니다.
+ */
+let lastMenuTrigger = null;
+
+function menuOpen() {
+  const bar = $('#sidebar');
+  const scrim = $('#sidebar-scrim');
+  // 이미 열려 있으면 아무것도 하지 않습니다.
+  if (!bar || !scrim || !bar.hidden) return;
+  lastMenuTrigger = document.activeElement;
+  bar.hidden = false;
+  scrim.hidden = false;
+  $('#menu-open')?.setAttribute('aria-expanded', 'true');
+  document.body.dataset.menu = 'open';
+  // 지금 보고 있는 탭에 포커스를 둬야 키보드로 바로 옆 항목으로 갈 수 있습니다.
+  (bar.querySelector('.tab[aria-selected="true"]') || bar.querySelector('.tab'))?.focus();
+}
+
+function menuClose() {
+  const bar = $('#sidebar');
+  const scrim = $('#sidebar-scrim');
+  if (!bar || bar.hidden) return;
+  bar.hidden = true;
+  if (scrim) scrim.hidden = true;
+  $('#menu-open')?.setAttribute('aria-expanded', 'false');
+  delete document.body.dataset.menu;
+  // 열 때 누른 버튼으로 포커스를 돌려줍니다. 안 그러면 포커스가 문서 맨 앞으로 튑니다.
+  const back = lastMenuTrigger && document.contains(lastMenuTrigger) ? lastMenuTrigger : $('#menu-open');
+  back?.focus();
+  lastMenuTrigger = null;
+}
+
+/** 서랍 안에서 Tab 키가 밖으로 나가지 않게 가둡니다. */
+function trapFocus(e) {
+  const bar = $('#sidebar');
+  if (!bar || bar.hidden || e.key !== 'Tab') return;
+  const items = [...bar.querySelectorAll('button:not([disabled])')];
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+function initMenu() {
+  onLangChange(() => updateHeaderNow(currentTab));
+  $('#menu-open')?.addEventListener('click', menuOpen);
+  $('#menu-close')?.addEventListener('click', menuClose);
+  $('#sidebar-scrim')?.addEventListener('click', menuClose);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') menuClose();
+    trapFocus(e);
+  });
+}
+
+/**
+ * 헤더에 지금 보고 있는 화면 이름을 씁니다. 탭 막대가 없어 이것이 유일한 표시입니다.
+ * 버튼의 텍스트를 긁으면 이모지가 붙어 나오므로 사전 문구를 씁니다.
+ */
+function updateHeaderNow(tab) {
+  const el = $('#header-now');
+  if (el) el.textContent = t(`tab.${tab}`);
+}
+
 function initTabs() {
   $('#tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.tab');
-    if (btn) activate(btn.dataset.tab);
+    if (!btn) return;
+    activate(btn.dataset.tab);
+    // 고르면 바로 닫힙니다. 서랍을 손으로 또 닫게 하면 두 번 일하는 셈입니다.
+    menuClose();
   });
   setNavigator(activate);
   watchPagerScroll();
@@ -217,14 +289,16 @@ function boot() {
   safeInit('배너', initBanner);
   safeInit('계산기', initCalculator);
   safeInit('할 일', initTodo);
+  // 달력은 할 일 데이터를 구독하므로 그 뒤에 초기화합니다.
+  safeInit('달력', initCalendar);
   safeInit('시계·타이머', initTime);
   safeInit('메모', initMemo);
   safeInit('글귀', initQuote);
-  safeInit('음악', initMusic);
   safeInit('AI', initAi);
   safeInit('설정', initSettings);
   // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
   safeInit('커스터마이즈', initAppearance);
+  safeInit('메뉴', initMenu);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);

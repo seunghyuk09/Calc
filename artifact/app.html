@@ -8,7 +8,11 @@
 
   <header class="app-header">
     <div class="header-top">
+      <button class="icon-btn menu-btn" id="menu-open" type="button"
+              aria-label="메뉴 열기" aria-expanded="false" aria-controls="sidebar" title="메뉴">•••</button>
       <div class="brand"><span class="brand-mark">DK</span> Daily Kit</div>
+      <!-- 탭 막대를 없앴으므로 지금 어느 화면인지 여기서 알려 줍니다. -->
+      <span class="header-now" id="header-now" aria-live="polite">오늘</span>
       <button class="icon-btn" id="theme-toggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button>
     </div>
 
@@ -20,7 +24,15 @@
       </div>
       <div class="banner-dots" id="banner-dots"></div>
     </section>
+  </header>
 
+  <!-- 메뉴 사이드바: '•••' 버튼으로 열립니다. 탭은 전부 여기에만 있습니다. -->
+  <div class="sidebar-scrim" id="sidebar-scrim" hidden></div>
+  <aside class="sidebar" id="sidebar" role="dialog" aria-modal="true" aria-label="메뉴" hidden>
+    <div class="sidebar-head">
+      <span class="sidebar-title">메뉴</span>
+      <button class="icon-btn" id="menu-close" type="button" aria-label="메뉴 닫기" title="닫기">✕</button>
+    </div>
     <nav class="tabs" id="tabs" role="tablist" aria-label="기능 탭">
       <button class="tab" role="tab" data-tab="today"    aria-selected="true"><span>🗓️</span>오늘</button>
       <button class="tab" role="tab" data-tab="calc"     aria-selected="false"><span>🧮</span>계산기</button>
@@ -29,11 +41,10 @@
       <button class="tab" role="tab" data-tab="time"     aria-selected="false"><span>⏱️</span>시계·타이머</button>
       <button class="tab" role="tab" data-tab="memo"     aria-selected="false"><span>✏️</span>메모·낙서</button>
       <button class="tab" role="tab" data-tab="quote"    aria-selected="false"><span>💬</span>글귀</button>
-      <button class="tab" role="tab" data-tab="music"    aria-selected="false"><span>🎵</span>음악</button>
       <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span>🤖</span>AI 검색</button>
       <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span>⚙️</span>설정</button>
     </nav>
-  </header>
+  </aside>
 
   <main class="app-main" id="main">
 
@@ -110,7 +121,7 @@
     </section>
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
-    <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
+    <section class="panel grid grid-2" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
       <div class="card" data-card="todo.plan">
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
@@ -140,6 +151,9 @@
         </div>
 
         <form class="row" id="todo-form" style="margin:12px 0">
+          <!-- 분류 목록은 todo.js 가 채웁니다. 이모지가 달력 칸에 그대로 나갑니다. -->
+          <select class="field todo-cat-select" id="todo-cat" data-i18n-aria="todo.aria.category"
+                  aria-label="활동 분류"></select>
           <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
                  data-i18n-placeholder="todo.input.placeholder">
           <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
@@ -153,6 +167,23 @@
           <button class="btn btn-sm btn-ghost" id="todo-clear-done" type="button" data-i18n="todo.btn.clearDone">완료 삭제</button>
         </div>
         <ul class="todo-list" id="todo-list" lang="ko"></ul>
+      </div>
+
+      <!-- 달력: 어느 날에 어떤 종류의 일이 있는지 이모지로만 보여 줍니다. -->
+      <div class="card" data-card="todo.cal">
+        <div class="card-head">
+          <h2 class="card-title" data-i18n="cal.title">달력</h2>
+          <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
+        </div>
+        <div class="period-nav">
+          <button class="icon-btn" id="cal-prev" type="button" data-i18n-aria="cal.prev">‹</button>
+          <div class="period-label" id="cal-label" aria-live="polite" aria-atomic="true">—</div>
+          <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
+             aria-label="월 달력"></div>
+        <div class="cal-detail" id="cal-detail"></div>
+        <p class="card-sub cal-note" data-i18n="cal.note">일간 계획만 표시합니다.</p>
       </div>
     </section>
 
@@ -266,36 +297,6 @@
           </div>
         </form>
         <ul class="memo-list" id="quote-list"></ul>
-      </div>
-    </section>
-
-    <!-- ================= 음악 ================= -->
-    <section class="panel grid" id="panel-music" role="tabpanel" aria-label="음악">
-      <div class="card" data-card="music.player">
-        <div class="card-head"><h2 class="card-title">YouTube 플레이어</h2></div>
-        <form class="row" id="yt-form" style="margin-bottom:12px">
-          <input class="field grow" id="yt-input" placeholder="YouTube 영상/재생목록 URL 또는 ID 붙여넣기" autocomplete="off">
-          <button class="btn btn-primary" type="submit">재생</button>
-        </form>
-        <div id="yt-holder"><p class="empty">URL 을 넣으면 여기에서 재생됩니다.</p></div>
-        <div class="row" style="margin-top:10px">
-          <input class="field grow" id="yt-search" placeholder="유튜브에서 검색할 곡·아티스트" autocomplete="off">
-          <button class="btn" id="yt-search-btn" type="button">🔎 유튜브 검색</button>
-        </div>
-      </div>
-
-      <div class="card" data-card="music.links">
-        <div class="card-head"><h2 class="card-title">음악 서비스 바로가기</h2></div>
-        <p class="note" style="margin-bottom:12px">
-          <strong>기술적 한계 안내:</strong> 멜론·지니·유튜브뮤직은 외부 앱에서 <strong>계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.</strong>
-          Spotify 는 API 가 있지만 2026년 2월부터 개발 모드 앱은 소유자 Premium 필수 + 테스터 5명 제한이며,
-          확장 쿼터는 법인 + 월 활성사용자 25만 이상만 신청할 수 있어 개인 앱은 사실상 불가합니다.
-          따라서 아래는 <strong>검색어를 들고 각 서비스로 이동하는 바로가기</strong>이며, 재생은 해당 앱/사이트에서 이뤄집니다.
-        </p>
-        <div class="row" style="margin-bottom:12px">
-          <input class="field grow" id="svc-query" placeholder="검색할 곡 또는 아티스트" autocomplete="off">
-        </div>
-        <div class="svc-grid" id="svc-grid"></div>
       </div>
     </section>
 

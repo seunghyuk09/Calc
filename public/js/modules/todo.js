@@ -7,6 +7,7 @@
 import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 import { keyOf, shift, label, isCurrent, SCOPES } from '../lib/period.js';
+import { CATEGORIES, DEFAULT_CATEGORY, isCategory, emojiOf } from '../lib/categories.js';
 import { t, getLang, onLangChange, applyStatic } from '../lib/i18n.js';
 
 const KEY = 'todo.items';
@@ -50,9 +51,13 @@ function migrate(raw) {
   const today = keyOf('day');
   let moved = 0;
   const result = raw.map((item) => {
-    if (item && SCOPES.includes(item.scope) && typeof item.period === 'string') return item;
+    // 분류는 나중에 생긴 항목이라 예전 데이터에는 없습니다. 기본 분류로 채웁니다.
+    const withCat = item && isCategory(item.category)
+      ? item
+      : { ...item, category: DEFAULT_CATEGORY };
+    if (withCat && SCOPES.includes(withCat.scope) && typeof withCat.period === 'string') return withCat;
     moved += 1;
-    return { ...item, scope: 'day', period: today };
+    return { ...withCat, scope: 'day', period: today };
   });
   if (moved) console.info(`[planner] 이전 형식의 할 일 ${moved}건을 오늘 계획으로 옮겼습니다.`);
   return result;
@@ -110,6 +115,8 @@ function render() {
     });
     list.append(el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
       checkbox,
+      el('span', { class: 'todo-cat', title: t(`cat.${item.category || DEFAULT_CATEGORY}`) },
+        emojiOf(item.category)),
       el('span', { class: 'todo-text' }, item.text),
       el('button', {
         class: 'btn btn-sm btn-ghost',
@@ -212,6 +219,40 @@ export function revealItem(id) {
   return true;
 }
 
+/**
+ * 달력에서 날짜를 눌렀을 때 쓰는 진입점.
+ * 계획표를 그 날짜로 옮기고, 항목 id 가 있으면 잠깐 강조합니다.
+ */
+export function openDate(dateKey, itemId = null) {
+  if (typeof dateKey !== 'string') return false;
+  if (itemId && revealItem(itemId)) return true;
+  scope = 'day';
+  period = dateKey;
+  filter = 'all';
+  saveView();
+  document.querySelectorAll('.scope-tab').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.scope === 'day'));
+  });
+  document.querySelectorAll('[data-filter]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.filter === 'all'));
+  });
+  render();
+  $('#todo-list')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  return true;
+}
+
+/** 분류 고르는 칸을 채웁니다. 목록이 늘어나도 HTML 을 고치지 않아도 되게 여기서 만듭니다. */
+function fillCategorySelect() {
+  const sel = $('#todo-cat');
+  if (!sel) return;
+  const keep = sel.value;
+  sel.replaceChildren(...CATEGORIES.map((c) => {
+    const opt = el('option', { value: c.id }, `${c.emoji} ${t(`cat.${c.id}`)}`);
+    return opt;
+  }));
+  sel.value = isCategory(keep) ? keep : DEFAULT_CATEGORY;
+}
+
 export function initTodo() {
   items = migrate(load(KEY, []));
   notifyChange(); // 첫 로드 결과도 '오늘' 탭에 반영합니다
@@ -233,10 +274,12 @@ export function initTodo() {
   onLangChange(() => {
     applyStatic($('#panel-todo'));
     applyPanelLang();
+    fillCategorySelect();
     render();
   });
   applyStatic($('#panel-todo'));
   applyPanelLang();
+  fillCategorySelect();
 
   $('#scope-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.scope-tab');
@@ -256,7 +299,12 @@ export function initTodo() {
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
-    items.unshift({ id: uid(), text, done: false, scope, period, at: Date.now(), doneAt: null });
+    const picked = $('#todo-cat')?.value;
+    items.unshift({
+      id: uid(), text, done: false, scope, period,
+      category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
+      at: Date.now(), doneAt: null,
+    });
     input.value = '';
     persist();
     render();

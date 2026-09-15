@@ -16,10 +16,14 @@ const PREFS_KEY = 'ui.prefs';
 export const SKINS = ['default', 'refined', 'cute', 'future', 'retro', 'nature'];
 
 /** 고를 수 있는 강조색. CSS 의 :root[data-accent="..."] 와 짝이 맞아야 합니다. */
-export const ACCENTS = ['blue', 'violet', 'teal', 'green', 'amber', 'rose', 'slate', 'pink'];
+export const ACCENTS = [
+  'blue', 'violet', 'teal', 'green', 'amber', 'rose', 'slate', 'pink',
+  // 파스텔 계열. 칠하는 색만 연하고 글자/테두리는 읽히는 톤을 따로 씁니다.
+  'pastelrose', 'pastelsky', 'pastelmint', 'pastellilac', 'pastelpeach',
+];
 
 /** 탭 전체 목록. 화면에 놓이는 순서의 기본값이기도 합니다. */
-export const ALL_TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
+export const ALL_TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'ai', 'settings'];
 
 /**
  * 숨길 수 없는 탭.

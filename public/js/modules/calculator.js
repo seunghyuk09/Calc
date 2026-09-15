@@ -54,8 +54,44 @@ function updatePreview() {
   }
 }
 
+/**
+ * 방금 = 를 눌러 결과가 수식 칸에 들어가 있는 상태.
+ * 보통 계산기와 같게 동작시키려고 기억해 둡니다.
+ *   결과 뒤에 연산자를 누르면  -> 결과에 이어서 계산 (3 다음 + -> "3+")
+ *   결과 뒤에 숫자를 누르면    -> 새 계산 시작 (10 다음 7 -> "7")
+ */
+let justEvaluated = false;
+
+/** 새 숫자를 시작하는 입력. 이때는 이전 결과를 지웁니다. */
+const STARTS_NEW = /^[0-9.(]$/;
+
+/** 커서를 수식 끝으로 보냅니다. */
+function caretToEnd() {
+  const end = exprInput.value.length;
+  exprInput.focus();
+  exprInput.setSelectionRange(end, end);
+}
+
 // 커서 위치에 문자열을 삽입합니다.
 function insert(text) {
+  /*
+   * 포커스가 수식 칸에 없으면 selectionStart 가 0 이라 맨 앞에 끼어듭니다.
+   * = 버튼을 누르면 포커스가 그 버튼으로 옮겨 가므로 실제로 이 일이 일어났습니다.
+   * (1+2= 뒤에 +1 을 누르면 "+13" 이 되어 13 이 나왔습니다)
+   */
+  if (document.activeElement !== exprInput) caretToEnd();
+
+  if (justEvaluated) {
+    justEvaluated = false;
+    // 숫자로 시작하면 이전 결과를 버리고 새 식을 씁니다. 연산자면 결과에 이어 붙입니다.
+    if (STARTS_NEW.test(text)) {
+      exprInput.value = '';
+      exprInput.setSelectionRange(0, 0);
+    } else {
+      caretToEnd();
+    }
+  }
+
   const start = exprInput.selectionStart ?? exprInput.value.length;
   const end = exprInput.selectionEnd ?? exprInput.value.length;
   exprInput.value = exprInput.value.slice(0, start) + text + exprInput.value.slice(end);
@@ -76,6 +112,8 @@ function insertParen() {
 }
 
 function backspace() {
+  justEvaluated = false;
+  if (document.activeElement !== exprInput) caretToEnd();
   const start = exprInput.selectionStart ?? exprInput.value.length;
   const end = exprInput.selectionEnd ?? exprInput.value.length;
   if (start !== end) {
@@ -90,6 +128,7 @@ function backspace() {
 }
 
 function clearAll() {
+  justEvaluated = false;
   exprInput.value = '';
   resultBox.classList.remove('is-error');
   resultBox.textContent = '0';
@@ -200,10 +239,13 @@ function equals() {
     renderHistory();
     // 결과를 이어서 계산할 수 있도록 수식 자리에 결과를 넣습니다.
     exprInput.value = String(value);
-    exprInput.setSelectionRange(exprInput.value.length, exprInput.value.length);
+    justEvaluated = true;
+    // 포커스가 = 버튼에 있으면 커서가 0 으로 남으므로 여기서 끝으로 되돌립니다.
+    caretToEnd();
   } catch (err) {
     resultBox.classList.add('is-error');
     resultBox.textContent = err.message || '계산할 수 없습니다';
+    justEvaluated = false;
   }
 }
 
@@ -235,7 +277,8 @@ export function initCalculator() {
     }
   });
 
-  exprInput.addEventListener('input', updatePreview);
+  // 키보드로 직접 고치면 '방금 계산함' 상태는 의미가 없어집니다.
+  exprInput.addEventListener('input', () => { justEvaluated = false; updatePreview(); });
   exprInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); equals(); }
     else if (e.key === 'Escape') { e.preventDefault(); clearAll(); }

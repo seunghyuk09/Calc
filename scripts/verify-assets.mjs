@@ -6,7 +6,7 @@
  * - index.html 이 참조하는 로컬 리소스가 모두 존재하는가
  * 브라우저를 띄우지 않고 돌아가므로 CI 에서 가볍게 쓸 수 있습니다.
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +29,27 @@ else {
     .map((m) => m[1])
     .filter(Boolean) // './' (루트) 는 건너뜀
     .forEach((p) => mustExist(p, 'sw.js APP_SHELL'));
+}
+
+/*
+ * 1-b) 반대 방향도 봅니다: public/js 아래 모든 .js 가 APP_SHELL 에 들어 있는가.
+ * 목록에 적힌 파일이 존재하는지만 보면, 새로 만든 모듈을 목록에 안 넣은 것을 잡지 못합니다.
+ * 실제로 prefs.js 와 appearance.js 가 이렇게 빠져 있었습니다.
+ * 빠지면 오프라인에서 앱이 뜨다가 그 모듈만 못 불러와 화면이 멈춥니다.
+ */
+function jsFilesUnder(dir, prefix = 'js') {
+  const out = [];
+  readdirSync(resolve(publicDir, dir), { withFileTypes: true }).forEach((entry) => {
+    if (entry.isDirectory()) out.push(...jsFilesUnder(`${dir}/${entry.name}`, `${prefix}/${entry.name}`));
+    else if (entry.name.endsWith('.js')) out.push(`${prefix}/${entry.name}`);
+  });
+  return out;
+}
+if (shellBlock) {
+  const listed = new Set([...shellBlock.matchAll(/'\.\/([^']*)'/g)].map((m) => m[1]));
+  jsFilesUnder('js').forEach((p) => {
+    if (!listed.has(p)) problems.push(`sw.js APP_SHELL 에 빠진 스크립트: ${p}`);
+  });
 }
 
 // 2) manifest 아이콘
