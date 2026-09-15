@@ -96,6 +96,16 @@ async function goTab(pg, name) {
  * watchPagerScroll 의 정착 처리가 중간 패널을 활성 탭으로 잡습니다.
  * 고정 대기로는 느린 CI 에서 여러 장을 다 넘기지 못해 실제로 실패했습니다.
  */
+/**
+ * 이월·완료 삭제는 '⋯' 안으로 들어갔습니다. (늘 펼쳐 두면 입력줄이 묻힙니다)
+ * 열려 있지 않으면 눌러도 닿지 않으므로 여기서 먼저 엽니다.
+ */
+async function openMore(pg) {
+  if (!(await pg.evaluate(() => document.querySelector('#todo-more')?.open))) {
+    await pg.click('#todo-more > summary');
+  }
+}
+
 async function settlePagerOf(pg) {
   let prev = -1;
   for (let i = 0; i < 50; i += 1) {
@@ -363,6 +373,7 @@ const main = async () => {
   check('영어 전환 — 기간 표기', /^\w{3}, \w{3} \d{1,2}, \d{4}$/.test(await page.textContent('#period-label')),
     await page.textContent('#period-label'));
   check('영어 전환 — 필터 라벨', (await page.textContent('.chip[data-filter="active"]')) === 'Active');
+  await openMore(page);
   check('영어 전환 — 이월 버튼', (await page.textContent('#todo-carry')).includes('Carry over'));
   // 지적 반영: 전환되는 문구를 넓게 확인 (이전에는 6개만 단언)
   for (const [sel, expected] of [
@@ -373,7 +384,6 @@ const main = async () => {
     ['.chip[data-filter="done"]', 'Done'],
     ['#period-today', 'Today'],
     ['#todo-clear-done', 'Clear done'],
-    ['#panel-todo .card-title', 'Planner'],
   ]) {
     check(`영어 전환 — ${expected}`, (await page.textContent(sel)).trim() === expected,
       `실제: ${(await page.textContent(sel)).trim()}`);
@@ -383,6 +393,8 @@ const main = async () => {
   check('사용자 입력 영역은 lang 고정', (await page.getAttribute('#todo-list', 'lang')) === 'ko');
   check('이월 버튼에 설명 title', (await page.getAttribute('#todo-carry', 'title')).includes('previous period'),
     await page.getAttribute('#todo-carry', 'title'));
+  check('분류 편집 버튼이 영어로', (await page.getAttribute('[data-cat-edit]', 'aria-label')) === 'Edit categories',
+    await page.getAttribute('[data-cat-edit]', 'aria-label'));
 
   // 한국어로 되돌리기 (역방향 전환)
   await setLanguage('ko');
@@ -468,6 +480,7 @@ const main = async () => {
     document.querySelector('#period-label').classList.contains('is-current'))));
 
   // 이월: 직전(오늘)의 미완료 1건이 넘어와야 함
+  await openMore(page);
   await page.click('#todo-carry');
   await page.waitForTimeout(300);
   check('이월로 미완료 1건 이동', (await page.locator('#todo-list .todo-item').count()) === 1);
@@ -487,10 +500,25 @@ const main = async () => {
     await page.waitForTimeout(150);
     const lbl = await page.textContent('#period-label');
     check(`${sc} 단위 기간 표기`, pattern.test(lbl), `실제: ${lbl}`);
-    check(`${sc} 단위는 빈 목록에서 시작`, (await page.locator('#todo-list .todo-item').count()) === 0);
+    const before = await page.locator('#todo-list .todo-item').count();
+    if (sc === 'week') {
+      // 주간은 그 주에 적힌 주간 목표뿐 아니라 그 주 7일의 일간 계획도 함께 보여 줍니다.
+      check('주간은 그 주의 일간 계획도 함께 보여 줌', before >= 1, `${before}건`);
+    } else {
+      check(`${sc} 단위는 빈 목록에서 시작`, before === 0, `${before}건`);
+    }
     await addPlan(text);
-    check(`${sc} 계획 추가`, (await page.locator('#todo-list .todo-item').count()) === 1);
+    check(`${sc} 계획 추가`,
+      (await page.locator('#todo-list .todo-item').count()) === before + 1,
+      `${before} -> ${await page.locator('#todo-list .todo-item').count()}`);
   }
+
+  // 단위를 바꿔도 '오늘'이 든 기간을 보고 있었다면 오늘로 돌아와야 합니다.
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.waitForTimeout(150);
+  check('오늘이 든 기간에서 단위를 바꾸면 오늘로',
+    await page.evaluate(() => document.querySelector('#period-label').classList.contains('is-current')),
+    await page.textContent('#period-label'));
 
   // Day 로 돌아와도 Day 항목만 보여야 함
   await page.click('.scope-tab[data-scope="day"]');
@@ -957,12 +985,33 @@ const main = async () => {
   // 본문이 가로 페이저가 된 뒤로 document 의 scrollWidth 는 페이저 전체 폭을 담습니다.
   // 그래서 문서가 아니라 '패널 하나하나가 제 폭을 넘기는지'를 봅니다.
   // 원래 잡으려던 문제(긴 할 일 제목이 그리드 칼럼을 벌리는 것)가 바로 이 형태입니다.
-  const overflowing = await mobile.evaluate(() => [...document.querySelectorAll('.panel')]
-    .map((p) => ({ id: p.id, over: p.scrollWidth - p.clientWidth }))
+  const findOverflow = () => mobile.evaluate(() => [...document.querySelectorAll('.panel')]
+    .map((p) => ({ id: p.id, over: p.scrollWidth - p.clientWidth, node: p }))
     .filter((r) => r.over > 1)
-    .map((r) => `${r.id}(+${r.over}px)`));
-  check('모바일(390px) 모든 탭에서 가로 넘침 없음', overflowing.length === 0,
-    overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
+    .map((r) => {
+      // 어느 요소가 밀고 있는지까지 알려 줘야 고칠 수 있습니다. 숫자만으로는 찾는 데 한참 걸립니다.
+      const right = r.node.getBoundingClientRect().right;
+      const blame = [...r.node.querySelectorAll('*')]
+        .filter((n) => { const b = n.getBoundingClientRect(); return b.width && b.right > right + 0.5; })
+        .slice(0, 3)
+        .map((n) => `${n.tagName.toLowerCase()}.${(n.className || n.id || '?').toString().split(' ')[0]}`);
+      return `${r.id}(+${r.over}px${blame.length ? ` ← ${blame.join(', ')}` : ''})`;
+    }));
+
+  /*
+   * 폭을 하나만 보면 놓칩니다.
+   * 실제로 390px 은 멀쩡한데 320px 에서만 달력 카드가 화면을 넘긴 적이 있습니다.
+   * (세로 flex 배치에서 .grid 의 align-items:start 가 가로축에 걸려 카드가 내용 폭만큼 부풀었습니다)
+   */
+  for (const w of [320, 360, 390]) {
+    await mobile.setViewportSize({ width: w, height: 844 });
+    await mobile.waitForTimeout(250);
+    const over = await findOverflow();
+    check(`모바일(${w}px) 모든 탭에서 가로 넘침 없음`, over.length === 0,
+      over.length ? `넘친 패널: ${over.join(', ')}` : '전부 정상');
+  }
+  await mobile.setViewportSize({ width: 390, height: 844 });
+  await mobile.waitForTimeout(200);
   await mobile.close();
 
   // ---------- 10-a. 앱 업데이트 ----------
@@ -1203,6 +1252,8 @@ export function isStamped() { return true; }`,
     const main = document.querySelector('#main');
     const btns = [...document.querySelectorAll('#tabs .tab')];
     const before = document.querySelector('.tab[aria-selected="true"]')?.dataset.tab;
+    // 버튼으로 옮긴 직후에는 목적지 이름을 붙들고 있습니다. 손을 대면 풀리므로 그대로 흉내 냅니다.
+    main.dispatchEvent(new Event('pointerdown'));
     // 지금 탭과 다른 곳으로, 스냅 지점에 정확히 맞춰 옮깁니다(스냅이 되돌리지 않도록).
     const from = btns.findIndex((b) => b.dataset.tab === before);
     // 0번으로 옮기면 뒤따르는 위치 막대 검사가 '0 == 0' 이 되어 아무것도 걸러내지 못합니다.
@@ -1286,11 +1337,25 @@ export function isStamped() { return true; }`,
   check('달력이 그려짐', (await page.locator('#cal-grid .cal-day').count()) >= 28,
     `${await page.locator('#cal-grid .cal-day').count()}칸`);
   check('요일 머리글 7개', (await page.locator('#cal-grid .cal-wd').count()) === 7);
+  // 계획표의 '주간'이 ISO 주차(월요일 시작)라, 달력도 월요일에서 시작해야 한 주가 한 줄에 들어갑니다.
+  // 이 시점의 언어는 앞선 검사에 따라 달라집니다. 두 표기를 모두 받습니다.
+  const firstWd = (await page.locator('#cal-grid .cal-wd').first().textContent()).trim();
+  check('요일이 월요일에서 시작', firstWd === '월' || firstWd === 'Mon', firstWd);
+  check('달력이 목록보다 위에 있음',
+    await page.evaluate(() => {
+      const cal = document.querySelector('.cal-card').getBoundingClientRect();
+      const plan = document.querySelector('[data-card="todo.plan"]').getBoundingClientRect();
+      return cal.top <= plan.top;
+    }));
   check('오늘 칸이 표시됨',
     (await page.locator(`.cal-day[data-day="${todayKey}"].is-today`).count()) === 1);
 
   // 분류를 골라 등록하면 그 날 칸에 이모지가 붙어야 합니다.
-  await page.selectOption('#todo-cat', 'health');
+  await page.click('.cat-chip[data-cat="health"]');
+  check('고른 분류만 켜짐',
+    (await page.locator('#todo-cats .cat-chip.is-on').count()) === 1
+    && (await page.getAttribute('.cat-chip[data-cat="health"]', 'aria-pressed')) === 'true',
+    `켜진 칩 ${await page.locator('#todo-cats .cat-chip.is-on').count()}개`);
   await page.fill('#todo-input', '달력 확인용 운동');
   await page.press('#todo-input', 'Enter');
   await page.waitForTimeout(250);
@@ -1300,18 +1365,125 @@ export function isStamped() { return true; }`,
   check('목록에도 분류 이모지가 붙음',
     (await page.locator('#todo-list .todo-cat').count()) >= 1);
 
-  // 날짜를 누르면 그 날의 할 일이 펼쳐집니다.
-  await todayCell.click();
+  // ---------- 날짜를 눌러 그 날로 옮겨 가고, 그 날짜에 바로 추가 ----------
+  const otherDay = await page.evaluate(() => {
+    // 이번 달 안에서 오늘이 아닌 날을 하나 고릅니다. (달을 넘기면 검사가 복잡해집니다)
+    const cells = [...document.querySelectorAll('.cal-day:not(.is-outside):not(.is-today)')];
+    return cells[Math.min(3, cells.length - 1)]?.dataset.day;
+  });
+  await page.click(`.cal-day[data-day="${otherDay}"]`);
   await page.waitForTimeout(200);
-  check('날짜를 누르면 상세가 펼쳐짐',
-    (await page.locator('#cal-detail .cal-detail-item').count()) >= 1,
-    `${await page.locator('#cal-detail .cal-detail-item').count()}건`);
-  check('펼친 날짜가 선택 표시됨',
-    (await page.locator(`.cal-day[data-day="${todayKey}"].is-selected`).count()) === 1);
-  await todayCell.click();
+  check('날짜를 누르면 목록이 그 날로 옮겨감',
+    (await page.textContent('#period-label')).includes(String(Number(otherDay.slice(8, 10)))),
+    `${otherDay} -> ${await page.textContent('#period-label')}`);
+  check('누른 날짜가 선택 표시됨',
+    (await page.locator(`.cal-day[data-day="${otherDay}"].is-selected`).count()) === 1);
+  check('누른 날짜로 옮기면 단위가 일간',
+    (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
+
+  await page.click('.cat-chip[data-cat="study"]');
+  await page.fill('#todo-input', '그 날짜에 바로 추가');
+  await page.press('#todo-input', 'Enter');
+  await page.waitForTimeout(250);
+  check('누른 날짜에 계획이 들어감',
+    ((await page.locator(`.cal-day[data-day="${otherDay}"] .cal-marks`).textContent()) || '').includes('📚'),
+    await page.locator(`.cal-day[data-day="${otherDay}"] .cal-marks`).textContent());
+  check('오늘 칸에는 들어가지 않음',
+    !((await todayCell.locator('.cal-marks').textContent()) || '').includes('📚'));
+
+  // ---------- 주간: 그 날짜가 든 주가 한 줄로 강조되고, 날짜별로 묶여 보입니다 ----------
+  await page.click('.scope-tab[data-scope="week"]');
+  await page.waitForTimeout(250);
+  const weekCells = await page.evaluate(() =>
+    [...document.querySelectorAll('.cal-day.is-selected')].map((n) => n.dataset.day));
+  check('주간에서 7일이 강조됨', weekCells.length === 7, `${weekCells.length}일`);
+  check('강조된 주에 방금 고른 날짜가 들어 있음', weekCells.includes(otherDay),
+    `${otherDay} / ${weekCells.join(',')}`);
+  check('주간 목록이 날짜별로 묶임',
+    (await page.locator('#todo-list .todo-group-head').count()) >= 1,
+    `${await page.locator('#todo-list .todo-group-head').count()}묶음`);
+  await page.click('.scope-tab[data-scope="day"]');
   await page.waitForTimeout(200);
-  check('같은 날짜를 다시 누르면 접힘',
-    (await page.locator('#cal-detail .cal-detail-item').count()) === 0);
+
+  // ---------- 달력 접기 ----------
+  const monthCells = await page.locator('#cal-grid .cal-day').count();
+  await page.click('#cal-fold');
+  await page.waitForTimeout(250);
+  check('접으면 한 주만 남음', (await page.locator('#cal-grid .cal-day').count()) === 7,
+    `${await page.locator('#cal-grid .cal-day').count()}칸`);
+  check('접으면 목록 공간이 넓어짐',
+    await page.evaluate(() => {
+      const plan = document.querySelector('[data-card="todo.plan"]');
+      return plan.clientHeight > 0;
+    }));
+  await page.click('#cal-next');
+  await page.waitForTimeout(200);
+  check('접힌 상태에서 ›는 한 주씩 움직임',
+    (await page.locator('#cal-grid .cal-day').count()) === 7
+    && !(await page.locator('#cal-grid .cal-day').first().getAttribute('data-day')).endsWith(otherDay.slice(8)),
+    await page.locator('#cal-grid .cal-day').first().getAttribute('data-day'));
+  // 주를 넘기면 다른 달로 넘어갈 수 있으므로, 펼치기 전에 원래 달로 되돌립니다.
+  await page.click('#cal-prev');
+  await page.waitForTimeout(150);
+  await page.click('#cal-fold');
+  await page.waitForTimeout(250);
+  check('다시 펼치면 한 달이 돌아옴',
+    (await page.locator('#cal-grid .cal-day').count()) === monthCells,
+    `${await page.locator('#cal-grid .cal-day').count()} / ${monthCells}`);
+  await page.click('#cal-today');
+  await page.waitForTimeout(200);
+
+  // ---------- 분류 커스터마이징 ----------
+  // 앞의 검사에서 다른 날짜/주로 옮겨 다녔습니다. 오늘 칸을 보려면 오늘로 돌아와야 합니다.
+  await page.click('#period-today');
+  await page.waitForTimeout(250);
+  check('오늘 버튼을 누르면 달력도 오늘 달로 따라옴',
+    (await page.locator(`.cal-day[data-day="${todayKey}"]`).count()) === 1);
+  const beforeChips = await page.locator('#todo-cats .cat-chip').count();
+  await page.click('[data-cat-edit]');
+  await page.waitForTimeout(200);
+  check('분류 편집이 펼쳐짐', await page.locator('#cat-edit-body').isVisible());
+  await page.fill('#cat-new-name', '취미');
+  await page.click('.cat-edit-new .cat-pick-summary');
+  await page.click('.cat-edit-new .emoji-opt[data-emoji="🎵"]');
+  await page.click('#cat-new-add');
+  await page.waitForTimeout(250);
+  check('내 분류가 늘어남',
+    (await page.locator('#todo-cats .cat-chip').count()) === beforeChips + 1,
+    `${beforeChips} -> ${await page.locator('#todo-cats .cat-chip').count()}`);
+  check('만든 분류가 바로 선택됨',
+    ((await page.locator('#todo-cats .cat-chip.is-on').first().textContent()) || '').includes('🎵'),
+    await page.locator('#todo-cats .cat-chip.is-on').first().textContent());
+
+  await page.fill('#todo-input', '기타 연습');
+  await page.press('#todo-input', 'Enter');
+  await page.waitForTimeout(250);
+  check('내 분류 이모지가 달력에 나타남',
+    ((await todayCell.locator('.cal-marks').textContent()) || '').includes('🎵'),
+    await todayCell.locator('.cal-marks').textContent());
+
+  // 기본 분류의 이모지도 바꿀 수 있어야 합니다.
+  await page.click('[data-cat-row="health"] .cat-pick-summary');
+  await page.click('[data-cat-row="health"] .emoji-opt[data-emoji="🏋️"]');
+  await page.waitForTimeout(250);
+  check('기본 분류 이모지 변경이 달력까지 반영됨',
+    ((await todayCell.locator('.cal-marks').textContent()) || '').includes('🏋️'),
+    await todayCell.locator('.cal-marks').textContent());
+  check('기본 분류 숨김 버튼은 잠긴 분류에서 막혀 있음',
+    await page.evaluate(() => document.querySelector('[data-cat-toggle="etc"]')?.disabled === true));
+
+  // 새로고침해도 남아 있어야 합니다. (localStorage 에 저장되는지)
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'todo');
+  await page.waitForTimeout(300);
+  await page.click('#period-today');
+  await page.waitForTimeout(250);
+  check('새로고침 후에도 내 분류가 남아 있음',
+    (await page.locator('#todo-cats .cat-chip').count()) === beforeChips + 1,
+    `${await page.locator('#todo-cats .cat-chip').count()}개`);
+  check('새로고침 후에도 바꾼 이모지가 남아 있음',
+    ((await page.locator(`.cal-day[data-day="${todayKey}"] .cal-marks`).textContent()) || '').includes('🏋️'));
 
   // 빈 날짜에는 이모지가 없어야 합니다. (모든 칸에 다 찍히는 버그를 잡습니다)
   const emptyDayMarks = await page.evaluate(() => {
@@ -1335,13 +1507,126 @@ export function isStamped() { return true; }`,
   await goTab(page, 'settings');
   await page.waitForSelector('#customize .cz-section');
 
-  // 편집 UI 가 실제로 그려졌는지부터 확인합니다. 빈 상자면 아래 검사가 전부 무의미합니다.
-  check('커스터마이즈 UI 렌더링', (await page.locator('#customize .cz-section').count()) === 5,
-    `${await page.locator('#customize .cz-section').count()}개 구역`);
-
   const rootAttr = (name) => page.evaluate((n) => document.documentElement.getAttribute(n), name);
   const cssVar = (name) => page.evaluate((n) => (
     getComputedStyle(document.documentElement).getPropertyValue(n).trim()), name);
+
+  // 편집 UI 가 실제로 그려졌는지부터 확인합니다. 빈 상자면 아래 검사가 전부 무의미합니다.
+  check('커스터마이즈 UI 렌더링', (await page.locator('#customize .cz-section').count()) === 6,
+    `${await page.locator('#customize .cz-section').count()}개 구역`);
+
+  /*
+   * 접기/펼치기.
+   * 구역이 전부 펼쳐져 있으면 카드 크기 하나 고치려고 한참 내려야 했습니다.
+   * 기본은 전부 접혀 있고, 접힌 줄에 지금 값이 같이 보여야 열지 않고도 압니다.
+   */
+  check('구역이 기본으로 접혀 있음',
+    (await page.locator('#customize .cz-section[open]').count()) === 0,
+    `${await page.locator('#customize .cz-section[open]').count()}개가 열려 있습니다`);
+  const czHeight = () => page.evaluate(() =>
+    Math.round(document.querySelector('#customize').getBoundingClientRect().height));
+  const foldedHeight = await czHeight();
+  check('접힌 커스터마이즈가 한 화면에 들어옴', foldedHeight <= 520, `${foldedHeight}px`);
+  check('접힌 줄에 현재 값이 보임',
+    ((await page.textContent('#customize [data-section="accent"] .cz-summary-now')) || '').trim().length > 0,
+    await page.textContent('#customize [data-section="accent"] .cz-summary-now'));
+  await page.click('#customize [data-section="accent"] .cz-summary');
+  await page.waitForTimeout(200);
+  check('제목을 누르면 펼쳐짐',
+    (await page.locator('#customize [data-section="accent"]').getAttribute('open')) !== null);
+  const openHeight = await czHeight();
+  check('펼치면 실제로 내용이 늘어남', openHeight > foldedHeight, `${foldedHeight} -> ${openHeight}px`);
+  // 색을 하나 고를 때마다 이 화면을 다시 그립니다. 그때 구역이 닫히면 쓸 수가 없습니다.
+  await page.click('#customize [data-accent-opt="teal"]');
+  await page.waitForTimeout(250);
+  check('값을 골라 다시 그려도 펼친 상태가 유지됨',
+    (await page.locator('#customize [data-section="accent"]').getAttribute('open')) !== null);
+
+  /*
+   * 아래 검사들은 구역 안의 버튼을 직접 누릅니다.
+   * 접혀 있으면 화면에 없어서 누를 수 없으므로 여기서 전부 펼쳐 둡니다.
+   */
+  const openAllCz = async () => {
+    await page.evaluate(() => {
+      document.querySelectorAll('#customize .cz-section').forEach((d) => { d.open = true; });
+    });
+    await page.waitForTimeout(150);
+  };
+  await openAllCz();
+
+  // ---------- 바탕색 (스킨과 다른 축) ----------
+  await page.click('#customize [data-base-opt="warm"]');
+  await page.waitForTimeout(250);
+  check('바탕색 선택이 문서에 반영됨', (await rootAttr('data-base')) === 'warm',
+    String(await rootAttr('data-base')));
+  const warmBg = await cssVar('--bg');
+  check('바탕색이 실제 배경을 바꿈', warmBg === '#faf6ef', warmBg);
+  // 축이 다릅니다. 스킨은 모서리/그림자를, 바탕색은 배경을 담당합니다.
+  await page.click('#customize [data-skin-opt="cute"]');
+  await page.waitForTimeout(250);
+  check('스킨을 바꿔도 고른 바탕색이 유지됨', (await cssVar('--bg')) === warmBg,
+    `${warmBg} -> ${await cssVar('--bg')}`);
+  check('바탕색을 써도 스킨의 모서리는 그대로',
+    (await cssVar('--radius')) === '22px', await cssVar('--radius'));
+  await page.click('#customize [data-skin-opt="default"]');
+  await page.click('#customize [data-base-opt="default"]');
+  await page.waitForTimeout(250);
+  check('바탕색 기본은 속성을 지움', (await rootAttr('data-base')) === null,
+    String(await rootAttr('data-base')));
+
+  /*
+   * 카드 경계가 실제로 보이는지.
+   * '미래' 스킨의 테두리가 rgba(255,255,255,.8) 이라 흰 카드 위의 흰 선이었고,
+   * 화면에서 박스 경계가 아예 보이지 않았습니다. 색 이름만 봐서는 못 잡습니다.
+   * 반투명이므로 배경에 얹은 뒤의 실제 색으로 비교합니다.
+   */
+  const borderGap = (skin, theme) => page.evaluate(([sk, th]) => {
+    const root = document.documentElement;
+    const keepSkin = root.getAttribute('data-skin');
+    const keepTheme = root.getAttribute('data-theme');
+    if (sk === 'default') root.removeAttribute('data-skin'); else root.setAttribute('data-skin', sk);
+    root.setAttribute('data-theme', th);
+
+    const cs = getComputedStyle(root);
+    const parse = (v) => {
+      const m = /rgba?\(([^)]+)\)/.exec(v);
+      if (m) {
+        const p = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      }
+      const h = v.trim().replace('#', '');
+      const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+      return {
+        r: parseInt(full.slice(0, 2), 16),
+        g: parseInt(full.slice(2, 4), 16),
+        b: parseInt(full.slice(4, 6), 16),
+        a: 1,
+      };
+    };
+    // 반투명 색을 불투명 배경 위에 얹었을 때의 실제 색
+    const over = (fg, bg) => ({
+      r: bg.r * (1 - fg.a) + fg.r * fg.a,
+      g: bg.g * (1 - fg.a) + fg.g * fg.a,
+      b: bg.b * (1 - fg.a) + fg.b * fg.a,
+    });
+    const bg = parse(cs.getPropertyValue('--bg'));
+    const surface = over(parse(cs.getPropertyValue('--surface')), bg);
+    const border = over(parse(cs.getPropertyValue('--border')), surface);
+
+    if (keepSkin === null) root.removeAttribute('data-skin'); else root.setAttribute('data-skin', keepSkin);
+    if (keepTheme === null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', keepTheme);
+
+    return Math.round(Math.max(
+      Math.abs(border.r - surface.r), Math.abs(border.g - surface.g), Math.abs(border.b - surface.b)));
+  }, [skin, theme]);
+
+  for (const skin of ['default', 'refined', 'cute', 'future', 'retro', 'nature']) {
+    for (const theme of ['light', 'dark']) {
+      // 레트로는 그림자가 없는 대신 테두리가 두꺼워서 기준을 똑같이 둬도 됩니다.
+      const gap = await borderGap(skin, theme);
+      check(`카드 경계가 보임 — ${skin}/${theme}`, gap >= 10, `카드색과 테두리색 차이 ${gap}`);
+    }
+  }
 
   // --- 스킨 ---
   const radiusBefore = await cssVar('--radius');
@@ -1434,12 +1719,12 @@ export function isStamped() { return true; }`,
   // --- 오늘 위젯 ---
   const widgetNames = () => page.evaluate(() => (
     [...document.querySelectorAll('#today-widgets [data-widget]')].map((n) => n.dataset.widget)));
-  await page.click('#customize .cz-section:nth-of-type(4) .cz-row[data-row="clock"] .cz-toggle');
+  await page.click('#customize [data-section="widgets"] .cz-row[data-row="clock"] .cz-toggle');
   await page.waitForTimeout(150);
   check('위젯을 켜면 오늘 탭에 추가됨', (await widgetNames()).includes('clock'),
     (await widgetNames()).join(', '));
 
-  await page.click('#customize .cz-section:nth-of-type(4) .cz-row[data-row="weather"] .cz-toggle');
+  await page.click('#customize [data-section="widgets"] .cz-row[data-row="weather"] .cz-toggle');
   await page.waitForTimeout(150);
   check('위젯을 끄면 사라짐', !(await widgetNames()).includes('weather'),
     (await widgetNames()).join(', '));
@@ -1466,7 +1751,7 @@ export function isStamped() { return true; }`,
   await goTab(page, 'settings');
   await page.waitForTimeout(150);
   const orderBefore = await tabOrder();
-  await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="calc"] [data-move="up"]');
+  await page.click('#customize [data-section="tabs"] .cz-row[data-row="calc"] [data-move="up"]');
   await page.waitForTimeout(200);
   const orderAfter = await tabOrder();
   check('탭 순서를 위로 옮김', orderAfter[0] === 'calc' && orderBefore[0] === 'today',
@@ -1476,14 +1761,14 @@ export function isStamped() { return true; }`,
     JSON.stringify(await panelOrder()) === JSON.stringify(orderAfter),
     (await panelOrder()).slice(0, 3).join(','));
 
-  await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="quote"] .cz-toggle');
+  await page.click('#customize [data-section="tabs"] .cz-row[data-row="quote"] .cz-toggle');
   await page.waitForTimeout(200);
   check('숨긴 탭은 버튼과 패널에서 모두 빠짐',
     !(await tabOrder()).includes('quote') && !(await panelOrder()).includes('quote'),
     (await tabOrder()).join(','));
 
   const lockedDisabled = await page.evaluate(() => (
-    document.querySelector('#customize .cz-section:nth-of-type(3) .cz-row[data-row="settings"] .cz-toggle')?.disabled === true));
+    document.querySelector('#customize [data-section="tabs"] .cz-row[data-row="settings"] .cz-toggle')?.disabled === true));
   check('설정 탭은 숨길 수 없음 (되돌릴 길이 사라지므로)', lockedDisabled === true);
 
   // --- 새로고침 후에도 유지 ---
@@ -1502,6 +1787,7 @@ export function isStamped() { return true; }`,
   // --- 초기화 ---
   await goTab(page, 'settings');
   await page.waitForSelector('#customize .cz-section');
+  await openAllCz();
   page.once('dialog', (d) => d.accept());
   await page.click('#cz-reset');
   await page.waitForTimeout(250);

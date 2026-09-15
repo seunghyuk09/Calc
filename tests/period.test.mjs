@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { keyOf, dateOf, shift, label, isoWeekParts, isCurrent } from '../public/js/lib/period.js';
+import { keyOf, dateOf, shift, label, weekRange, isoWeekParts, isCurrent } from '../public/js/lib/period.js';
 
 const d = (y, m, day) => new Date(y, m - 1, day);
 
@@ -113,4 +113,29 @@ test('주 표기는 ISO 연도를 포함해 다른 해와 구분됨', () => {
   // 연말에 걸친 주는 달력 연도가 아니라 ISO 연도를 써야 합니다 (2025-12-29 는 2026-W01)
   assert.match(label('week', '2026-W01', 'ko'), /^2026년 1주차/);
   assert.match(label('week', '2026-W01', 'en'), /^Week 1, 2026/);
+});
+
+/*
+ * 달력을 한 줄로 접으면 자리가 좁아서 '2026년 38주차 · ' 앞머리가 통째로 잘립니다.
+ * 며칠 주간인지가 안 보이면 접는 의미가 없으므로 범위만 따로 뽑아 씁니다.
+ */
+test('weekRange: 같은 달 안의 주', () => {
+  assert.equal(weekRange('2026-W38', 'ko'), '9월 14–20일');
+  assert.equal(weekRange('2026-W38', 'en'), 'Sep 14–20');
+});
+
+test('weekRange: 달을 걸친 주', () => {
+  // 2026-W40 은 9월 28일(월) ~ 10월 4일(일)
+  assert.equal(weekRange('2026-W40', 'ko'), '9월 28일 – 10월 4일');
+  assert.equal(weekRange('2026-W40', 'en'), 'Sep 28 – Oct 4');
+});
+
+test('weekRange 는 label 의 뒷부분과 정확히 같다 (두 곳이 어긋나면 안 됩니다)', () => {
+  for (const key of ['2026-W01', '2026-W38', '2026-W40', '2026-W53']) {
+    for (const lang of ['ko', 'en']) {
+      const full = label('week', key, lang);
+      assert.ok(full.endsWith(weekRange(key, lang)),
+        `${lang} ${key}: "${full}" 가 "${weekRange(key, lang)}" 로 끝나지 않습니다`);
+    }
+  }
 });

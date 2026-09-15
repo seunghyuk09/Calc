@@ -906,7 +906,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   --surface-blur: saturate(150%) blur(10px);
   --bg: #eef1f8; --surface: rgba(255, 255, 255, .72); --surface-2: rgba(255, 255, 255, .5);
   --surface-3: rgba(226, 232, 245, .8);
-  --border: rgba(255, 255, 255, .8);
+  /*
+   * 예전 값은 rgba(255,255,255,.8) 이었습니다. 흰 카드 위의 흰 테두리라 경계가 보이지 않았습니다.
+   * 유리 느낌을 살리면서 경계는 보이도록, 배경보다 진한 푸른 회색으로 바꿉니다.
+   * 위쪽 흰 하이라이트(--card-extra)가 유리의 두께를 담당합니다.
+   */
+  --border: rgba(96, 124, 180, .38);
   --text: #0e1524; --text-dim: #4a5670; --text-faint: #7b869c;
   --shadow: 0 8px 32px rgba(23, 43, 92, .12);
   --card-extra: inset 0 1px 0 rgba(255, 255, 255, .9);
@@ -914,7 +919,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 :root[data-theme="dark"][data-skin="future"] {
   --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
   --surface-3: rgba(44, 58, 88, .7);
-  --border: rgba(120, 150, 210, .22);
+  --border: rgba(140, 172, 235, .34);
   --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
   --shadow: 0 8px 40px rgba(0, 0, 0, .55);
   --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
@@ -966,7 +971,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   :root:not([data-theme="light"])[data-skin="future"] {
     --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
     --surface-3: rgba(44, 58, 88, .7);
-    --border: rgba(120, 150, 210, .22);
+    --border: rgba(140, 172, 235, .34);
     --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
     --shadow: 0 8px 40px rgba(0, 0, 0, .55);
     --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
@@ -980,6 +985,87 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
     --bg: #14130f; --surface: #1d1c17; --surface-2: #26241d; --surface-3: #332f25;
     --border: #3a362b; --text: #eeeade; --text-dim: #a8a290; --text-faint: #78725f;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 26px rgba(0, 0, 0, .4);
+  }
+}
+
+/* =========================================================
+   바탕색 (data-base)
+   -----------------------------------------------------
+   스킨이 정해 둔 배경/카드 색 계열만 갈아 끼웁니다.
+   모서리·그림자·글꼴 같은 '분위기'는 스킨이 계속 담당하므로,
+   '귀여운 모양 + 회색 바탕' 처럼 섞어 쓸 수 있습니다.
+
+   각 팔레트는 밝은 값(--l-*)과 어두운 값(--d-*)을 한 번만 적어 둡니다.
+   어느 쪽을 쓸지 고르는 규칙은 팔레트마다가 아니라 아래에 딱 두 번만 씁니다.
+   (예전 스킨 블록처럼 팔레트마다 다크를 두 번씩 복사하면 한쪽만 고치는 사고가 납니다)
+
+   스킨보다 뒤에 있어야 스킨을 덮습니다. 자리를 옮기지 마세요.
+   ========================================================= */
+
+/* 중성 회색 — 색기 없는 기본 */
+:root[data-base="gray"] {
+  --l-bg: #f4f4f5; --l-surface: #ffffff; --l-surface-2: #ededef; --l-surface-3: #e1e1e4;
+  --l-border: #dcdce0; --l-text: #17171a; --l-text-dim: #5a5a62; --l-text-faint: #8b8b93;
+  --d-bg: #0d0d0f; --d-surface: #17171a; --d-surface-2: #1f1f23; --d-surface-3: #2a2a2f;
+  --d-border: #2d2d33; --d-text: #ededf0; --d-text-dim: #9b9ba4; --d-text-faint: #6e6e77;
+}
+/* 크림 — 종이처럼 따뜻한 바탕 */
+:root[data-base="warm"] {
+  --l-bg: #faf6ef; --l-surface: #fffdf8; --l-surface-2: #f2ece0; --l-surface-3: #e7dfd0;
+  --l-border: #e2d9c8; --l-text: #23201a; --l-text-dim: #615a4c; --l-text-faint: #8d8574;
+  --d-bg: #17140f; --d-surface: #201d16; --d-surface-2: #2a251c; --d-surface-3: #363024;
+  --d-border: #3d3629; --d-text: #f0ece1; --d-text-dim: #a9a291; --d-text-faint: #7a7362;
+}
+/* 블루그레이 — 차갑고 차분한 바탕 */
+:root[data-base="cool"] {
+  --l-bg: #eef2f8; --l-surface: #ffffff; --l-surface-2: #e6ebf4; --l-surface-3: #d9e0ed;
+  --l-border: #d3dae7; --l-text: #121722; --l-text-dim: #515a6b; --l-text-faint: #828b9d;
+  --d-bg: #0a0f17; --d-surface: #131a26; --d-surface-2: #1b2332; --d-surface-3: #262f41;
+  --d-border: #2a3444; --d-text: #e9eef7; --d-text-dim: #98a3b6; --d-text-faint: #6b7588;
+}
+/* 고대비 — 순백과 순흑. 밝은 곳이나 눈이 피로할 때 */
+:root[data-base="mono"] {
+  --l-bg: #ffffff; --l-surface: #ffffff; --l-surface-2: #f0f0f0; --l-surface-3: #e0e0e0;
+  --l-border: #b9b9b9; --l-text: #000000; --l-text-dim: #444444; --l-text-faint: #6b6b6b;
+  --d-bg: #000000; --d-surface: #0b0b0b; --d-surface-2: #181818; --d-surface-3: #262626;
+  --d-border: #454545; --d-text: #ffffff; --d-text-dim: #c2c2c2; --d-text-faint: #949494;
+}
+/* 연분홍 */
+:root[data-base="rose"] {
+  --l-bg: #fdf4f6; --l-surface: #ffffff; --l-surface-2: #f9e9ed; --l-surface-3: #f2dae1;
+  --l-border: #eed5dc; --l-text: #241a1d; --l-text-dim: #665055; --l-text-faint: #927b81;
+  --d-bg: #1a1114; --d-surface: #24181c; --d-surface-2: #2f2025; --d-surface-3: #3c2a30;
+  --d-border: #432f36; --d-text: #f4e8eb; --d-text-dim: #b39ba1; --d-text-faint: #837077;
+}
+/* 연민트 */
+:root[data-base="mint"] {
+  --l-bg: #eff7f3; --l-surface: #ffffff; --l-surface-2: #e4f0ea; --l-surface-3: #d5e6dd;
+  --l-border: #d0e2d9; --l-text: #14201b; --l-text-dim: #4d5f57; --l-text-faint: #7d8f87;
+  --d-bg: #0b1512; --d-surface: #131f1a; --d-surface-2: #1c2a24; --d-surface-3: #27382f;
+  --d-border: #2b3c34; --d-text: #e6f1eb; --d-text-dim: #96ab9f; --d-text-faint: #6b7d74;
+}
+
+/* 밝은 값을 기본으로 씁니다. */
+:root[data-base] {
+  --bg: var(--l-bg); --surface: var(--l-surface);
+  --surface-2: var(--l-surface-2); --surface-3: var(--l-surface-3);
+  --border: var(--l-border);
+  --text: var(--l-text); --text-dim: var(--l-text-dim); --text-faint: var(--l-text-faint);
+}
+/* 다크를 직접 고른 경우. */
+:root[data-theme="dark"][data-base] {
+  --bg: var(--d-bg); --surface: var(--d-surface);
+  --surface-2: var(--d-surface-2); --surface-3: var(--d-surface-3);
+  --border: var(--d-border);
+  --text: var(--d-text); --text-dim: var(--d-text-dim); --text-faint: var(--d-text-faint);
+}
+/* 테마를 고르지 않았고 기기가 다크인 경우. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-base] {
+    --bg: var(--d-bg); --surface: var(--d-surface);
+    --surface-2: var(--d-surface-2); --surface-3: var(--d-surface-3);
+    --border: var(--d-border);
+    --text: var(--d-text); --text-dim: var(--d-text-dim); --text-faint: var(--d-text-faint);
   }
 }
 
@@ -1088,9 +1174,46 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 }
 
 /* ---------- 커스터마이즈 UI ---------- */
-.cz-section { margin-bottom: 18px; }
+/* ---------- 접었다 펴는 구역 ----------
+   다섯 구역이 다 펼쳐져 있으면 카드 크기 하나 고치려고 한참 내려야 합니다.
+   접힌 줄에 현재 값을 같이 써서, 열지 않고도 지금 무엇이 걸려 있는지 보이게 합니다. */
+.cz-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
 .cz-section:last-of-type { margin-bottom: 0; }
-.cz-hint { margin: 4px 0 10px; }
+
+.cz-summary {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 46px;            /* 손가락으로 누를 수 있는 높이 */
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 600; font-size: 14px;
+  list-style: none;            /* 기본 삼각형을 지우고 아래 ⌄ 를 씁니다 */
+  user-select: none;
+}
+.cz-summary::-webkit-details-marker { display: none; }
+.cz-summary:hover { background: var(--surface-3); }
+.cz-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cz-summary-title { flex: none; }
+.cz-summary-now {
+  flex: 1 1 auto; min-width: 0;
+  text-align: right;
+  font-weight: 500; font-size: 12.5px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cz-summary-mark {
+  flex: none; color: var(--text-faint); font-size: 13px; line-height: 1;
+  transition: transform var(--motion) var(--ease);
+}
+.cz-section[open] > .cz-summary > .cz-summary-mark { transform: rotate(180deg); }
+.cz-section[open] > .cz-summary { border-bottom: 1px solid var(--border); }
+.cz-section > :not(summary) { margin-left: 12px; margin-right: 12px; }
+.cz-section > :last-child { margin-bottom: 12px; }
+.cz-hint { margin: 10px 0; }
 .cz-opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .cz-opts-tight { gap: 4px; }
 
@@ -1115,6 +1238,24 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cz-skin-nature  { border-radius: 6px; background: linear-gradient(135deg, #fffdf8 50%, #6f7a4a 50%); }
 
 .cz-swatch { width: 38px; height: 38px; padding: 0; justify-content: center; }
+
+/*
+ * 바탕색 견본.
+ * 밝은 값만 보여 주면 전부 '흰 네모'라 구분이 되지 않습니다. (실제로 그래서 못 고릅니다)
+ * 라이트와 다크를 반씩 붙여, 두 모드에서 어떤 색인지 한 번에 보이게 합니다.
+ * 스킨 견본(.cz-skin-chip)과 같은 방식이라 나란히 놓여도 읽는 법이 같습니다.
+ */
+.cz-base-chip {
+  width: 22px; height: 22px; border-radius: 5px; display: block;
+  border: 1px solid var(--border);
+}
+.cz-base-default { background: linear-gradient(135deg, #ffffff 50%, #3b6ef6 50%); }
+.cz-base-gray { background: linear-gradient(135deg, #f4f4f5 50%, #17171a 50%); }
+.cz-base-warm { background: linear-gradient(135deg, #faf6ef 50%, #201d16 50%); }
+.cz-base-cool { background: linear-gradient(135deg, #eef2f8 50%, #131a26 50%); }
+.cz-base-mono { background: linear-gradient(135deg, #ffffff 50%, #000000 50%); }
+.cz-base-rose { background: linear-gradient(135deg, #fdf4f6 50%, #3c2a30 50%); }
+.cz-base-mint { background: linear-gradient(135deg, #eff7f3 50%, #1c2a24 50%); }
 .cz-dot { width: 20px; height: 20px; border-radius: 50%; display: block; }
 .cz-dot-blue   { background: #2f62ea; } .cz-dot-violet { background: #6540e0; }
 .cz-dot-teal   { background: #0b7d77; } .cz-dot-green  { background: #18794e; }
@@ -1203,24 +1344,6 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .cal-mark { font-size: 11px; }
 .cal-more { font-size: 9.5px; color: var(--text-faint); font-weight: 700; }
 
-.cal-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
-.cal-detail-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.cal-detail-date { font-size: 13.5px; font-weight: 700; }
-.cal-detail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.cal-detail-item {
-  width: 100%; min-height: 40px;
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 10px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface-2); color: var(--text);
-  font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
-}
-.cal-detail-item:hover { border-color: var(--accent); }
-.cal-detail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.cal-detail-item.done .cal-detail-text { text-decoration: line-through; color: var(--text-faint); }
-.cal-detail-emoji { flex: none; font-size: 15px; }
-.cal-detail-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-note { margin: 10px 0 0; }
 
 /* ---------- 앱 업데이트 ---------- */
 .upd-msg { margin: 0; font-size: 13px; color: var(--text-dim); }
@@ -1241,3 +1364,165 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
   box-shadow: 0 0 0 2px var(--surface);
 }
 body[data-has-update="true"] .tab[data-tab="settings"]::after { top: 50%; right: 10px; margin-top: -4px; }
+
+
+/* =========================================================
+   TO DO — 달력이 위, 목록이 아래
+   -----------------------------------------------------
+   좁은 화면에서는 달력을 고정해 두고 목록만 스크롤합니다.
+   달력이 같이 밀려 올라가면 '한 달을 보면서 고른다'는 흐름이 끊깁니다.
+   넓은 화면에서는 원래대로 두 칸으로 놓여 둘 다 보이므로 고정할 필요가 없습니다.
+   ========================================================= */
+.cal-card { padding-bottom: 10px; }
+.cal-nav { margin-top: 0; }
+
+/* 달 이름 자체가 접기 버튼입니다. 버튼을 따로 두면 이 줄이 영어에서 카드 폭을 넘깁니다. */
+.cal-label {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 36px; padding: 4px 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit;
+  font-size: 14px; font-weight: 700; letter-spacing: -.01em;
+  cursor: pointer;
+}
+.cal-label:hover { background: var(--surface-2); }
+.cal-label:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-label > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-fold-mark { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
+
+@media (max-width: 759px) {
+  #panel-todo {
+    display: flex;
+    flex-direction: column;
+    /*
+     * .grid 의 align-items:start 가 세로축용인데, flex-direction:column 에서는
+     * 가로축에 걸립니다. 그대로 두면 카드가 내용 폭만큼 부풀어 화면을 넘칩니다.
+     * (320px 영어에서 달력 카드가 360px 이 되어 가로 스크롤이 생겼습니다)
+     */
+    align-items: stretch;
+    overflow: hidden;      /* 패널 전체가 아니라 목록만 스크롤합니다 */
+  }
+  #panel-todo > .cal-card { flex: none; }
+  #panel-todo > [data-card="todo.plan"] {
+    flex: 1 1 auto;
+    min-height: 0;         /* 이게 없으면 내용 높이만큼 늘어나 스크롤이 생기지 않습니다 */
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* 주간에서 날짜별로 묶을 때 쓰는 소제목 */
+.todo-group { list-style: none; margin: 10px 0 2px; }
+.todo-group:first-child { margin-top: 0; }
+.todo-group-head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  font-size: 12.5px; font-weight: 700; color: var(--text-dim);
+  letter-spacing: .01em;
+}
+button.todo-group-head {
+  min-height: 32px; padding: 4px 6px; margin-left: -6px;
+  border: 0; background: none; border-radius: var(--radius-sm);
+  font: inherit; font-size: 12.5px; font-weight: 700; color: var(--text-dim);
+  cursor: pointer; text-align: left;
+}
+button.todo-group-head:hover { background: var(--surface-2); color: var(--text); }
+button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.todo-group-go { color: var(--text-faint); }
+
+/* ---------- 입력줄 ---------- */
+.todo-form { margin: 12px 0 8px; display: flex; flex-direction: column; gap: 8px; }
+
+/*
+ * 분류 고르기.
+ * 예전에는 드롭다운이라 열어 보기 전에는 무엇이 있는지 알 수 없었습니다.
+ * 이모지가 그대로 달력에 나가므로, 고르는 자리에서도 이모지가 보여야 합니다.
+ */
+/* 기본 7개 + 편집 버튼이 390px 화면에서 한 줄에 들어가는 크기입니다.
+   (8 x 36 + 7 x 4 = 316 <= 카드 안쪽 폭 326)
+   분류를 더 만들면 자연스럽게 다음 줄로 넘어갑니다. */
+.cat-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.cat-chip {
+  width: 36px; height: 36px; flex: none;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0; cursor: pointer;
+  transition: background var(--motion) var(--ease), border-color var(--motion) var(--ease);
+}
+.cat-chip:hover { border-color: var(--accent); }
+.cat-chip.is-on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.cat-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cat-chip-emoji { font-size: 18px; line-height: 1; }
+
+/* ---------- 분류 편집 ---------- */
+/* 분류 칩 줄의 맨 끝에 붙는 버튼. 고르는 자리 바로 옆이라 찾기 쉽습니다. */
+.cat-edit-chip { border-style: dashed; }
+.cat-edit-chip.is-open { border-style: solid; border-color: var(--accent); background: var(--surface-3); }
+.cat-edit-body {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); padding: 10px; margin-top: 4px;
+}
+.cat-edit-list { display: flex; flex-direction: column; gap: 5px; }
+/*
+ * 거의 모든 줄이 '표시' 상태라, 켜진 것을 강조색으로 꽉 채우면
+ * 색이 정보를 주지 못하고 화면만 시끄러워집니다. 예외인 '숨김'이 눈에 띄어야 맞습니다.
+ */
+.cat-edit-row .cz-toggle.is-on {
+  background: var(--accent-soft); border-color: var(--border);
+  color: var(--accent); font-weight: 600;
+}
+.cat-edit-row { display: flex; align-items: center; gap: 8px; }
+.cat-edit-new { display: flex; align-items: center; gap: 6px; margin-top: 10px;
+                padding-top: 10px; border-top: 1px solid var(--border); }
+.cat-edit-body .card-sub { margin: 8px 0 0; }
+
+/* 이모지 바꾸기: 눌러서 펼치는 작은 판. 줄마다 판을 깔면 화면이 폭발합니다. */
+.cat-pick { position: relative; flex: none; }
+.cat-pick-summary {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 18px; cursor: pointer; list-style: none;
+}
+.cat-pick-summary::-webkit-details-marker { display: none; }
+.cat-pick-summary:hover { border-color: var(--accent); }
+.cat-pick-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.emoji-grid {
+  position: absolute; z-index: 5; left: 0; top: calc(100% + 4px);
+  display: grid; grid-template-columns: repeat(8, 32px); gap: 2px;
+  padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, .18);
+  max-height: 210px; overflow-y: auto;
+}
+.emoji-opt {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  border: 0; border-radius: 6px; background: none;
+  font-size: 17px; cursor: pointer; padding: 0;
+}
+.emoji-opt:hover { background: var(--surface-2); }
+.emoji-opt.is-on { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.emoji-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* 좁은 화면에서는 판이 화면 밖으로 나가지 않게 오른쪽 기준으로 붙입니다. */
+@media (max-width: 420px) {
+  .emoji-grid { grid-template-columns: repeat(6, 32px); left: auto; right: 0; }
+  .cat-edit-row .emoji-grid { left: 0; right: auto; }
+}
+
+/* ---------- 목록 위 도구줄 ---------- */
+.todo-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.row-tight { display: flex; gap: 5px; flex-wrap: wrap; }
+.todo-tools .card-sub { margin: 0 0 0 auto; }
+
+/* 이월·완료 삭제는 자주 쓰지 않습니다. 늘 펼쳐 두면 입력줄이 묻힙니다. */
+.more-menu { position: relative; flex: none; }
+.more-menu > summary { list-style: none; cursor: pointer; }
+.more-menu > summary::-webkit-details-marker { display: none; }
+.more-body {
+  position: absolute; z-index: 5; right: 0; top: calc(100% + 4px);
+  display: flex; flex-direction: column; gap: 4px; min-width: 132px;
+  padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, .18);
+}
+.more-body .btn { justify-content: flex-start; width: 100%; }

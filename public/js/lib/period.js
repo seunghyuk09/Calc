@@ -104,6 +104,26 @@ const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKDAYS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 
 /**
+ * 주의 날짜 범위만. ('2026년 38주차 · ' 같은 앞머리가 없습니다)
+ * 달력을 한 줄로 접었을 때처럼 자리가 좁은 곳에서 씁니다.
+ * 앞머리까지 넣으면 좁은 화면에서 잘려서 며칠인지 알 수가 없습니다.
+ */
+export function weekRange(key, lang = 'en') {
+  const d = dateOf('week', key);
+  const end = new Date(d);
+  end.setDate(end.getDate() + 6);
+  const sameMonth = d.getMonth() === end.getMonth();
+  if (lang === 'ko') {
+    return sameMonth
+      ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
+      : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
+  }
+  return sameMonth
+    ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
+    : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
+}
+
+/**
  * 화면에 보여줄 기간 이름.
  * @param {'day'|'week'|'month'|'year'} scope
  * @param {string} key
@@ -120,21 +140,10 @@ export function label(scope, key, lang = 'en') {
   }
 
   if (scope === 'week') {
-    const end = new Date(d);
-    end.setDate(end.getDate() + 6);
     const week = Number(key.split('-W')[1]);
     const isoYear = Number(key.split('-W')[0]);
-    const sameMonth = d.getMonth() === end.getMonth();
-    if (ko) {
-      const range = sameMonth
-        ? `${d.getMonth() + 1}월 ${d.getDate()}–${end.getDate()}일`
-        : `${d.getMonth() + 1}월 ${d.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
-      return `${isoYear}년 ${week}주차 · ${range}`;
-    }
-    const range = sameMonth
-      ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}–${end.getDate()}`
-      : `${MONTHS_EN[d.getMonth()]} ${d.getDate()} – ${MONTHS_EN[end.getMonth()]} ${end.getDate()}`;
-    return `Week ${week}, ${isoYear} · ${range}`;
+    const range = weekRange(key, lang);
+    return ko ? `${isoYear}년 ${week}주차 · ${range}` : `Week ${week}, ${isoYear} · ${range}`;
   }
 
   if (scope === 'month') {
