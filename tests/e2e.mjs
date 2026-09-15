@@ -910,6 +910,185 @@ const main = async () => {
     overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
 
+  // ---------- 11-a. 커스터마이즈 (테마 · 탭 · 위젯 · 카드 크기) ----------
+  console.log('\n▶ 커스터마이즈');
+  await page.click('.tab[data-tab="settings"]');
+  await page.waitForSelector('#customize .cz-section');
+
+  // 편집 UI 가 실제로 그려졌는지부터 확인합니다. 빈 상자면 아래 검사가 전부 무의미합니다.
+  check('커스터마이즈 UI 렌더링', (await page.locator('#customize .cz-section').count()) === 5,
+    `${await page.locator('#customize .cz-section').count()}개 구역`);
+
+  const rootAttr = (name) => page.evaluate((n) => document.documentElement.getAttribute(n), name);
+  const cssVar = (name) => page.evaluate((n) => (
+    getComputedStyle(document.documentElement).getPropertyValue(n).trim()), name);
+
+  // --- 스킨 ---
+  const radiusBefore = await cssVar('--radius');
+  await page.click('#customize [data-skin-opt="cute"]');
+  await page.waitForTimeout(120);
+  check('스킨 선택이 문서에 반영됨', (await rootAttr('data-skin')) === 'cute',
+    `data-skin=${await rootAttr('data-skin')}`);
+  const radiusCute = await cssVar('--radius');
+  // 속성만 붙고 CSS 가 안 걸리면 아무것도 안 바뀝니다. 실제 계산값을 봅니다.
+  check('스킨이 실제 모양을 바꿈 (모서리 반경)', radiusCute !== radiusBefore && radiusCute === '22px',
+    `${radiusBefore} -> ${radiusCute}`);
+
+  await page.click('#customize [data-skin-opt="default"]');
+  await page.waitForTimeout(120);
+  check('기본 스킨은 속성을 지움', (await rootAttr('data-skin')) === null,
+    String(await rootAttr('data-skin')));
+
+  // --- 강조색 ---
+  const accentBefore = await cssVar('--accent');
+  await page.click('#customize [data-accent-opt="pink"]');
+  await page.waitForTimeout(120);
+  check('강조색 선택이 문서에 반영됨', (await rootAttr('data-accent')) === 'pink');
+  const accentPink = await cssVar('--accent');
+  check('강조색이 실제로 바뀜', accentPink !== accentBefore && accentPink.length > 0,
+    `${accentBefore} -> ${accentPink}`);
+
+  // --- 스킨 x 다크 모드 ---
+  // 스킨마다 라이트/다크 값을 따로 적어야 하므로, 한쪽만 넣고 빠뜨리기 쉽습니다.
+  await page.click('#customize [data-skin-opt="cute"]');
+  await page.selectOption('#set-theme', 'dark');
+  await page.waitForTimeout(150);
+  const cuteDarkBg = await cssVar('--bg');
+  check('스킨이 다크 모드에서도 제 색을 씀', cuteDarkBg === '#221a20',
+    `--bg=${cuteDarkBg} (기대 #221a20)`);
+  await page.selectOption('#set-theme', 'light');
+  await page.waitForTimeout(150);
+  check('스킨이 라이트 모드에서도 제 색을 씀', (await cssVar('--bg')) === '#fdf7fb',
+    `--bg=${await cssVar('--bg')}`);
+
+  // --- 동작 줄이기가 스킨의 모션을 이긴다 ---
+  // '미래' 스킨은 전환을 길게 잡습니다. OS 설정이 켜지면 반드시 0 이어야 합니다.
+  await page.click('#customize [data-skin-opt="future"]');
+  await page.waitForTimeout(120);
+  const motionOn = await cssVar('--motion');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(120);
+  const motionReduced = await cssVar('--motion');
+  check('동작 줄이기가 스킨 모션을 이김', motionOn === '.42s' && motionReduced === '0s',
+    `기본 ${motionOn} -> 줄이기 ${motionReduced}`);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.click('#customize [data-skin-opt="default"]');
+  await page.selectOption('#set-theme', 'auto');
+  await page.waitForTimeout(120);
+
+  // --- 카드 크기 ---
+  const padOf = (sel) => page.evaluate((s2) => (
+    getComputedStyle(document.querySelector(s2)).paddingTop), sel);
+  const padBefore = await padOf('[data-card="calc.hist"]');
+  await page.click('#customize [data-card-row="calc.hist"] [data-size-opt="large"]');
+  await page.waitForTimeout(120);
+  check('카드 크기 속성 반영', (await page.getAttribute('[data-card="calc.hist"]', 'data-size')) === 'large');
+  const padLarge = await padOf('[data-card="calc.hist"]');
+  check('카드 크기가 실제 여백을 바꿈', padLarge !== padBefore && padLarge === '22px',
+    `${padBefore} -> ${padLarge}`);
+  const listH = await page.evaluate(() => (
+    getComputedStyle(document.querySelector('#calc-history')).maxHeight));
+  check('카드 크기가 목록 스크롤 높이도 바꿈', listH === '520px', listH);
+
+  // --- 오늘 위젯 ---
+  const widgetNames = () => page.evaluate(() => (
+    [...document.querySelectorAll('#today-widgets [data-widget]')].map((n) => n.dataset.widget)));
+  await page.click('#customize .cz-section:nth-of-type(4) .cz-row[data-row="clock"] .cz-toggle');
+  await page.waitForTimeout(150);
+  check('위젯을 켜면 오늘 탭에 추가됨', (await widgetNames()).includes('clock'),
+    (await widgetNames()).join(', '));
+
+  await page.click('#customize .cz-section:nth-of-type(4) .cz-row[data-row="weather"] .cz-toggle');
+  await page.waitForTimeout(150);
+  check('위젯을 끄면 사라짐', !(await widgetNames()).includes('weather'),
+    (await widgetNames()).join(', '));
+
+  // 시계 위젯이 실제로 시간을 보여주는지 (껍데기만 그리고 끝나는 경우를 잡습니다)
+  await page.click('.tab[data-tab="today"]');
+  await page.waitForTimeout(200);
+  const widgetClock = (await page.textContent('#today-clock')) || '';
+  check('시계 위젯이 시각을 표시함', /^\d{2}:\d{2}:\d{2}$/.test(widgetClock.trim()), widgetClock);
+
+  // 위젯을 누르면 해당 탭으로 이동해야 합니다.
+  await page.click('#today-clock');
+  await page.waitForTimeout(400);
+  check('위젯을 누르면 해당 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="time"]', 'aria-selected')) === 'true');
+
+  // --- 탭 순서와 숨김 ---
+  const tabOrder = () => page.evaluate(() => (
+    [...document.querySelectorAll('#tabs .tab')].map((b) => b.dataset.tab)));
+  const panelOrder = () => page.evaluate(() => (
+    [...document.querySelectorAll('#main .panel')].map((p2) => p2.id.replace('panel-', ''))));
+
+  await page.click('.tab[data-tab="settings"]');
+  await page.waitForTimeout(150);
+  const orderBefore = await tabOrder();
+  await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="calc"] [data-move="up"]');
+  await page.waitForTimeout(200);
+  const orderAfter = await tabOrder();
+  check('탭 순서를 위로 옮김', orderAfter[0] === 'calc' && orderBefore[0] === 'today',
+    `${orderBefore.slice(0, 3).join(',')} -> ${orderAfter.slice(0, 3).join(',')}`);
+  // 버튼만 옮기고 패널을 안 옮기면 스와이프했을 때 엉뚱한 화면이 나옵니다.
+  check('패널 순서도 함께 바뀜',
+    JSON.stringify(await panelOrder()) === JSON.stringify(orderAfter),
+    (await panelOrder()).slice(0, 3).join(','));
+
+  await page.click('#customize .cz-section:nth-of-type(3) .cz-row[data-row="music"] .cz-toggle');
+  await page.waitForTimeout(200);
+  check('숨긴 탭은 버튼과 패널에서 모두 빠짐',
+    !(await tabOrder()).includes('music') && !(await panelOrder()).includes('music'),
+    (await tabOrder()).join(','));
+
+  const lockedDisabled = await page.evaluate(() => (
+    document.querySelector('#customize .cz-section:nth-of-type(3) .cz-row[data-row="settings"] .cz-toggle')?.disabled === true));
+  check('설정 탭은 숨길 수 없음 (되돌릴 길이 사라지므로)', lockedDisabled === true);
+
+  // --- 새로고침 후에도 유지 ---
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.waitForTimeout(250);
+  check('새로고침 후 강조색 유지', (await rootAttr('data-accent')) === 'pink');
+  check('새로고침 후 탭 순서 유지', (await tabOrder())[0] === 'calc',
+    (await tabOrder()).slice(0, 3).join(','));
+  check('새로고침 후 숨김 유지', !(await tabOrder()).includes('music'));
+  check('새로고침 후 카드 크기 유지',
+    (await page.getAttribute('[data-card="calc.hist"]', 'data-size')) === 'large');
+  check('새로고침 후 위젯 구성 유지', (await widgetNames()).includes('clock'),
+    (await widgetNames()).join(', '));
+
+  // --- 초기화 ---
+  await page.click('.tab[data-tab="settings"]');
+  await page.waitForSelector('#customize .cz-section');
+  page.once('dialog', (d) => d.accept());
+  await page.click('#cz-reset');
+  await page.waitForTimeout(250);
+  check('초기화: 강조색이 기본으로', (await rootAttr('data-accent')) === null,
+    String(await rootAttr('data-accent')));
+  check('초기화: 탭 순서가 기본으로', (await tabOrder())[0] === 'today',
+    (await tabOrder()).slice(0, 3).join(','));
+  check('초기화: 숨긴 탭이 돌아옴', (await tabOrder()).includes('music'));
+  check('초기화: 카드 크기가 기본으로',
+    (await page.getAttribute('[data-card="calc.hist"]', 'data-size')) === null);
+
+  // 스와이프 인덱스가 새 순서로 다시 계산되는지. 탭 개수가 바뀐 뒤 가장 깨지기 쉬운 부분입니다.
+  await page.click('.tab[data-tab="weather"]');
+  // 부드러운 스크롤이 끝날 때까지 기다립니다. 고정 대기는 느린 CI 에서 흔들립니다.
+  let czLeft = -1;
+  for (let i = 0; i < 40; i += 1) {
+    const now = await page.evaluate(() => document.querySelector('#main').scrollLeft);
+    if (now === czLeft) break;
+    czLeft = now;
+    await page.waitForTimeout(100);
+  }
+  const snapOk = await page.evaluate(() => {
+    const main = document.querySelector('#main');
+    const tabs = [...document.querySelectorAll('#tabs .tab')].map((b) => b.dataset.tab);
+    const i = tabs.indexOf('weather');
+    return Math.abs(main.scrollLeft - i * main.clientWidth) < 4;
+  });
+  check('탭 구성이 바뀐 뒤에도 페이저 위치가 맞음', snapOk === true);
+
   // ---------- 11-b. 넓고 긴 화면에서 세로 여백 ----------
   // .panel 은 플렉스 아이템이라 화면 높이만큼 늘어나고 그 위에 display:grid 가 얹힙니다.
   // 그리드의 align-content 기본값(normal = stretch)은 남는 세로 공간을 행 사이에 나눠 넣어,

@@ -753,6 +753,295 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   .today-rot { scroll-behavior: auto; }
 }
 
+/* =========================================================
+   커스터마이즈: 스킨 · 강조색 · 카드 크기
+   -----------------------------------------------------
+   축이 셋입니다. 서로 간섭하지 않도록 담당 토큰을 나눠 둡니다.
+     data-theme  : light / dark      -> 배경과 글자 밝기 (위쪽에 이미 정의)
+     data-skin   : 분위기            -> 모서리, 그림자, 테두리, 글꼴, 모션
+     data-accent : 강조색            -> --accent 계열만
+   그래서 스킨 블록은 --accent 를 건드리지 않고, 강조색 블록은 배경을 건드리지 않습니다.
+   소스 순서상 강조색이 스킨보다 뒤에 와야 스킨이 강조색을 덮지 않습니다.
+   ========================================================= */
+
+:root {
+  --motion: .18s;
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --card-extra: none;          /* 스킨이 카드에 얹는 추가 그림자/윤곽 */
+  --card-border-width: 1px;
+  --surface-blur: none;
+}
+
+/* 부드러운 전환. 색과 그림자만 바꿔서 레이아웃 재계산이 없습니다. */
+.card, .btn, .key, .chip, .tab, .field, .icon-btn {
+  transition:
+    background-color var(--motion) var(--ease),
+    border-color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.card {
+  border-width: var(--card-border-width);
+  box-shadow: var(--shadow), var(--card-extra);
+  backdrop-filter: var(--surface-blur);
+}
+
+/* ---------- 스킨: 세련 (미니멀, 각진 모서리, 그림자 최소) ---------- */
+:root[data-skin="refined"] {
+  --radius: 6px; --radius-sm: 4px;
+  --shadow: 0 1px 1px rgba(16, 24, 40, .04);
+  --bg: #f7f7f6; --surface: #ffffff; --surface-2: #f1f1ef; --surface-3: #e6e6e3;
+  --border: #dedddb; --text: #16161a; --text-dim: #5c5c63; --text-faint: #8e8e96;
+}
+:root[data-theme="dark"][data-skin="refined"] {
+  --bg: #0c0c0d; --surface: #151517; --surface-2: #1d1d20; --surface-3: #27272b;
+  --border: #2a2a2e; --text: #ededf0; --text-dim: #9a9aa3; --text-faint: #6d6d76;
+  --shadow: 0 1px 1px rgba(0, 0, 0, .5);
+}
+
+/* ---------- 스킨: 귀여움 (둥근 모서리, 파스텔, 두꺼운 테두리) ---------- */
+:root[data-skin="cute"] {
+  --radius: 22px; --radius-sm: 14px;
+  --card-border-width: 2px;
+  --shadow: 0 4px 0 rgba(180, 150, 200, .16);
+  --bg: #fdf7fb; --surface: #ffffff; --surface-2: #fbeff7; --surface-3: #f5e1ee;
+  --border: #f0d9e8; --text: #3d2b38; --text-dim: #7a6472; --text-faint: #a893a2;
+}
+:root[data-theme="dark"][data-skin="cute"] {
+  --bg: #221a20; --surface: #2d232b; --surface-2: #392c36; --surface-3: #453444;
+  --border: #4a3745; --text: #f6e9f2; --text-dim: #c3aebc; --text-faint: #96808f;
+  --shadow: 0 4px 0 rgba(0, 0, 0, .28);
+}
+
+/* ---------- 스킨: 미래 (유리질감, 글로우, 느리고 부드러운 전환) ---------- */
+:root[data-skin="future"] {
+  --radius: 18px; --radius-sm: 12px;
+  --motion: .42s; --ease: cubic-bezier(.16, 1, .3, 1);
+  --surface-blur: saturate(150%) blur(10px);
+  --bg: #eef1f8; --surface: rgba(255, 255, 255, .72); --surface-2: rgba(255, 255, 255, .5);
+  --surface-3: rgba(226, 232, 245, .8);
+  --border: rgba(255, 255, 255, .8);
+  --text: #0e1524; --text-dim: #4a5670; --text-faint: #7b869c;
+  --shadow: 0 8px 32px rgba(23, 43, 92, .12);
+  --card-extra: inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+:root[data-theme="dark"][data-skin="future"] {
+  --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
+  --surface-3: rgba(44, 58, 88, .7);
+  --border: rgba(120, 150, 210, .22);
+  --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
+  --shadow: 0 8px 40px rgba(0, 0, 0, .55);
+  --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
+}
+
+/* ---------- 스킨: 레트로 (터미널풍, 고정폭 글꼴, 각진 모서리) ---------- */
+:root[data-skin="retro"] {
+  --radius: 3px; --radius-sm: 2px;
+  --font: var(--mono);
+  --shadow: none;
+  --card-border-width: 2px;
+  --bg: #efeada; --surface: #faf6e9; --surface-2: #e9e2cd; --surface-3: #ddd4ba;
+  --border: #b7ab89; --text: #2b2718; --text-dim: #5f5842; --text-faint: #8a8168;
+}
+:root[data-theme="dark"][data-skin="retro"] {
+  --bg: #0b0f0b; --surface: #10160f; --surface-2: #17200f; --surface-3: #1f2a16;
+  --border: #2f4024; --text: #cdf0b6; --text-dim: #8fb87a; --text-faint: #5f7d51;
+  --shadow: none;
+}
+
+/* ---------- 스킨: 자연 (어스톤, 따뜻한 배경) ---------- */
+:root[data-skin="nature"] {
+  --radius: 16px; --radius-sm: 11px;
+  --shadow: 0 1px 2px rgba(60, 50, 35, .06), 0 10px 26px rgba(60, 50, 35, .08);
+  --bg: #f4f1ea; --surface: #fffdf8; --surface-2: #ece7dc; --surface-3: #ded7c7;
+  --border: #d9d2c3; --text: #22201a; --text-dim: #5e594c; --text-faint: #8b8474;
+}
+:root[data-theme="dark"][data-skin="nature"] {
+  --bg: #14130f; --surface: #1d1c17; --surface-2: #26241d; --surface-3: #332f25;
+  --border: #3a362b; --text: #eeeade; --text-dim: #a8a290; --text-faint: #78725f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 26px rgba(0, 0, 0, .4);
+}
+
+/*
+ * 시스템이 다크일 때(data-theme 를 직접 고르지 않은 경우)도 스킨의 다크 값이 적용돼야 합니다.
+ * 위 [data-theme="dark"] 블록과 값이 같아야 하므로 함께 고쳐야 합니다.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-skin="refined"] {
+    --bg: #0c0c0d; --surface: #151517; --surface-2: #1d1d20; --surface-3: #27272b;
+    --border: #2a2a2e; --text: #ededf0; --text-dim: #9a9aa3; --text-faint: #6d6d76;
+    --shadow: 0 1px 1px rgba(0, 0, 0, .5);
+  }
+  :root:not([data-theme="light"])[data-skin="cute"] {
+    --bg: #221a20; --surface: #2d232b; --surface-2: #392c36; --surface-3: #453444;
+    --border: #4a3745; --text: #f6e9f2; --text-dim: #c3aebc; --text-faint: #96808f;
+    --shadow: 0 4px 0 rgba(0, 0, 0, .28);
+  }
+  :root:not([data-theme="light"])[data-skin="future"] {
+    --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
+    --surface-3: rgba(44, 58, 88, .7);
+    --border: rgba(120, 150, 210, .22);
+    --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
+    --shadow: 0 8px 40px rgba(0, 0, 0, .55);
+    --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
+  }
+  :root:not([data-theme="light"])[data-skin="retro"] {
+    --bg: #0b0f0b; --surface: #10160f; --surface-2: #17200f; --surface-3: #1f2a16;
+    --border: #2f4024; --text: #cdf0b6; --text-dim: #8fb87a; --text-faint: #5f7d51;
+    --shadow: none;
+  }
+  :root:not([data-theme="light"])[data-skin="nature"] {
+    --bg: #14130f; --surface: #1d1c17; --surface-2: #26241d; --surface-3: #332f25;
+    --border: #3a362b; --text: #eeeade; --text-dim: #a8a290; --text-faint: #78725f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 26px rgba(0, 0, 0, .4);
+  }
+}
+
+/* ---------- 강조색 ----------
+   라이트에서는 흰 배경 위, 다크에서는 어두운 배경 위라 같은 색을 쓸 수 없습니다.
+   라이트는 본문 대비 4.5:1 을 넘기도록 어둡게, 다크는 밝게 잡았습니다.
+   --accent-text 는 강조색 위에 얹는 글자색이라 항상 대비가 큰 쪽으로 둡니다. */
+:root[data-accent="blue"]   { --accent: #2f62ea; --accent-soft: #e4ecfd; --accent-text: #ffffff; }
+:root[data-accent="violet"] { --accent: #6540e0; --accent-soft: #ebe6fd; --accent-text: #ffffff; }
+:root[data-accent="teal"]   { --accent: #0b7d77; --accent-soft: #dcf2f0; --accent-text: #ffffff; }
+:root[data-accent="green"]  { --accent: #18794e; --accent-soft: #ddf1e6; --accent-text: #ffffff; }
+:root[data-accent="amber"]  { --accent: #96590a; --accent-soft: #fbeed7; --accent-text: #ffffff; }
+:root[data-accent="rose"]   { --accent: #c02c4f; --accent-soft: #fce0e7; --accent-text: #ffffff; }
+:root[data-accent="slate"]  { --accent: #445065; --accent-soft: #e5e8ee; --accent-text: #ffffff; }
+:root[data-accent="pink"]   { --accent: #b83a8a; --accent-soft: #fbe2f1; --accent-text: #ffffff; }
+
+:root[data-theme="dark"][data-accent="blue"]   { --accent: #6c9bff; --accent-soft: #1b2b4d; }
+:root[data-theme="dark"][data-accent="violet"] { --accent: #a58bff; --accent-soft: #2a2050; }
+:root[data-theme="dark"][data-accent="teal"]   { --accent: #3ad6c8; --accent-soft: #123833; }
+:root[data-theme="dark"][data-accent="green"]  { --accent: #4dd693; --accent-soft: #133727; }
+:root[data-theme="dark"][data-accent="amber"]  { --accent: #f0ae4a; --accent-soft: #3d2c10; }
+:root[data-theme="dark"][data-accent="rose"]   { --accent: #ff7d9b; --accent-soft: #421c27; }
+:root[data-theme="dark"][data-accent="slate"]  { --accent: #a3b1c6; --accent-soft: #272d38; }
+:root[data-theme="dark"][data-accent="pink"]   { --accent: #f28ed2; --accent-soft: #3f1c34; }
+
+/* 다크 강조색은 밝아서 그 위에 흰 글자를 쓰면 안 보입니다. 어두운 글자로 바꿉니다. */
+:root[data-theme="dark"][data-accent] { --accent-text: #0d1117; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-accent="blue"]   { --accent: #6c9bff; --accent-soft: #1b2b4d; }
+  :root:not([data-theme="light"])[data-accent="violet"] { --accent: #a58bff; --accent-soft: #2a2050; }
+  :root:not([data-theme="light"])[data-accent="teal"]   { --accent: #3ad6c8; --accent-soft: #123833; }
+  :root:not([data-theme="light"])[data-accent="green"]  { --accent: #4dd693; --accent-soft: #133727; }
+  :root:not([data-theme="light"])[data-accent="amber"]  { --accent: #f0ae4a; --accent-soft: #3d2c10; }
+  :root:not([data-theme="light"])[data-accent="rose"]   { --accent: #ff7d9b; --accent-soft: #421c27; }
+  :root:not([data-theme="light"])[data-accent="slate"]  { --accent: #a3b1c6; --accent-soft: #272d38; }
+  :root:not([data-theme="light"])[data-accent="pink"]   { --accent: #f28ed2; --accent-soft: #3f1c34; }
+  :root:not([data-theme="light"])[data-accent] { --accent-text: #0d1117; }
+}
+
+/* ---------- 카드 크기 프리셋 ----------
+   바꾸는 것은 셋입니다: 안쪽 여백, 목록 스크롤 높이, 큰 숫자 표시 크기.
+   그 밖의 글자 크기는 그대로 둡니다. 전부 키우면 한 줄에 들어가던 글이 넘쳐
+   레이아웃이 깨지기 때문입니다. */
+.card { --pad: 16px; --list-h: 340px; --display-scale: 1; padding: var(--pad); }
+.card[data-size="compact"] { --pad: 11px; --list-h: 210px; --display-scale: .82; }
+.card[data-size="large"]   { --pad: 22px; --list-h: 520px; --display-scale: 1.24; }
+
+.hist-list { max-height: var(--list-h); }
+.chat-log  { max-height: calc(var(--list-h) + 80px); }
+.today-rot { max-height: calc(var(--today-rot-rows) * 46px * var(--display-scale, 1)); }
+
+.calc-expr     { font-size: calc(19px * var(--display-scale, 1)); }
+.calc-result   { font-size: calc(33px * var(--display-scale, 1)); }
+.clock-time    { font-size: calc(clamp(38px, 11vw, 62px) * var(--display-scale, 1)); }
+.timer-display { font-size: calc(clamp(40px, 13vw, 64px) * var(--display-scale, 1)); }
+.today-wx-temp { font-size: calc(30px * var(--display-scale, 1)); }
+.today-wx-icon { font-size: calc(46px * var(--display-scale, 1)); }
+
+/* 폭: 좁은 화면은 어차피 한 칸이라 넓은 화면에서만 의미가 있습니다. */
+@media (min-width: 760px) {
+  .grid-2 > .card[data-span="full"] { grid-column: 1 / -1; }
+}
+
+/* 커스터마이즈가 켜져 있어도 OS 의 '동작 줄이기'가 항상 이깁니다. */
+@media (prefers-reduced-motion: reduce) {
+  :root, :root[data-skin] { --motion: 0s; }
+  .card, .btn, .key, .chip, .tab, .field, .icon-btn { transition: none; }
+}
+
+/* ---------- '오늘' 위젯 ---------- */
+.today-widgets { grid-column: 1 / -1; }
+.today-line { display: flex; flex-direction: column; gap: 2px; }
+.today-big { font-family: var(--mono); font-weight: 700; letter-spacing: -.02em;
+             font-size: calc(30px * var(--display-scale, 1)); line-height: 1.15; }
+.today-big-sm { font-size: calc(22px * var(--display-scale, 1)); }
+.today-sub { font-size: 12.5px; color: var(--text-faint); }
+.today-quote-text { font-size: 14.5px; line-height: 1.6; }
+/* 요약 카드이므로 긴 글은 세 줄에서 자릅니다. 카드 높이가 제각각이면 화면이 어지럽습니다. */
+.today-clip {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; font-size: 13.5px; line-height: 1.55; word-break: break-word;
+}
+
+/* ---------- 커스터마이즈 UI ---------- */
+.cz-section { margin-bottom: 18px; }
+.cz-section:last-of-type { margin-bottom: 0; }
+.cz-hint { margin: 4px 0 10px; }
+.cz-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.cz-opts-tight { gap: 4px; }
+
+.cz-opt {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 38px; padding: 7px 13px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.cz-opt:hover { border-color: var(--accent); }
+.cz-opt.is-on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+.cz-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 스킨 미리보기 조각. 실제 스킨의 모서리와 색감을 작게 흉내 냅니다. */
+.cz-skin-chip { width: 18px; height: 18px; flex: none; border: 1px solid var(--border); }
+.cz-skin-default { border-radius: 5px; background: linear-gradient(135deg, #ffffff 50%, #3b6ef6 50%); }
+.cz-skin-refined { border-radius: 2px; background: linear-gradient(135deg, #ffffff 50%, #16161a 50%); }
+.cz-skin-cute    { border-radius: 9px; background: linear-gradient(135deg, #fdf7fb 50%, #f0a8d0 50%); }
+.cz-skin-future  { border-radius: 7px; background: linear-gradient(135deg, #dbe6ff 50%, #1b2b6b 50%); }
+.cz-skin-retro   { border-radius: 1px; background: linear-gradient(135deg, #faf6e9 50%, #2f4024 50%); }
+.cz-skin-nature  { border-radius: 6px; background: linear-gradient(135deg, #fffdf8 50%, #6f7a4a 50%); }
+
+.cz-swatch { width: 38px; height: 38px; padding: 0; justify-content: center; }
+.cz-dot { width: 20px; height: 20px; border-radius: 50%; display: block; }
+.cz-dot-blue   { background: #2f62ea; } .cz-dot-violet { background: #6540e0; }
+.cz-dot-teal   { background: #0b7d77; } .cz-dot-green  { background: #18794e; }
+.cz-dot-amber  { background: #96590a; } .cz-dot-rose   { background: #c02c4f; }
+.cz-dot-slate  { background: #445065; } .cz-dot-pink   { background: #b83a8a; }
+
+.cz-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cz-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.cz-row-label { flex: 1 1 auto; min-width: 0; font-size: 13.5px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cz-row .icon-btn:disabled { opacity: .35; cursor: default; }
+
+.cz-toggle {
+  min-width: 56px; min-height: 32px; padding: 5px 10px; flex: none;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-dim);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.cz-toggle.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+.cz-toggle:disabled { opacity: .45; cursor: default; }
+
+.cz-cards { display: flex; flex-direction: column; gap: 14px; }
+.cz-group-title { font-size: 12px; font-weight: 700; color: var(--text-faint);
+                  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.cz-card-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); margin-bottom: 6px;
+}
+.cz-card-row .cz-row-label { flex: 1 1 140px; }
+.cz-card-row .cz-opt { min-height: 30px; padding: 4px 9px; font-size: 12px; }
+
 </style>
 </head>
 <body>
@@ -790,45 +1079,19 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   <main class="app-main" id="main">
 
     <!-- ================= 오늘 (플래너 첫 페이지) ================= -->
-    <section class="panel grid grid-2" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
+    <section class="panel grid" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
       <div class="today-head">
         <div class="today-date" id="today-date">—</div>
         <div class="today-swipe-hint" aria-hidden="true">← 좌우로 쓸어 탭 이동 →</div>
       </div>
 
-      <!-- 현재 날씨: 카드 전체가 버튼이라 어디를 눌러도 주간 예보로 갑니다 -->
-      <button class="card today-card" id="today-weather-card" type="button">
-        <div class="today-card-head">
-          <span class="card-title" data-i18n="today.weather.title">현재 날씨</span>
-          <span class="card-sub" data-i18n="today.weather.hint">눌러서 주간 예보 보기</span>
-        </div>
-        <div class="today-wx" id="today-weather">
-          <div class="today-wx-icon"><span class="spinner"></span></div>
-          <div class="today-wx-body">
-            <div class="today-wx-desc" data-i18n="today.weather.loading">날씨를 불러오는 중…</div>
-          </div>
-        </div>
-      </button>
-
-      <!-- 오늘 할 일: 미완료 항목이 천천히 순환합니다 -->
-      <div class="card today-card-static">
-        <div class="today-card-head">
-          <span class="card-title" data-i18n="today.todo.title">오늘 할 일</span>
-          <span class="card-sub" id="today-todo-count"></span>
-          <button class="icon-btn today-rot-toggle" id="today-rot-toggle" type="button"
-                  data-i18n-aria="today.rotate.pause" data-i18n-title="today.rotate.pause"
-                  aria-pressed="false" hidden>⏸</button>
-        </div>
-        <div class="today-rot" id="today-rot" tabindex="0"
-             data-i18n-aria="today.aria.rotation" aria-label="미완료 할 일 순환">
-          <div class="today-rot-empty" data-i18n="today.todo.empty">등록된 할 일이 없습니다. 눌러서 계획표를 여세요.</div>
-        </div>
-      </div>
+      <!-- 위젯은 설정 탭에서 고른 것만, 고른 순서대로 today.js 가 그립니다. -->
+      <div class="today-widgets grid grid-2" id="today-widgets"></div>
     </section>
 
     <!-- ================= 계산기 ================= -->
     <section class="panel grid grid-2" id="panel-calc" role="tabpanel" aria-label="계산기">
-      <div class="card">
+      <div class="card" data-card="calc.pad">
         <div class="calc-display">
           <input class="calc-expr" id="calc-expr" inputmode="text" autocomplete="off" spellcheck="false"
                  placeholder="0" aria-label="수식 입력">
@@ -858,7 +1121,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
         <p class="card-sub" style="margin-top:10px">키보드로도 입력할 수 있어요. Enter = 계산, Esc = 초기화</p>
       </div>
-      <div class="card">
+      <div class="card" data-card="calc.hist">
         <div class="card-head">
           <h2 class="card-title">계산 기록</h2>
           <button class="btn btn-sm btn-ghost" id="calc-clear-hist" type="button">기록 지우기</button>
@@ -869,7 +1132,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= 날씨 ================= -->
     <section class="panel grid grid-2" id="panel-weather" role="tabpanel" aria-label="날씨">
-      <div class="card">
+      <div class="card" data-card="weather.now">
         <div class="card-head">
           <h2 class="card-title" id="wx-place">현재 날씨</h2>
           <button class="btn btn-sm" id="wx-locate" type="button">📍 내 위치</button>
@@ -880,7 +1143,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </form>
         <div id="wx-now"><p class="empty">날씨를 불러오는 중…</p></div>
       </div>
-      <div class="card">
+      <div class="card" data-card="weather.week">
         <div class="card-head"><h2 class="card-title">주간 예보 (7일)</h2></div>
         <ul class="wx-week" id="wx-week"><li class="empty">—</li></ul>
         <p class="card-sub" style="margin-top:12px">데이터: Open-Meteo (CC BY 4.0)</p>
@@ -889,7 +1152,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
     <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
-      <div class="card">
+      <div class="card" data-card="todo.plan">
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
@@ -936,14 +1199,14 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= 시계 · 타이머 ================= -->
     <section class="panel grid grid-2" id="panel-time" role="tabpanel" aria-label="시계와 타이머">
-      <div class="card">
+      <div class="card" data-card="time.clock">
         <div class="card-head"><h2 class="card-title">시계</h2></div>
         <div class="clock-time" id="clock-time">--:--:--</div>
         <div class="clock-date" id="clock-date">—</div>
         <ul class="world-list" id="world-clocks"></ul>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="time.timer">
         <div class="card-head">
           <h2 class="card-title">타이머 · 뽀모도로</h2>
           <button class="btn btn-sm btn-ghost" id="notify-enable" type="button">🔔 알림 허용</button>
@@ -983,7 +1246,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= 메모 · 낙서 ================= -->
     <section class="panel grid grid-2" id="panel-memo" role="tabpanel" aria-label="메모와 낙서판">
-      <div class="card">
+      <div class="card" data-card="memo.draw">
         <div class="card-head">
           <h2 class="card-title">낙서판</h2>
           <span class="card-sub">손가락·마우스·펜</span>
@@ -1003,7 +1266,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="memo.note">
         <div class="card-head">
           <h2 class="card-title">간단 메모</h2>
           <span class="card-sub" id="memo-count"></span>
@@ -1020,7 +1283,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= 글귀 ================= -->
     <section class="panel grid grid-2" id="panel-quote" role="tabpanel" aria-label="글귀">
-      <div class="card">
+      <div class="card" data-card="quote.today">
         <div class="card-head">
           <h2 class="card-title">오늘의 글귀</h2>
           <button class="btn btn-sm" id="quote-next" type="button">🔄 다른 글귀</button>
@@ -1031,7 +1294,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
         <p class="card-sub" style="margin-top:10px">내가 등록한 글귀가 있으면 우선 보여줍니다.</p>
       </div>
-      <div class="card">
+      <div class="card" data-card="quote.mine">
         <div class="card-head">
           <h2 class="card-title">내 글귀</h2>
           <span class="card-sub" id="quote-count"></span>
@@ -1049,7 +1312,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= 음악 ================= -->
     <section class="panel grid" id="panel-music" role="tabpanel" aria-label="음악">
-      <div class="card">
+      <div class="card" data-card="music.player">
         <div class="card-head"><h2 class="card-title">YouTube 플레이어</h2></div>
         <form class="row" id="yt-form" style="margin-bottom:12px">
           <input class="field grow" id="yt-input" placeholder="YouTube 영상/재생목록 URL 또는 ID 붙여넣기" autocomplete="off">
@@ -1062,7 +1325,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="music.links">
         <div class="card-head"><h2 class="card-title">음악 서비스 바로가기</h2></div>
         <p class="note" style="margin-bottom:12px">
           <strong>기술적 한계 안내:</strong> 멜론·지니·유튜브뮤직은 외부 앱에서 <strong>계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.</strong>
@@ -1079,7 +1342,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= AI 검색 ================= -->
     <section class="panel grid" id="panel-ai" role="tabpanel" aria-label="AI 검색">
-      <div class="card">
+      <div class="card" data-card="ai.chat">
         <div class="card-head">
           <h2 class="card-title">AI 검색 · 질문</h2>
           <span class="card-sub" id="ai-mode">키 미설정</span>
@@ -1105,7 +1368,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
     <!-- ================= 설정 ================= -->
     <section class="panel grid grid-2" id="panel-settings" role="tabpanel" aria-label="설정">
-      <div class="card">
+      <div class="card" data-card="settings.display">
         <div class="card-head"><h2 class="card-title">표시 설정</h2></div>
         <div class="row" style="margin-bottom:14px">
           <span class="card-sub grow">테마</span>
@@ -1131,7 +1394,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="settings.ai">
         <div class="card-head"><h2 class="card-title">AI 연동 (BYOK)</h2></div>
         <p class="card-sub" style="margin-bottom:8px">
           Anthropic API 키를 입력하면 AI 검색 탭이 활성화됩니다.
@@ -1160,6 +1423,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
         </div>
         <input type="file" id="set-import-file" accept="application/json" class="sr-only">
         <p class="card-sub" id="set-storage-note" style="margin-top:10px"></p>
+      </div>
+
+      <!-- 커스터마이즈 UI 는 appearance.js 가 그립니다. 항목이 prefs 에 따라 달라지기 때문입니다. -->
+      <div class="card" data-card="settings.customize">
+        <div class="card-head"><h2 class="card-title" data-i18n="cz.title">화면 커스터마이즈</h2></div>
+        <div id="customize"></div>
       </div>
     </section>
 
@@ -1425,6 +1694,64 @@ const DICT = {
     'today.rotate.play': '순환 시작',
     'today.aria.rotation': '미완료 할 일 순환',
     'today.aria.position': (i, n) => `${n}개 중 ${i}번째`,
+    // ---- 탭 이름 (커스터마이즈 목록에서 씁니다) ----
+    'tab.today': '오늘', 'tab.calc': '계산기', 'tab.weather': '날씨', 'tab.todo': 'TO DO',
+    'tab.time': '시계·타이머', 'tab.memo': '메모·낙서', 'tab.quote': '글귀',
+    'tab.music': '음악', 'tab.ai': 'AI 검색', 'tab.settings': '설정',
+    // ---- '오늘' 위젯 ----
+    'today.clock.title': '지금 시각',
+    'today.timer.title': '타이머',
+    'today.timer.idle': '실행 중인 타이머가 없습니다',
+    'today.timer.running': '진행 중',
+    'today.quote.title': '오늘의 글귀',
+    'today.quote.empty': '등록된 글귀가 없습니다',
+    'today.memo.title': '최근 메모',
+    'today.memo.empty': '저장된 메모가 없습니다',
+    'today.memo.more': (n) => `외 ${n}건`,
+    'today.calc.title': '최근 계산',
+    'today.calc.empty': '계산 기록이 없습니다',
+    'today.widget.hint': '눌러서 해당 탭으로 이동',
+    'today.empty': '표시할 위젯이 없습니다. 설정 탭에서 골라 주세요.',
+    // ---- 커스터마이즈 ----
+    'cz.title': '화면 커스터마이즈',
+    'cz.skin.title': '테마 스타일',
+    'cz.skin.hint': '라이트/다크와 별개로 분위기를 고릅니다. 두 모드 모두 지원합니다.',
+    'cz.skin.default': '기본', 'cz.skin.refined': '세련', 'cz.skin.cute': '귀여움',
+    'cz.skin.future': '미래', 'cz.skin.retro': '레트로', 'cz.skin.nature': '자연',
+    'cz.accent.title': '강조색',
+    'cz.accent.hint': '버튼과 선택 표시에 쓰이는 색입니다.',
+    'cz.accent.blue': '파랑', 'cz.accent.violet': '보라', 'cz.accent.teal': '청록',
+    'cz.accent.green': '초록', 'cz.accent.amber': '호박', 'cz.accent.rose': '로즈',
+    'cz.accent.slate': '슬레이트', 'cz.accent.pink': '핑크',
+    'cz.tabs.title': '탭 순서와 표시',
+    'cz.tabs.hint': '위아래로 옮겨 순서를 바꾸고, 안 쓰는 탭은 숨길 수 있습니다.',
+    'cz.widgets.title': "'오늘' 탭 위젯",
+    'cz.widgets.hint': '첫 화면에 올릴 요약 카드와 순서를 고릅니다.',
+    'cz.widget.weather': '현재 날씨', 'cz.widget.todo': '오늘 할 일',
+    'cz.widget.clock': '시계', 'cz.widget.timer': '타이머',
+    'cz.widget.quote': '오늘의 글귀', 'cz.widget.memo': '최근 메모',
+    'cz.widget.calc': '최근 계산',
+    'cz.cards.title': '카드 크기',
+    'cz.cards.hint': '여백, 목록 스크롤 높이, 큰 숫자 표시 크기가 함께 바뀝니다. 폭은 화면이 넓을 때만 적용됩니다.',
+    'cz.cards.none': '조절할 수 있는 카드가 없습니다.',
+    'cz.card.calc.pad': '계산기 자판', 'cz.card.calc.hist': '계산 기록',
+    'cz.card.weather.now': '현재 날씨', 'cz.card.weather.week': '주간 예보',
+    'cz.card.todo.plan': '계획표',
+    'cz.card.time.clock': '시계', 'cz.card.time.timer': '타이머·알람',
+    'cz.card.memo.draw': '낙서판', 'cz.card.memo.note': '간단 메모',
+    'cz.card.quote.today': '오늘의 글귀', 'cz.card.quote.mine': '내 글귀',
+    'cz.card.music.player': 'YouTube 플레이어', 'cz.card.music.links': '음악 서비스 바로가기',
+    'cz.card.ai.chat': 'AI 검색',
+    'cz.card.settings.display': '표시 설정', 'cz.card.settings.ai': 'AI 연동',
+    'cz.card.settings.customize': '화면 커스터마이즈',
+    'cz.size.compact': '작게', 'cz.size.normal': '보통', 'cz.size.large': '크게',
+    'cz.span.auto': '기본 폭', 'cz.span.full': '가로 전체',
+    'cz.shown': '표시', 'cz.hidden': '숨김',
+    'cz.lockedHint': '이 탭은 숨길 수 없습니다',
+    'cz.moveUp': (label) => `${label} 위로`,
+    'cz.moveDown': (label) => `${label} 아래로`,
+    'cz.reset': '커스터마이즈 초기화',
+    'cz.resetConfirm': '테마, 탭 순서, 위젯, 카드 크기를 모두 기본값으로 되돌립니다. 계속할까요?',
     'todo.title': '계획표',
     'todo.scope.day': '일간',
     'todo.scope.week': '주간',
@@ -1466,6 +1793,64 @@ const DICT = {
     'today.rotate.play': 'Start rotation',
     'today.aria.rotation': 'Unfinished task carousel',
     'today.aria.position': (i, n) => `Item ${i} of ${n}`,
+    // ---- Tab names ----
+    'tab.today': 'Today', 'tab.calc': 'Calculator', 'tab.weather': 'Weather', 'tab.todo': 'TO DO',
+    'tab.time': 'Clock & timer', 'tab.memo': 'Notes', 'tab.quote': 'Quotes',
+    'tab.music': 'Music', 'tab.ai': 'AI search', 'tab.settings': 'Settings',
+    // ---- Today widgets ----
+    'today.clock.title': 'Time now',
+    'today.timer.title': 'Timer',
+    'today.timer.idle': 'No timer running',
+    'today.timer.running': 'Running',
+    'today.quote.title': 'Quote of the day',
+    'today.quote.empty': 'No quotes saved yet',
+    'today.memo.title': 'Latest note',
+    'today.memo.empty': 'No notes saved yet',
+    'today.memo.more': (n) => `+${n} more`,
+    'today.calc.title': 'Recent calculation',
+    'today.calc.empty': 'No calculations yet',
+    'today.widget.hint': 'Tap to open that tab',
+    'today.empty': 'No widgets selected. Pick some in Settings.',
+    // ---- Customize ----
+    'cz.title': 'Customize',
+    'cz.skin.title': 'Theme style',
+    'cz.skin.hint': 'Sets the mood, separate from light/dark. Both modes are supported.',
+    'cz.skin.default': 'Default', 'cz.skin.refined': 'Refined', 'cz.skin.cute': 'Cute',
+    'cz.skin.future': 'Future', 'cz.skin.retro': 'Retro', 'cz.skin.nature': 'Nature',
+    'cz.accent.title': 'Accent color',
+    'cz.accent.hint': 'Used for buttons and selection highlights.',
+    'cz.accent.blue': 'Blue', 'cz.accent.violet': 'Violet', 'cz.accent.teal': 'Teal',
+    'cz.accent.green': 'Green', 'cz.accent.amber': 'Amber', 'cz.accent.rose': 'Rose',
+    'cz.accent.slate': 'Slate', 'cz.accent.pink': 'Pink',
+    'cz.tabs.title': 'Tab order and visibility',
+    'cz.tabs.hint': 'Move tabs up or down, and hide the ones you never use.',
+    'cz.widgets.title': 'Today widgets',
+    'cz.widgets.hint': 'Choose which summary cards appear first, and in what order.',
+    'cz.widget.weather': 'Current weather', 'cz.widget.todo': "Today's tasks",
+    'cz.widget.clock': 'Clock', 'cz.widget.timer': 'Timer',
+    'cz.widget.quote': 'Quote of the day', 'cz.widget.memo': 'Latest note',
+    'cz.widget.calc': 'Recent calculation',
+    'cz.cards.title': 'Card size',
+    'cz.cards.hint': 'Changes padding, list scroll height and the large number display. Width only applies on wide screens.',
+    'cz.cards.none': 'No adjustable cards.',
+    'cz.card.calc.pad': 'Keypad', 'cz.card.calc.hist': 'History',
+    'cz.card.weather.now': 'Current weather', 'cz.card.weather.week': 'Weekly forecast',
+    'cz.card.todo.plan': 'Planner',
+    'cz.card.time.clock': 'Clock', 'cz.card.time.timer': 'Timer & alarm',
+    'cz.card.memo.draw': 'Scratchpad', 'cz.card.memo.note': 'Quick notes',
+    'cz.card.quote.today': 'Quote of the day', 'cz.card.quote.mine': 'My quotes',
+    'cz.card.music.player': 'YouTube player', 'cz.card.music.links': 'Music services',
+    'cz.card.ai.chat': 'AI search',
+    'cz.card.settings.display': 'Display', 'cz.card.settings.ai': 'AI integration',
+    'cz.card.settings.customize': 'Customize',
+    'cz.size.compact': 'Small', 'cz.size.normal': 'Normal', 'cz.size.large': 'Large',
+    'cz.span.auto': 'Default', 'cz.span.full': 'Full width',
+    'cz.shown': 'Shown', 'cz.hidden': 'Hidden',
+    'cz.lockedHint': 'This tab cannot be hidden',
+    'cz.moveUp': (label) => `Move ${label} up`,
+    'cz.moveDown': (label) => `Move ${label} down`,
+    'cz.reset': 'Reset customization',
+    'cz.resetConfirm': 'This resets theme, tab order, widgets and card sizes to their defaults. Continue?',
     'todo.title': 'Planner',
     'todo.scope.day': 'Day',
     'todo.scope.week': 'Week',
@@ -1716,6 +2101,195 @@ function isCurrent(scope, key) {
   return key === keyOf(scope, new Date());
 }
   return { isoWeekParts, isoWeekStart, keyOf, dateOf, shift, label, isCurrent, SCOPES };
+})();
+
+/* ===== js/lib/prefs.js ===== */
+const __m_js_lib_prefs_js = (function () {
+  const { load, save } = __m_js_lib_store_js;
+/**
+ * prefs.js — 화면 커스터마이즈 설정 저장소
+ *
+ * 테마 스킨/강조색, 탭 순서와 숨김, '오늘' 위젯 구성, 카드 크기를 한곳에서 관리합니다.
+ * DOM 은 건드리지 않습니다. 실제 화면 적용은 appearance.js 가 합니다.
+ *
+ * localStorage 는 사용자가 직접 고칠 수 있고 예전 버전이 남아 있을 수도 있으므로,
+ * 읽어 올 때마다 전부 검사해서 모르는 값은 버립니다.
+ * 설정 하나가 망가졌다고 앱 전체가 죽으면 안 됩니다.
+ */
+
+const PREFS_KEY = 'ui.prefs';
+
+/** 고를 수 있는 스킨. CSS 의 :root[data-skin="..."] 와 짝이 맞아야 합니다. */
+const SKINS = ['default', 'refined', 'cute', 'future', 'retro', 'nature'];
+
+/** 고를 수 있는 강조색. CSS 의 :root[data-accent="..."] 와 짝이 맞아야 합니다. */
+const ACCENTS = ['blue', 'violet', 'teal', 'green', 'amber', 'rose', 'slate', 'pink'];
+
+/** 탭 전체 목록. 화면에 놓이는 순서의 기본값이기도 합니다. */
+const ALL_TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
+
+/**
+ * 숨길 수 없는 탭.
+ * 설정 탭을 숨기면 되돌릴 방법이 사라지고, 오늘 탭은 앱의 첫 화면이라 남겨 둡니다.
+ */
+const LOCKED_TABS = ['today', 'settings'];
+
+/** '오늘' 탭에 놓을 수 있는 위젯. 순서도 이 배열의 순서를 기본값으로 씁니다. */
+const ALL_WIDGETS = ['weather', 'todo', 'clock', 'timer', 'quote', 'memo', 'calc'];
+
+/** 카드 크기 프리셋. 여백, 내부 스크롤 높이, 큰 숫자 표시 크기가 함께 바뀝니다. */
+const CARD_SIZES = ['compact', 'normal', 'large'];
+
+/** 카드 폭. auto 는 화면 폭에 따라 1칸, full 은 항상 가로 전체입니다. */
+const CARD_SPANS = ['auto', 'full'];
+
+/**
+ * 카드별 기본값.
+ * 커스터마이즈 카드는 항목이 많아 좁은 칸에 넣으면 버튼이 줄줄이 접힙니다.
+ * 사용자가 직접 '기본 폭'을 고르면 그 선택이 이깁니다.
+ */
+const CARD_DEFAULTS = Object.freeze({
+  'settings.customize': { size: 'normal', span: 'full' },
+});
+
+const DEFAULTS = Object.freeze({
+  skin: 'default',
+  accent: 'blue',
+  tabOrder: ALL_TABS.slice(),
+  tabHidden: [],
+  widgets: ['weather', 'todo'],
+  cards: {},
+});
+
+const listeners = new Set();
+
+const isStr = (v) => typeof v === 'string';
+
+/**
+ * 저장된 순서를 정규화합니다.
+ * 모르는 이름은 버리고, 빠진 탭은 기본 순서대로 뒤에 붙입니다.
+ * 이렇게 해야 나중에 탭이 추가돼도 기존 사용자 화면에서 사라지지 않습니다.
+ */
+function normalizeOrder(raw, all) {
+  const seen = new Set();
+  const out = [];
+  if (Array.isArray(raw)) {
+    raw.forEach((name) => {
+      if (isStr(name) && all.includes(name) && !seen.has(name)) { seen.add(name); out.push(name); }
+    });
+  }
+  all.forEach((name) => { if (!seen.has(name)) out.push(name); });
+  return out;
+}
+
+/** 위젯 목록. 순서를 그대로 쓰되 모르는 이름과 중복만 걸러냅니다. (빈 목록도 허용) */
+function normalizeWidgets(raw) {
+  if (!Array.isArray(raw)) return DEFAULTS.widgets.slice();
+  const seen = new Set();
+  const out = [];
+  raw.forEach((name) => {
+    if (isStr(name) && ALL_WIDGETS.includes(name) && !seen.has(name)) { seen.add(name); out.push(name); }
+  });
+  return out;
+}
+
+function normalizeHidden(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((name) => (
+    isStr(name) && ALL_TABS.includes(name) && !LOCKED_TABS.includes(name)
+  )).filter((name, i, arr) => arr.indexOf(name) === i);
+}
+
+/** 카드별 크기 설정. 값이 이상하면 그 카드만 기본값으로 되돌립니다. */
+function normalizeCards(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.entries(raw).forEach(([id, value]) => {
+    if (!isStr(id) || !value || typeof value !== 'object') return;
+    const size = CARD_SIZES.includes(value.size) ? value.size : 'normal';
+    const span = CARD_SPANS.includes(value.span) ? value.span : 'auto';
+    out[id] = { size, span };
+  });
+  return out;
+}
+
+function getPrefs() {
+  const raw = load(PREFS_KEY, null) || {};
+  return {
+    skin: SKINS.includes(raw.skin) ? raw.skin : DEFAULTS.skin,
+    accent: ACCENTS.includes(raw.accent) ? raw.accent : DEFAULTS.accent,
+    tabOrder: normalizeOrder(raw.tabOrder, ALL_TABS),
+    tabHidden: normalizeHidden(raw.tabHidden),
+    widgets: normalizeWidgets(raw.widgets),
+    cards: normalizeCards(raw.cards),
+  };
+}
+
+/** 실제로 화면에 놓일 탭. 순서대로, 숨긴 것은 뺀 목록입니다. */
+function visibleTabs(prefs = getPrefs()) {
+  const hidden = new Set(prefs.tabHidden);
+  const list = prefs.tabOrder.filter((name) => !hidden.has(name));
+  // 방어: 정규화를 뚫고 전부 사라지는 일이 생기면 기본 순서로 되돌립니다.
+  return list.length ? list : ALL_TABS.slice();
+}
+
+/** 카드 하나의 설정. 저장된 게 없으면 그 카드의 기본값입니다. */
+function cardPref(id, prefs = getPrefs()) {
+  return prefs.cards[id] || CARD_DEFAULTS[id] || { size: 'normal', span: 'auto' };
+}
+
+/** 여러 항목을 한 번에 바꿉니다. 저장 뒤 구독자에게 알립니다. */
+function setPrefs(patch) {
+  const next = { ...getPrefs(), ...patch };
+  save(PREFS_KEY, {
+    skin: next.skin,
+    accent: next.accent,
+    tabOrder: next.tabOrder,
+    tabHidden: next.tabHidden,
+    widgets: next.widgets,
+    cards: next.cards,
+  });
+  notify();
+  return getPrefs();
+}
+
+/** 카드 하나의 크기/폭만 바꿉니다. */
+function setCardPref(id, patch) {
+  const prefs = getPrefs();
+  const current = cardPref(id, prefs);
+  const cards = { ...prefs.cards, [id]: { ...current, ...patch } };
+  return setPrefs({ cards: normalizeCards(cards) });
+}
+
+/** 전부 기본값으로 되돌립니다. */
+function resetPrefs() {
+  return setPrefs({ ...DEFAULTS, tabOrder: ALL_TABS.slice(), tabHidden: [], widgets: DEFAULTS.widgets.slice(), cards: {} });
+}
+
+function onPrefsChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function notify() {
+  const prefs = getPrefs();
+  // 구독자 하나가 던져도 나머지는 살아 있어야 합니다.
+  listeners.forEach((fn) => {
+    try { fn(prefs); } catch (err) { console.error('[prefs] 구독자 오류', err); }
+  });
+}
+
+/** 배열에서 항목을 한 칸 옮깁니다. 끝에서 더 밀면 그대로 둡니다. */
+function moveItem(list, name, delta) {
+  const out = list.slice();
+  const from = out.indexOf(name);
+  if (from < 0) return out;
+  const to = from + delta;
+  if (to < 0 || to >= out.length) return out;
+  out.splice(to, 0, out.splice(from, 1)[0]);
+  return out;
+}
+  return { getPrefs, visibleTabs, cardPref, setPrefs, setCardPref, resetPrefs, onPrefsChange, moveItem, SKINS, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS, CARD_DEFAULTS, DEFAULTS };
 })();
 
 /* ===== js/modules/todo.js ===== */
@@ -2285,6 +2859,280 @@ function initWeather() {
   return { describe, onWeatherChange, getWeather, initWeather };
 })();
 
+/* ===== js/modules/time.js ===== */
+const __m_js_modules_time_js = (function () {
+  const { $, el, pad2, toast } = __m_js_lib_dom_js;
+  const { load, save, remove } = __m_js_lib_store_js;
+/**
+ * 시계 · 타이머 · 알람 모듈
+ * 주의: 브라우저 탭이 열려 있을 때만 동작합니다. (백그라운드 알람은 네이티브 앱 기능 필요)
+ */
+
+
+const ALARM_KEY = 'time.alarm';
+const TIMER_KEY = 'time.lastPreset';
+
+const WORLD = [
+  { label: '뉴욕', tz: 'America/New_York' },
+  { label: '런던', tz: 'Europe/London' },
+  { label: '도쿄', tz: 'Asia/Tokyo' },
+  { label: 'LA', tz: 'America/Los_Angeles' },
+];
+
+let timerTotal = 25 * 60;     // 설정된 총 시간(초)
+let timerRemain = 25 * 60;    // 남은 시간(초)
+let timerRunning = false;
+let timerEndAt = 0;           // 실행 중일 때의 종료 시각(ms). setInterval 누적 오차를 피하려고 절대시각 기준으로 계산합니다.
+let alarmAt = null;           // 'HH:MM'
+let alarmFiredKey = '';       // 같은 분에 중복으로 울리지 않도록 하는 키
+
+// --- 알림음: 외부 파일 없이 WebAudio 로 생성 ---
+let audioCtx = null;
+function beep(times = 3) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    for (let i = 0; i < times; i += 1) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const start = audioCtx.currentTime + i * 0.45;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.28, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.38);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    }
+  } catch {
+    // 자동재생 정책 등으로 실패해도 앱은 계속 동작해야 합니다.
+  }
+}
+
+function notify(title, body) {
+  toast(`${title} — ${body}`);
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // 단일 파일로 배포하면 assets/ 폴더가 없으므로, 아이콘 파일이 있는 경우에만 지정합니다.
+      const options = { body };
+      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+        options.icon = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzYjZlZjYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YzVjZjYiLz4KICA8L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjE4IiB5PSIyNCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSIxOCIgeT0iMzQuNSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KPC9zdmc+Cg==';
+      }
+      new Notification(title, options);
+    }
+  } catch { /* 무시 */ }
+}
+
+// --- 시계 ---
+// 세계시계 DOM 은 한 번만 만들고 이후에는 텍스트만 갱신합니다. (매초 DOM 재생성 방지)
+let worldNodes = null;
+
+function buildWorldClocks() {
+  const list = $('#world-clocks');
+  list.replaceChildren();
+  worldNodes = WORLD.map(({ label }) => {
+    const valueEl = el('span', { style: 'font-family:var(--mono)' }, '—');
+    list.append(el('li', { class: 'world-item' },
+      el('span', { style: 'color:var(--text-dim)' }, label), valueEl));
+    return valueEl;
+  });
+}
+
+function renderClock() {
+  const now = new Date();
+  $('#clock-time').textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  $('#clock-date').textContent = now.toLocaleDateString('ko-KR', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  });
+
+  if (!worldNodes) buildWorldClocks();
+  WORLD.forEach(({ tz }, i) => {
+    try {
+      worldNodes[i].textContent = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', month: 'numeric', day: 'numeric',
+      }).format(now);
+    } catch { /* 지원하지 않는 타임존은 건너뜁니다 */ }
+  });
+}
+
+// --- 타이머 ---
+function formatTimer(totalSeconds) {
+  const s = Math.max(0, Math.ceil(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(sec)}` : `${pad2(m)}:${pad2(sec)}`;
+}
+
+function renderTimer() {
+  const display = $('#timer-display');
+  display.textContent = formatTimer(timerRemain);
+  display.classList.toggle('is-done', timerRemain <= 0 && timerTotal > 0);
+  $('#timer-start').textContent = timerRunning ? '실행 중' : '시작';
+  $('#timer-start').disabled = timerRunning;
+}
+
+function readInputSeconds() {
+  const min = Math.min(Math.max(parseInt($('#timer-min').value, 10) || 0, 0), 600);
+  const sec = Math.min(Math.max(parseInt($('#timer-sec').value, 10) || 0, 0), 59);
+  return min * 60 + sec;
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  // 일시정지 상태가 아니면 입력값에서 새로 읽습니다.
+  if (timerRemain <= 0 || timerRemain === timerTotal) {
+    const seconds = readInputSeconds();
+    if (seconds <= 0) { toast('시간을 1초 이상으로 설정해 주세요', 'error'); return; }
+    timerTotal = seconds;
+    timerRemain = seconds;
+    save(TIMER_KEY, seconds);
+  }
+  timerEndAt = Date.now() + timerRemain * 1000;
+  timerRunning = true;
+  beep(1); // 오디오 컨텍스트를 사용자 제스처 시점에 깨워 둡니다.
+  renderTimer();
+}
+
+function pauseTimer() {
+  if (!timerRunning) return;
+  timerRemain = Math.max(0, (timerEndAt - Date.now()) / 1000);
+  timerRunning = false;
+  renderTimer();
+}
+
+function resetTimer() {
+  timerRunning = false;
+  timerTotal = readInputSeconds();
+  timerRemain = timerTotal;
+  renderTimer();
+}
+
+/**
+ * '오늘' 탭의 타이머 위젯이 읽어 가는 현재 상태입니다.
+ * 구독 대신 위젯 쪽에서 1초마다 읽어 갑니다. (탭이 보일 때만 돕니다)
+ */
+function getTimerState() {
+  return { running: timerRunning, remain: timerRemain, total: timerTotal, alarmAt };
+}
+
+function tickTimer() {
+  if (!timerRunning) return;
+  const remain = (timerEndAt - Date.now()) / 1000;
+  if (remain <= 0) {
+    timerRemain = 0;
+    timerRunning = false;
+    renderTimer();
+    beep(4);
+    notify('⏰ 타이머 종료', `${formatTimer(timerTotal)} 이 끝났습니다`);
+    return;
+  }
+  timerRemain = remain;
+  renderTimer();
+}
+
+// --- 알람 ---
+function renderAlarm() {
+  $('#alarm-status').textContent = alarmAt ? `매일 ${alarmAt} 에 알람 (탭이 열려 있을 때만)` : '설정된 알람 없음';
+}
+
+function tickAlarm() {
+  if (!alarmAt) return;
+  const now = new Date();
+  const nowKey = `${now.toDateString()} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  const target = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  if (target === alarmAt && alarmFiredKey !== nowKey) {
+    alarmFiredKey = nowKey;
+    beep(5);
+    notify('⏰ 알람', `설정하신 ${alarmAt} 입니다`);
+  }
+}
+
+function initTime() {
+  // 저장된 값 복원
+  const lastPreset = load(TIMER_KEY, 25 * 60);
+  if (Number.isFinite(lastPreset) && lastPreset > 0) {
+    timerTotal = lastPreset;
+    timerRemain = lastPreset;
+    $('#timer-min').value = Math.floor(lastPreset / 60);
+    $('#timer-sec').value = lastPreset % 60;
+  }
+  alarmAt = load(ALARM_KEY, null);
+  if (alarmAt) $('#alarm-time').value = alarmAt;
+
+  renderClock();
+  renderTimer();
+  renderAlarm();
+
+  // 루프는 250ms 주기로 돌립니다.
+  // 타이머는 매번 갱신해 "시작을 눌렀는데 최대 1초간 숫자가 안 바뀌는" 지연을 없애고,
+  // 시계와 알람은 초가 바뀔 때만 처리해 불필요한 작업을 줄입니다.
+  let wasHidden = true;
+  let lastSecond = -1;
+  setInterval(() => {
+    const hidden = $('#panel-time').hidden;
+    const second = new Date().getSeconds();
+    if (second !== lastSecond) {
+      lastSecond = second;
+      // 탭이 숨겨져 있으면 시계는 그리지 않되, 다시 보이는 순간에는 즉시 갱신합니다.
+      if (!hidden || wasHidden !== hidden) renderClock();
+      tickAlarm();
+    } else if (wasHidden && !hidden) {
+      renderClock();
+    }
+    wasHidden = hidden;
+    tickTimer();
+  }, 250);
+
+  $('#timer-start').addEventListener('click', startTimer);
+  $('#timer-pause').addEventListener('click', pauseTimer);
+  $('#timer-reset').addEventListener('click', resetTimer);
+
+  document.querySelectorAll('[data-min]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      $('#timer-min').value = btn.dataset.min;
+      $('#timer-sec').value = 0;
+      resetTimer();
+    });
+  });
+
+  ['#timer-min', '#timer-sec'].forEach((sel) => {
+    $(sel).addEventListener('change', () => { if (!timerRunning) resetTimer(); });
+  });
+
+  $('#alarm-set').addEventListener('click', () => {
+    const value = $('#alarm-time').value;
+    if (!value) { toast('알람 시각을 선택해 주세요', 'error'); return; }
+    alarmAt = value;
+    alarmFiredKey = '';
+    save(ALARM_KEY, alarmAt);
+    renderAlarm();
+    beep(1);
+    toast(`알람을 ${value} 로 설정했습니다`);
+  });
+
+  $('#alarm-clear').addEventListener('click', () => {
+    alarmAt = null;
+    remove(ALARM_KEY);
+    renderAlarm();
+    toast('알람을 해제했습니다');
+  });
+
+  $('#notify-enable').addEventListener('click', async () => {
+    if (!('Notification' in window)) { toast('이 브라우저는 알림을 지원하지 않습니다', 'error'); return; }
+    try {
+      const result = await Notification.requestPermission();
+      toast(result === 'granted' ? '알림이 허용되었습니다' : '알림이 차단되어 있습니다. 소리로만 알립니다.',
+        result === 'granted' ? 'info' : 'error');
+    } catch {
+      toast('알림 권한을 요청하지 못했습니다', 'error');
+    }
+  });
+}
+  return { getTimerState, initTime };
+})();
+
 /* ===== js/lib/nav.js ===== */
 const __m_js_lib_nav_js = (function () {
 /**
@@ -2333,15 +3181,18 @@ const __m_js_modules_today_js = (function () {
   const { $, el } = __m_js_lib_dom_js;
   const { t, getLang, onLangChange } = __m_js_lib_i18n_js;
   const { isCurrent, SCOPES } = __m_js_lib_period_js;
+  const { load } = __m_js_lib_store_js;
+  const { getPrefs, onPrefsChange } = __m_js_lib_prefs_js;
   const { getItems, onTodoChange, revealItem } = __m_js_modules_todo_js;
   const { getWeather, onWeatherChange, describe } = __m_js_modules_weather_js;
+  const { getTimerState } = __m_js_modules_time_js;
   const { goToTab, onTabChange } = __m_js_lib_nav_js;
 /**
  * '오늘' 탭 — 플래너의 첫 페이지
  *
- * 앱을 열면 가장 먼저 보이는 화면입니다. 두 가지만 보여줍니다.
- *  1) 현재 날씨: 아이콘 + 기온. 누르면 날씨 탭의 주간 예보로 이동합니다.
- *  2) 오늘 할 일: 체크하지 않은 항목이 천천히 순환합니다. 누르면 계획표의 해당 항목으로 갑니다.
+ * 앱을 열면 가장 먼저 보이는 화면입니다.
+ * 어떤 요약 카드를 어떤 순서로 놓을지는 설정 탭에서 고릅니다. (lib/prefs.js 의 widgets)
+ * 카드는 전부 버튼이고, 누르면 그 기능의 탭으로 넘어갑니다.
  *
  * 자동으로 움직이는 화면은 읽으려는 순간 지나가버리므로,
  * 손을 올리거나 포커스가 들어오면 멈추고 일시정지 버튼도 따로 둡니다. (WCAG 2.2.2)
@@ -2353,10 +3204,21 @@ const __m_js_modules_today_js = (function () {
 
 
 
+
+
+
 const ROTATE_MS = 3500;
 const VISIBLE_ROWS = 3; // 상자 안에 한 번에 보이는 할 일 개수
+const TICK_MS = 1000;   // 시계·타이머 위젯 갱신 주기
+
+// 다른 모듈이 localStorage 에 쓰는 키입니다.
+// 모듈마다 구독 훅을 새로 만드는 대신, 요약만 필요하므로 저장된 값을 직접 읽습니다.
+const QUOTE_KEY = 'quote.items';
+const MEMO_KEY = 'memo.items';
+const CALC_HISTORY_KEY = 'calc.history';
 
 let rotateTimer = null;
+let clockTimer = null;
 let rotateIndex = 0;
 let paused = false;      // 사용자가 버튼으로 멈춘 상태
 let hovering = false;    // 손/포인터가 올라가 있는 동안
@@ -2404,6 +3266,12 @@ function maxRotateIndex(count, visible = VISIBLE_ROWS) {
   return Math.max(0, count - visible);
 }
 
+/** 저장된 배열을 읽습니다. 값이 망가져 있으면 빈 배열로 취급합니다. */
+function listOf(key) {
+  const raw = load(key, []);
+  return Array.isArray(raw) ? raw : [];
+}
+
 function formatDate(lang) {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
   try {
@@ -2421,58 +3289,57 @@ const numOr = (value, digits = 0) => (
   typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—'
 );
 
-function renderWeather() {
-  const box = $('#today-weather');
-  if (!box) return;
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** 초를 mm:ss 로. 한 시간이 넘으면 h:mm:ss 로 늘립니다. */
+function clock(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${pad2(m)}:${pad2(s % 60)}`;
+}
+
+/* =========================================================
+   위젯
+   각 위젯은 { title, tab, body } 를 돌려줍니다.
+   body 는 카드 안에 들어갈 요소이고, tab 은 눌렀을 때 이동할 탭입니다.
+   ========================================================= */
+
+function weatherBody() {
   const wx = getWeather();
   const lang = getLang();
 
   if (wx.status === 'loading') {
-    box.replaceChildren(
+    return el('div', { class: 'today-wx', id: 'today-weather' },
       el('div', { class: 'today-wx-icon' }, el('span', { class: 'spinner' })),
       el('div', { class: 'today-wx-body' },
-        el('div', { class: 'today-wx-desc' }, t('today.weather.loading'))),
-    );
-    return;
+        el('div', { class: 'today-wx-desc' }, t('today.weather.loading'))));
   }
-
   if (wx.status === 'error') {
-    box.replaceChildren(
+    return el('div', { class: 'today-wx', id: 'today-weather' },
       el('div', { class: 'today-wx-icon' }, '🌡️'),
       el('div', { class: 'today-wx-body' },
         el('div', { class: 'today-wx-desc' }, t('today.weather.error')),
-        el('div', { class: 'today-wx-sub' }, t('today.weather.hint'))),
-    );
-    return;
+        el('div', { class: 'today-wx-sub' }, t('today.weather.hint'))));
   }
 
   const [desc, icon] = describe(wx.code, lang);
-  const high = numOr(wx.high);
-  const low = numOr(wx.low);
-  box.replaceChildren(
+  return el('div', { class: 'today-wx', id: 'today-weather' },
     el('div', { class: 'today-wx-icon', 'aria-hidden': 'true' }, icon),
     el('div', { class: 'today-wx-body' },
       el('div', { class: 'today-wx-temp' }, `${numOr(wx.temperature, 1)}°`),
       el('div', { class: 'today-wx-desc' }, desc),
       el('div', { class: 'today-wx-sub' },
-        `${wx.place?.name || ''} · ${low}° / ${high}°`),
-    ),
-    el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'),
-  );
-  // 스크린리더에는 한 문장으로 읽히도록 카드 전체에 라벨을 답니다.
-  box.closest('.today-card')?.setAttribute(
-    'aria-label',
-    `${t('today.weather.title')}: ${desc} ${numOr(wx.temperature, 1)}도. ${t('today.weather.hint')}`,
-  );
+        `${wx.place?.name || ''} · ${numOr(wx.low)}° / ${numOr(wx.high)}°`)),
+    el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'));
 }
 
-function renderTodo() {
-  const track = $('#today-rot');
-  const countEl = $('#today-todo-count');
-  if (!track || !countEl) return;
-
+function todoBody() {
   rows = todayRows();
-  countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
+  const track = el('div', {
+    class: 'today-rot', id: 'today-rot', tabindex: '0',
+    'aria-label': t('today.aria.rotation'),
+  });
 
   if (!rows.length) {
     const items = getItems();
@@ -2481,32 +3348,141 @@ function renderTodo() {
       item?.done && SCOPES.includes(item.scope) && typeof item.period === 'string'
       && isCurrent(item.scope, item.period)
     ));
-    track.replaceChildren(el('div', { class: 'today-rot-empty' },
+    track.append(el('div', { class: 'today-rot-empty' },
       t(finishedToday ? 'today.todo.allDone' : 'today.todo.empty')));
-    updateRotateControl();
-    return;
+    return track;
   }
 
-  track.replaceChildren(...rows.map((item, i) => el('button', {
+  rows.forEach((item, i) => track.append(el('button', {
     class: 'today-rot-item',
     type: 'button',
     dataset: { id: item.id },
     'aria-label': `${item.text}. ${t('today.aria.position', i + 1, rows.length)}. ${t('today.todo.hint')}`,
   },
   el('span', { class: `today-rot-dot scope-${item.scope}`, 'aria-hidden': 'true' }),
-  el('span', { class: 'today-rot-text' }, item.text),
-  )));
+  el('span', { class: 'today-rot-text' }, item.text))));
 
   if (rotateIndex > maxRotateIndex(rows.length)) rotateIndex = 0;
-  scrollToIndex(false);
-  updateRotateControl();
+  return track;
+}
+
+function clockBody() {
+  const now = new Date();
+  return el('div', { class: 'today-line' },
+    el('div', { class: 'today-big', id: 'today-clock' },
+      `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`));
+}
+
+function timerBody() {
+  const state = getTimerState();
+  if (!state.running && state.remain === state.total) {
+    return el('div', { class: 'today-line' },
+      el('div', { class: 'today-sub', id: 'today-timer' }, t('today.timer.idle')));
+  }
+  return el('div', { class: 'today-line' },
+    el('div', { class: 'today-big', id: 'today-timer' }, clock(state.remain)),
+    el('div', { class: 'today-sub' },
+      state.running ? t('today.timer.running') : t('today.rotate.pause')));
+}
+
+function quoteBody() {
+  const items = listOf(QUOTE_KEY);
+  const first = items.find((q) => q && typeof q.text === 'string' && q.text.trim());
+  if (!first) return el('div', { class: 'today-sub' }, t('today.quote.empty'));
+  return el('div', { class: 'today-quote' },
+    el('div', { class: 'today-quote-text' }, first.text),
+    first.author ? el('div', { class: 'today-sub' }, `— ${first.author}`) : '');
+}
+
+function memoBody() {
+  const items = listOf(MEMO_KEY);
+  const first = items.find((m) => m && typeof m.text === 'string' && m.text.trim());
+  if (!first) return el('div', { class: 'today-sub' }, t('today.memo.empty'));
+  return el('div', {},
+    el('div', { class: 'today-clip' }, first.text),
+    items.length > 1 ? el('div', { class: 'today-sub' }, t('today.memo.more', items.length - 1)) : '');
+}
+
+function calcBody() {
+  const items = listOf(CALC_HISTORY_KEY);
+  const first = items.find((h) => h && typeof h.expr === 'string');
+  if (!first) return el('div', { class: 'today-sub' }, t('today.calc.empty'));
+  return el('div', {},
+    el('div', { class: 'today-sub today-clip' }, first.expr),
+    el('div', { class: 'today-big today-big-sm' }, String(first.value ?? '')),
+    first.note ? el('div', { class: 'today-sub today-clip' }, `📝 ${first.note}`) : '');
+}
+
+const WIDGETS = {
+  weather: { tab: 'weather', title: 'today.weather.title', hint: 'today.weather.hint', body: weatherBody },
+  todo: { tab: 'todo', title: 'today.todo.title', hint: 'today.todo.hint', body: todoBody },
+  clock: { tab: 'time', title: 'today.clock.title', hint: 'today.widget.hint', body: clockBody },
+  timer: { tab: 'time', title: 'today.timer.title', hint: 'today.widget.hint', body: timerBody },
+  quote: { tab: 'quote', title: 'today.quote.title', hint: 'today.widget.hint', body: quoteBody },
+  memo: { tab: 'memo', title: 'today.memo.title', hint: 'today.widget.hint', body: memoBody },
+  calc: { tab: 'calc', title: 'today.calc.title', hint: 'today.widget.hint', body: calcBody },
+};
+
+/**
+ * 카드 하나를 만듭니다.
+ * 할 일 위젯만 버튼이 아니라 div 입니다. 안에 항목 버튼과 일시정지 버튼이 들어가는데,
+ * 버튼 안에 버튼을 넣으면 HTML 규칙 위반이고 클릭이 엉킵니다.
+ */
+function widgetCard(name) {
+  const spec = WIDGETS[name];
+  if (!spec) return null;
+  const interactive = name !== 'todo';
+
+  const head = el('div', { class: 'today-card-head' },
+    el('span', { class: 'card-title' }, t(spec.title)),
+    el('span', { class: 'card-sub', ...(name === 'todo' ? { id: 'today-todo-count' } : {}) },
+      name === 'todo' ? '' : t(spec.hint)));
+
+  if (name === 'todo') {
+    const toggle = el('button', {
+      class: 'icon-btn today-rot-toggle', id: 'today-rot-toggle', type: 'button',
+      'aria-pressed': String(paused),
+    }, paused ? '▶' : '⏸');
+    head.append(toggle);
+  }
+
+  const card = el(interactive ? 'button' : 'div', {
+    class: `card today-card${interactive ? '' : '-static'}`,
+    dataset: { widget: name, goto: spec.tab },
+    ...(interactive ? { type: 'button', id: `today-${name}-card` } : {}),
+  }, head, spec.body());
+
+  return card;
+}
+
+function renderWidgets() {
+  const host = $('#today-widgets');
+  if (!host) return;
+  const { widgets } = getPrefs();
+  if (!widgets.length) {
+    host.replaceChildren(el('div', { class: 'today-rot-empty' }, t('today.empty')));
+    rows = [];
+    return;
+  }
+  host.replaceChildren(...widgets.map(widgetCard).filter(Boolean));
+
+  if (widgets.includes('todo')) {
+    updateTodoCount();
+    scrollToIndex(false);
+    updateRotateControl();
+  }
+}
+
+function updateTodoCount() {
+  const countEl = $('#today-todo-count');
+  if (countEl) countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
 }
 
 /** 현재 순환 위치로 스크롤합니다. 항목 높이가 제각각이어도 되도록 실제 위치를 씁니다. */
 function scrollToIndex(smooth = true) {
   const track = $('#today-rot');
   const target = track?.children?.[rotateIndex];
-  if (!track || !target) return;
+  if (!track || !target || !track.children[0]) return;
   track.scrollTo({
     top: target.offsetTop - track.children[0].offsetTop,
     behavior: smooth && !prefersReducedMotion() ? 'smooth' : 'auto',
@@ -2548,61 +3524,102 @@ function syncTimer() {
   }
 }
 
+/**
+ * 시계·타이머 위젯은 1초마다 숫자만 갈아 끼웁니다.
+ * 카드를 통째로 다시 그리면 매 초 포커스가 날아갑니다.
+ */
+function tickClock() {
+  const clockEl = $('#today-clock');
+  if (clockEl) {
+    const now = new Date();
+    clockEl.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  }
+  const timerEl = $('#today-timer');
+  if (timerEl) {
+    const state = getTimerState();
+    const idle = !state.running && state.remain === state.total;
+    timerEl.textContent = idle ? t('today.timer.idle') : clock(state.remain);
+  }
+}
+
+function syncClock() {
+  const needed = tabActive && document.visibilityState !== 'hidden'
+    && ($('#today-clock') || $('#today-timer'));
+  if (needed) {
+    if (!clockTimer) clockTimer = setInterval(tickClock, TICK_MS);
+  } else if (clockTimer) {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+}
+
 function renderAll() {
   const lang = getLang();
   $('#panel-today')?.setAttribute('lang', lang);
   const dateEl = $('#today-date');
   if (dateEl) dateEl.textContent = formatDate(lang);
-  renderWeather();
-  renderTodo();
+  renderWidgets();
   syncTimer();
+  syncClock();
 }
 
 function initToday() {
-  // --- 날씨 카드: 누르면 주간 예보로 ---
-  $('#today-weather-card').addEventListener('click', () => {
-    goToTab('weather');
-    // 탭을 바꾼 직후에는 아직 숨김이 풀리지 않아 스크롤이 먹지 않습니다. 한 프레임 뒤에 옮깁니다.
-    requestAnimationFrame(() => {
-      $('#wx-week')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
+  const host = $('#today-widgets');
+  if (!host) return;
+
+  // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
+  host.addEventListener('click', (e) => {
+    const item = e.target.closest('.today-rot-item');
+    if (item) {
+      goToTab('todo');
+      revealItem(item.dataset.id);
+      return;
+    }
+    if (e.target.closest('#today-rot-toggle')) {
+      paused = !paused;
+      updateRotateControl();
+      syncTimer();
+      return;
+    }
+    const card = e.target.closest('.today-card[data-goto]');
+    if (!card) return;
+    const tab = card.dataset.goto;
+    goToTab(tab);
+    // 탭을 바꾼 직후에는 아직 배치가 끝나지 않아 스크롤이 먹지 않습니다. 한 프레임 뒤에 옮깁니다.
+    if (tab === 'weather') {
+      requestAnimationFrame(() => {
+        $('#wx-week')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
   });
 
-  // --- 할 일: 누르면 계획표의 그 항목으로 ---
-  $('#today-rot').addEventListener('click', (e) => {
-    const btn = e.target.closest('.today-rot-item');
-    if (!btn) return;
-    goToTab('todo');
-    revealItem(btn.dataset.id);
-  });
-
-  // --- 순환 멈춤/시작 ---
-  const track = $('#today-rot');
-  $('#today-rot-toggle').addEventListener('click', () => {
-    paused = !paused;
-    updateRotateControl();
-    syncTimer();
-  });
-
-  // 손이 올라가 있거나 포커스가 들어와 있는 동안은 멈춥니다.
-  const hold = () => { hovering = true; syncTimer(); };
-  const release = () => { hovering = false; syncTimer(); };
-  track.addEventListener('pointerenter', hold);
-  track.addEventListener('pointerleave', release);
-  track.addEventListener('pointerdown', hold);
-  track.addEventListener('focusin', hold);
-  track.addEventListener('focusout', release);
+  /*
+   * 순환 목록 위에 손이나 포커스가 있는 동안만 멈춥니다.
+   * 위젯은 다시 그려질 때마다 새 요소가 되므로 컨테이너에 위임하는데,
+   * pointerenter/leave 는 버블링하지 않아 위임이 되지 않습니다. over/out 을 씁니다.
+   * 카드 전체가 아니라 #today-rot 안일 때만 멈춰야 합니다.
+   * (일시정지 버튼은 카드 머리에 있어서, 카드 전체를 기준으로 잡으면
+   *  버튼을 한 번 누른 뒤 마우스가 그 자리에 남아 순환이 영영 멈춥니다)
+   */
+  const inRot = (node) => !!(node && node.closest && node.closest('#today-rot'));
+  const setHover = (on) => { if (hovering !== on) { hovering = on; syncTimer(); } };
+  host.addEventListener('pointerover', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('pointerout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
+  host.addEventListener('pointerdown', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('focusin', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('focusout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
 
   // 탭을 떠나거나 앱이 백그라운드로 가면 타이머를 멈춥니다.
   onTabChange((name) => {
     tabActive = name === 'today';
-    if (tabActive) renderAll(); else syncTimer();
+    if (tabActive) renderAll(); else { syncTimer(); syncClock(); }
   });
-  document.addEventListener('visibilitychange', syncTimer);
+  document.addEventListener('visibilitychange', () => { syncTimer(); syncClock(); });
 
-  onTodoChange(() => { renderTodo(); syncTimer(); });
-  onWeatherChange(renderWeather);
+  onTodoChange(() => { renderAll(); });
+  onWeatherChange(() => { renderAll(); });
   onLangChange(renderAll);
+  onPrefsChange(renderAll);
 
   renderAll();
 }
@@ -3092,272 +4109,6 @@ function initCalculator() {
   });
 }
   return { initCalculator };
-})();
-
-/* ===== js/modules/time.js ===== */
-const __m_js_modules_time_js = (function () {
-  const { $, el, pad2, toast } = __m_js_lib_dom_js;
-  const { load, save, remove } = __m_js_lib_store_js;
-/**
- * 시계 · 타이머 · 알람 모듈
- * 주의: 브라우저 탭이 열려 있을 때만 동작합니다. (백그라운드 알람은 네이티브 앱 기능 필요)
- */
-
-
-const ALARM_KEY = 'time.alarm';
-const TIMER_KEY = 'time.lastPreset';
-
-const WORLD = [
-  { label: '뉴욕', tz: 'America/New_York' },
-  { label: '런던', tz: 'Europe/London' },
-  { label: '도쿄', tz: 'Asia/Tokyo' },
-  { label: 'LA', tz: 'America/Los_Angeles' },
-];
-
-let timerTotal = 25 * 60;     // 설정된 총 시간(초)
-let timerRemain = 25 * 60;    // 남은 시간(초)
-let timerRunning = false;
-let timerEndAt = 0;           // 실행 중일 때의 종료 시각(ms). setInterval 누적 오차를 피하려고 절대시각 기준으로 계산합니다.
-let alarmAt = null;           // 'HH:MM'
-let alarmFiredKey = '';       // 같은 분에 중복으로 울리지 않도록 하는 키
-
-// --- 알림음: 외부 파일 없이 WebAudio 로 생성 ---
-let audioCtx = null;
-function beep(times = 3) {
-  try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    for (let i = 0; i < times; i += 1) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      const start = audioCtx.currentTime + i * 0.45;
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, start);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.28, start + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.38);
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(start);
-      osc.stop(start + 0.4);
-    }
-  } catch {
-    // 자동재생 정책 등으로 실패해도 앱은 계속 동작해야 합니다.
-  }
-}
-
-function notify(title, body) {
-  toast(`${title} — ${body}`);
-  try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      // 단일 파일로 배포하면 assets/ 폴더가 없으므로, 아이콘 파일이 있는 경우에만 지정합니다.
-      const options = { body };
-      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-        options.icon = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzYjZlZjYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YzVjZjYiLz4KICA8L2xpbmVhckdyYWRpZW50PjwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjE4IiB5PSIyNCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSIxOCIgeT0iMzQuNSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjUuNSIgcng9IjIuNzUiIGZpbGw9IiNmZmYiLz4KPC9zdmc+Cg==';
-      }
-      new Notification(title, options);
-    }
-  } catch { /* 무시 */ }
-}
-
-// --- 시계 ---
-// 세계시계 DOM 은 한 번만 만들고 이후에는 텍스트만 갱신합니다. (매초 DOM 재생성 방지)
-let worldNodes = null;
-
-function buildWorldClocks() {
-  const list = $('#world-clocks');
-  list.replaceChildren();
-  worldNodes = WORLD.map(({ label }) => {
-    const valueEl = el('span', { style: 'font-family:var(--mono)' }, '—');
-    list.append(el('li', { class: 'world-item' },
-      el('span', { style: 'color:var(--text-dim)' }, label), valueEl));
-    return valueEl;
-  });
-}
-
-function renderClock() {
-  const now = new Date();
-  $('#clock-time').textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
-  $('#clock-date').textContent = now.toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
-  });
-
-  if (!worldNodes) buildWorldClocks();
-  WORLD.forEach(({ tz }, i) => {
-    try {
-      worldNodes[i].textContent = new Intl.DateTimeFormat('ko-KR', {
-        timeZone: tz, hour: '2-digit', minute: '2-digit', month: 'numeric', day: 'numeric',
-      }).format(now);
-    } catch { /* 지원하지 않는 타임존은 건너뜁니다 */ }
-  });
-}
-
-// --- 타이머 ---
-function formatTimer(totalSeconds) {
-  const s = Math.max(0, Math.ceil(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return h > 0 ? `${h}:${pad2(m)}:${pad2(sec)}` : `${pad2(m)}:${pad2(sec)}`;
-}
-
-function renderTimer() {
-  const display = $('#timer-display');
-  display.textContent = formatTimer(timerRemain);
-  display.classList.toggle('is-done', timerRemain <= 0 && timerTotal > 0);
-  $('#timer-start').textContent = timerRunning ? '실행 중' : '시작';
-  $('#timer-start').disabled = timerRunning;
-}
-
-function readInputSeconds() {
-  const min = Math.min(Math.max(parseInt($('#timer-min').value, 10) || 0, 0), 600);
-  const sec = Math.min(Math.max(parseInt($('#timer-sec').value, 10) || 0, 0), 59);
-  return min * 60 + sec;
-}
-
-function startTimer() {
-  if (timerRunning) return;
-  // 일시정지 상태가 아니면 입력값에서 새로 읽습니다.
-  if (timerRemain <= 0 || timerRemain === timerTotal) {
-    const seconds = readInputSeconds();
-    if (seconds <= 0) { toast('시간을 1초 이상으로 설정해 주세요', 'error'); return; }
-    timerTotal = seconds;
-    timerRemain = seconds;
-    save(TIMER_KEY, seconds);
-  }
-  timerEndAt = Date.now() + timerRemain * 1000;
-  timerRunning = true;
-  beep(1); // 오디오 컨텍스트를 사용자 제스처 시점에 깨워 둡니다.
-  renderTimer();
-}
-
-function pauseTimer() {
-  if (!timerRunning) return;
-  timerRemain = Math.max(0, (timerEndAt - Date.now()) / 1000);
-  timerRunning = false;
-  renderTimer();
-}
-
-function resetTimer() {
-  timerRunning = false;
-  timerTotal = readInputSeconds();
-  timerRemain = timerTotal;
-  renderTimer();
-}
-
-function tickTimer() {
-  if (!timerRunning) return;
-  const remain = (timerEndAt - Date.now()) / 1000;
-  if (remain <= 0) {
-    timerRemain = 0;
-    timerRunning = false;
-    renderTimer();
-    beep(4);
-    notify('⏰ 타이머 종료', `${formatTimer(timerTotal)} 이 끝났습니다`);
-    return;
-  }
-  timerRemain = remain;
-  renderTimer();
-}
-
-// --- 알람 ---
-function renderAlarm() {
-  $('#alarm-status').textContent = alarmAt ? `매일 ${alarmAt} 에 알람 (탭이 열려 있을 때만)` : '설정된 알람 없음';
-}
-
-function tickAlarm() {
-  if (!alarmAt) return;
-  const now = new Date();
-  const nowKey = `${now.toDateString()} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-  const target = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-  if (target === alarmAt && alarmFiredKey !== nowKey) {
-    alarmFiredKey = nowKey;
-    beep(5);
-    notify('⏰ 알람', `설정하신 ${alarmAt} 입니다`);
-  }
-}
-
-function initTime() {
-  // 저장된 값 복원
-  const lastPreset = load(TIMER_KEY, 25 * 60);
-  if (Number.isFinite(lastPreset) && lastPreset > 0) {
-    timerTotal = lastPreset;
-    timerRemain = lastPreset;
-    $('#timer-min').value = Math.floor(lastPreset / 60);
-    $('#timer-sec').value = lastPreset % 60;
-  }
-  alarmAt = load(ALARM_KEY, null);
-  if (alarmAt) $('#alarm-time').value = alarmAt;
-
-  renderClock();
-  renderTimer();
-  renderAlarm();
-
-  // 루프는 250ms 주기로 돌립니다.
-  // 타이머는 매번 갱신해 "시작을 눌렀는데 최대 1초간 숫자가 안 바뀌는" 지연을 없애고,
-  // 시계와 알람은 초가 바뀔 때만 처리해 불필요한 작업을 줄입니다.
-  let wasHidden = true;
-  let lastSecond = -1;
-  setInterval(() => {
-    const hidden = $('#panel-time').hidden;
-    const second = new Date().getSeconds();
-    if (second !== lastSecond) {
-      lastSecond = second;
-      // 탭이 숨겨져 있으면 시계는 그리지 않되, 다시 보이는 순간에는 즉시 갱신합니다.
-      if (!hidden || wasHidden !== hidden) renderClock();
-      tickAlarm();
-    } else if (wasHidden && !hidden) {
-      renderClock();
-    }
-    wasHidden = hidden;
-    tickTimer();
-  }, 250);
-
-  $('#timer-start').addEventListener('click', startTimer);
-  $('#timer-pause').addEventListener('click', pauseTimer);
-  $('#timer-reset').addEventListener('click', resetTimer);
-
-  document.querySelectorAll('[data-min]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      $('#timer-min').value = btn.dataset.min;
-      $('#timer-sec').value = 0;
-      resetTimer();
-    });
-  });
-
-  ['#timer-min', '#timer-sec'].forEach((sel) => {
-    $(sel).addEventListener('change', () => { if (!timerRunning) resetTimer(); });
-  });
-
-  $('#alarm-set').addEventListener('click', () => {
-    const value = $('#alarm-time').value;
-    if (!value) { toast('알람 시각을 선택해 주세요', 'error'); return; }
-    alarmAt = value;
-    alarmFiredKey = '';
-    save(ALARM_KEY, alarmAt);
-    renderAlarm();
-    beep(1);
-    toast(`알람을 ${value} 로 설정했습니다`);
-  });
-
-  $('#alarm-clear').addEventListener('click', () => {
-    alarmAt = null;
-    remove(ALARM_KEY);
-    renderAlarm();
-    toast('알람을 해제했습니다');
-  });
-
-  $('#notify-enable').addEventListener('click', async () => {
-    if (!('Notification' in window)) { toast('이 브라우저는 알림을 지원하지 않습니다', 'error'); return; }
-    try {
-      const result = await Notification.requestPermission();
-      toast(result === 'granted' ? '알림이 허용되었습니다' : '알림이 차단되어 있습니다. 소리로만 알립니다.',
-        result === 'granted' ? 'info' : 'error');
-    } catch {
-      toast('알림 권한을 요청하지 못했습니다', 'error');
-    }
-  });
-}
-  return { initTime };
 })();
 
 /* ===== js/modules/memo.js ===== */
@@ -4310,6 +5061,294 @@ function initSettings() {
   return { applyTheme, initTheme, initSettings, THEME_KEY };
 })();
 
+/* ===== js/modules/appearance.js ===== */
+const __m_js_modules_appearance_js = (function () {
+  const { $, $$, el } = __m_js_lib_dom_js;
+  const { t, onLangChange } = __m_js_lib_i18n_js;
+  const { SKINS, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
+  getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem, } = __m_js_lib_prefs_js;
+/**
+ * appearance.js — 커스터마이즈를 화면에 적용하고, 설정 탭의 편집 UI 를 그립니다.
+ *
+ * prefs.js 가 '무엇을 골랐는가'를, 이 파일이 '그래서 화면을 어떻게 바꾸는가'를 담당합니다.
+ * 탭 순서는 가로 페이저의 스크롤 위치와 직결되므로, 여기서는 DOM 만 옮기고
+ * 페이저를 다시 맞추는 일은 main.js 가 합니다. (applyTabLayout 의 반환값을 씁니다)
+ */
+
+
+
+/** 탭 버튼과 패널의 원본을 보관합니다. 숨긴 탭은 DOM 에서 빠지므로 여기서 다시 꺼냅니다. */
+const tabNodes = new Map();   // name -> { button, panel }
+let snapshotTaken = false;
+
+/** 카드가 어느 탭에 속하는지 보여 주려고, data-card 의 앞부분을 탭 이름으로 씁니다. */
+const tabOfCard = (id) => String(id).split('.')[0];
+
+function takeSnapshot() {
+  if (snapshotTaken) return;
+  ALL_TABS.forEach((name) => {
+    const button = document.querySelector(`.tab[data-tab="${name}"]`);
+    const panel = document.querySelector(`#panel-${name}`);
+    if (button && panel) tabNodes.set(name, { button, panel });
+  });
+  snapshotTaken = true;
+}
+
+/** 스킨과 강조색을 문서에 답니다. 기본값이면 속성을 아예 지웁니다. */
+function applySkinAccent(prefs = getPrefs()) {
+  const root = document.documentElement;
+  if (prefs.skin && prefs.skin !== 'default') root.setAttribute('data-skin', prefs.skin);
+  else root.removeAttribute('data-skin');
+  if (prefs.accent && prefs.accent !== 'blue') root.setAttribute('data-accent', prefs.accent);
+  else root.removeAttribute('data-accent');
+  syncThemeColor();
+}
+
+/**
+ * 주소창 색을 실제 배경색과 맞춥니다.
+ * 스킨마다 배경이 다르므로 고정값을 쓰면 앱 위아래에 다른 색 띠가 생깁니다.
+ */
+function syncThemeColor() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  try {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    if (bg) meta.setAttribute('content', bg);
+  } catch { /* 계산 실패 시 기존 값을 그대로 둡니다 */ }
+}
+
+/** 카드마다 저장된 크기/폭을 답니다. */
+function applyCardPrefs(prefs = getPrefs()) {
+  $$('[data-card]').forEach((node) => {
+    const { size, span } = cardPref(node.dataset.card, prefs);
+    if (size === 'normal') node.removeAttribute('data-size'); else node.dataset.size = size;
+    if (span === 'auto') node.removeAttribute('data-span'); else node.dataset.span = span;
+  });
+}
+
+/**
+ * 탭 버튼과 패널을 저장된 순서대로 다시 배치하고, 숨긴 것은 DOM 에서 뺍니다.
+ * 반환값은 실제로 화면에 남은 탭 목록입니다. (main.js 가 페이저 인덱스 계산에 씁니다)
+ */
+function applyTabLayout(prefs = getPrefs()) {
+  takeSnapshot();
+  const tabsBar = $('#tabs');
+  const main = $('#main');
+  if (!tabsBar || !main) return ALL_TABS.slice();
+
+  const order = visibleTabs(prefs);
+  order.forEach((name) => {
+    const node = tabNodes.get(name);
+    if (!node) return;
+    // appendChild 는 이미 문서에 있는 노드를 '옮깁니다'. 리스너는 #tabs 에 위임돼 있어 그대로입니다.
+    tabsBar.appendChild(node.button);
+    main.appendChild(node.panel);
+  });
+
+  const shown = new Set(order);
+  tabNodes.forEach((node, name) => {
+    if (shown.has(name)) return;
+    node.button.remove();
+    node.panel.remove();
+  });
+
+  return order;
+}
+
+/* =========================================================
+   설정 탭의 편집 UI
+   ========================================================= */
+
+const swatch = (name) => el('span', { class: `cz-dot cz-dot-${name}`, 'aria-hidden': 'true' });
+
+function optionButton(label, active, onClick, extra = {}) {
+  const btn = el('button', {
+    class: `cz-opt${active ? ' is-on' : ''}`,
+    type: 'button',
+    'aria-pressed': String(active),
+    ...extra,
+  }, label);
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function renderSkins(prefs) {
+  return el('div', { class: 'cz-opts' }, ...SKINS.map((name) => {
+    const btn = optionButton(t(`cz.skin.${name}`), prefs.skin === name,
+      () => setPrefs({ skin: name }), { dataset: { skinOpt: name } });
+    btn.prepend(el('span', { class: `cz-skin-chip cz-skin-${name}`, 'aria-hidden': 'true' }));
+    return btn;
+  }));
+}
+
+function renderAccents(prefs) {
+  return el('div', { class: 'cz-opts' }, ...ACCENTS.map((name) => {
+    const btn = optionButton('', prefs.accent === name, () => setPrefs({ accent: name }), {
+      class: `cz-swatch${prefs.accent === name ? ' is-on' : ''}`,
+      dataset: { accentOpt: name },
+      title: t(`cz.accent.${name}`),
+      'aria-label': t(`cz.accent.${name}`),
+    });
+    btn.append(swatch(name));
+    return btn;
+  }));
+}
+
+/** 위/아래 이동 + 켜고 끄기가 붙은 목록 한 줄. 탭과 위젯이 같은 모양을 씁니다. */
+function orderRow({ name, label, index, total, locked, on, onMove, onToggle }) {
+  const up = el('button', {
+    class: 'icon-btn', type: 'button', dataset: { move: 'up' }, 'aria-label': t('cz.moveUp', label),
+  }, '▲');
+  const down = el('button', {
+    class: 'icon-btn', type: 'button', dataset: { move: 'down' }, 'aria-label': t('cz.moveDown', label),
+  }, '▼');
+  up.disabled = index === 0;
+  down.disabled = index === total - 1;
+  up.addEventListener('click', () => onMove(-1));
+  down.addEventListener('click', () => onMove(1));
+
+  const toggle = el('button', {
+    class: `cz-toggle${on ? ' is-on' : ''}`,
+    type: 'button',
+    dataset: { toggle: name },
+    'aria-pressed': String(on),
+  }, t(on ? 'cz.shown' : 'cz.hidden'));
+  if (locked) {
+    toggle.disabled = true;
+    toggle.title = t('cz.lockedHint');
+  } else {
+    toggle.addEventListener('click', onToggle);
+  }
+
+  // 화면 글자는 언어에 따라 바뀌므로, 식별은 항상 이 data 속성으로 합니다.
+  return el('li', { class: 'cz-row', dataset: { row: name } },
+    el('span', { class: 'cz-row-label' }, label),
+    up, down, toggle);
+}
+
+function renderTabOrder(prefs) {
+  const hidden = new Set(prefs.tabHidden);
+  return el('ul', { class: 'cz-list' }, ...prefs.tabOrder.map((name, i) => orderRow({
+    name,
+    label: t(`tab.${name}`),
+    index: i,
+    total: prefs.tabOrder.length,
+    locked: LOCKED_TABS.includes(name),
+    on: !hidden.has(name),
+    onMove: (d) => setPrefs({ tabOrder: moveItem(prefs.tabOrder, name, d) }),
+    onToggle: () => setPrefs({
+      tabHidden: hidden.has(name)
+        ? prefs.tabHidden.filter((n) => n !== name)
+        : prefs.tabHidden.concat(name),
+    }),
+  })));
+}
+
+function renderWidgets(prefs) {
+  // 켜져 있는 것을 순서대로 먼저, 꺼진 것을 뒤에 붙여 한 목록으로 보여 줍니다.
+  const off = ALL_WIDGETS.filter((n) => !prefs.widgets.includes(n));
+  const rows = prefs.widgets.concat(off);
+  return el('ul', { class: 'cz-list' }, ...rows.map((name, i) => {
+    const on = prefs.widgets.includes(name);
+    return orderRow({
+      name,
+      label: t(`cz.widget.${name}`),
+      index: i,
+      total: rows.length,
+      // 꺼진 위젯은 순서를 바꿔도 의미가 없어 이동 버튼을 막습니다.
+      locked: false,
+      on,
+      onMove: (d) => { if (on) setPrefs({ widgets: moveItem(prefs.widgets, name, d) }); },
+      onToggle: () => setPrefs({
+        widgets: on ? prefs.widgets.filter((n) => n !== name) : prefs.widgets.concat(name),
+      }),
+    });
+  }));
+}
+
+function renderCards(prefs) {
+  const cards = $$('[data-card]');
+  if (!cards.length) return el('p', { class: 'card-sub' }, t('cz.cards.none'));
+
+  // 탭별로 묶어서 보여 줍니다. 카드 이름만 나열하면 어느 화면 것인지 알 수 없습니다.
+  const groups = new Map();
+  cards.forEach((node) => {
+    const id = node.dataset.card;
+    const tab = tabOfCard(id);
+    if (!groups.has(tab)) groups.set(tab, []);
+    groups.get(tab).push(id);
+  });
+
+  return el('div', { class: 'cz-cards' }, ...[...groups.entries()].map(([tab, ids]) => (
+    el('div', { class: 'cz-card-group' },
+      el('div', { class: 'cz-group-title' }, t(`tab.${tab}`)),
+      ...ids.map((id) => {
+        const pref = cardPref(id, prefs);
+        return el('div', { class: 'cz-card-row', dataset: { cardRow: id } },
+          el('span', { class: 'cz-row-label' }, t(`cz.card.${id}`)),
+          el('div', { class: 'cz-opts cz-opts-tight' }, ...CARD_SIZES.map((size) => (
+            optionButton(t(`cz.size.${size}`), pref.size === size,
+              () => setCardPref(id, { size }), { dataset: { sizeOpt: size } })
+          ))),
+          el('div', { class: 'cz-opts cz-opts-tight' }, ...CARD_SPANS.map((span) => (
+            optionButton(t(`cz.span.${span}`), pref.span === span,
+              () => setCardPref(id, { span }), { dataset: { spanOpt: span } })
+          ))),
+        );
+      }))
+  )));
+}
+
+function section(titleKey, hintKey, body) {
+  return el('section', { class: 'cz-section' },
+    el('h3', { class: 'card-title' }, t(titleKey)),
+    hintKey ? el('p', { class: 'card-sub cz-hint' }, t(hintKey)) : '',
+    body);
+}
+
+function renderCustomize() {
+  const host = $('#customize');
+  if (!host) return;
+  const prefs = getPrefs();
+
+  const reset = el('button', {
+    class: 'btn btn-sm btn-danger', type: 'button', id: 'cz-reset',
+  }, t('cz.reset'));
+  reset.addEventListener('click', () => {
+    // 되돌릴 수 없는 동작이라 한 번 확인합니다.
+    if (window.confirm(t('cz.resetConfirm'))) resetPrefs();
+  });
+
+  host.replaceChildren(
+    section('cz.skin.title', 'cz.skin.hint', renderSkins(prefs)),
+    section('cz.accent.title', 'cz.accent.hint', renderAccents(prefs)),
+    section('cz.tabs.title', 'cz.tabs.hint', renderTabOrder(prefs)),
+    section('cz.widgets.title', 'cz.widgets.hint', renderWidgets(prefs)),
+    section('cz.cards.title', 'cz.cards.hint', renderCards(prefs)),
+    el('div', { class: 'row', style: 'margin-top:14px' }, reset),
+  );
+}
+
+/**
+ * 부트스트랩. 저장된 값을 화면에 적용하고 편집 UI 를 그립니다.
+ * 탭 배치는 main.js 가 페이저까지 다시 맞춰야 해서 여기서 부르지 않습니다.
+ */
+function initAppearance() {
+  applySkinAccent();
+  applyCardPrefs();
+  renderCustomize();
+  onLangChange(renderCustomize);
+}
+
+/** prefs 가 바뀔 때마다 화면과 편집 UI 를 다시 맞춥니다. (탭 배치 제외) */
+function refreshAppearance(prefs) {
+  applySkinAccent(prefs);
+  applyCardPrefs(prefs);
+  renderCustomize();
+}
+  return { applySkinAccent, applyCardPrefs, applyTabLayout, initAppearance, refreshAppearance };
+})();
+
 /* ===== js/main.js ===== */
 const __m_js_main_js = (function () {
   const { $, $$, toast, initToastRegion } = __m_js_lib_dom_js;
@@ -4325,8 +5364,10 @@ const __m_js_main_js = (function () {
   const { initAi } = __m_js_modules_ai_js;
   const { initBanner } = __m_js_modules_banner_js;
   const { initTheme, initSettings } = __m_js_modules_settings_js;
+  const { initAppearance, refreshAppearance, applyTabLayout } = __m_js_modules_appearance_js;
   const { initLang } = __m_js_lib_i18n_js;
   const { setNavigator, notifyTabChange } = __m_js_lib_nav_js;
+  const { ALL_TABS, onPrefsChange } = __m_js_lib_prefs_js;
 /**
  * main.js — 앱 부트스트랩
  * 탭 전환, 각 모듈 초기화, 서비스 워커 등록을 담당합니다.
@@ -4346,9 +5387,17 @@ const __m_js_main_js = (function () {
 
 
 
+
+
 const TAB_KEY = 'ui.activeTab';
-const TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
 const DEFAULT_TAB = 'today';
+
+/*
+ * 화면에 실제로 놓인 탭. 설정에서 순서를 바꾸거나 숨기면 이 배열이 바뀝니다.
+ * 가로 페이저의 인덱스 계산이 전부 이 순서를 기준으로 하므로,
+ * DOM 을 옮긴 뒤에는 반드시 이 배열도 같이 갱신해야 합니다.
+ */
+let TABS = ALL_TABS.slice();
 
 // 날씨는 네트워크 호출이 있으므로 탭을 처음 열 때 초기화합니다.
 // '오늘' 탭도 현재 날씨를 보여주므로 같은 초기화를 씁니다.
@@ -4473,6 +5522,18 @@ function blockEdgeBackGesture(main) {
   }, { passive: false });
 }
 
+/**
+ * 저장된 순서/숨김을 화면에 반영하고 페이저를 다시 맞춥니다.
+ * 보고 있던 탭이 숨겨졌다면 첫 탭으로 옮깁니다. 빈 화면이 남는 것보다 낫습니다.
+ */
+function syncTabLayout(prefs) {
+  TABS = applyTabLayout(prefs);
+  const tab = TABS.includes(currentTab) ? currentTab : (TABS[0] || DEFAULT_TAB);
+  setActiveTab(tab);
+  // DOM 을 옮긴 직후에는 패널 폭이 아직 확정되지 않아 스크롤 위치가 어긋납니다.
+  requestAnimationFrame(() => scrollToPanel(tab, false));
+}
+
 function initTabs() {
   $('#tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.tab');
@@ -4481,11 +5542,18 @@ function initTabs() {
   setNavigator(activate);
   watchPagerScroll();
 
+  TABS = applyTabLayout();
+
   // 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
   const startTab = load(TAB_KEY, DEFAULT_TAB);
-  setActiveTab(TABS.includes(startTab) ? startTab : DEFAULT_TAB);
+  setActiveTab(TABS.includes(startTab) ? startTab : (TABS[0] || DEFAULT_TAB));
   // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
   requestAnimationFrame(() => scrollToPanel(currentTab, false));
+
+  onPrefsChange((prefs) => {
+    refreshAppearance(prefs);
+    syncTabLayout(prefs);
+  });
 }
 
 /** 모듈 하나가 실패해도 나머지 앱은 살아 있도록 개별적으로 감쌉니다. */
@@ -4524,6 +5592,8 @@ function boot() {
   safeInit('음악', initMusic);
   safeInit('AI', initAi);
   safeInit('설정', initSettings);
+  // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
+  safeInit('커스터마이즈', initAppearance);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);

@@ -103,10 +103,21 @@ test('모든 문구가 비어 있지 않고 키를 그대로 노출하지 않음
   }
 });
 
+/**
+ * 한/영이 같아도 되는 키.
+ * 탭 이름 'TO DO' 는 사용자가 두 언어에서 같은 표기를 쓰기로 정한 것이고,
+ * 색 이름 일부와 고유명사는 번역할 대상이 아닙니다.
+ * 번역 누락과 구분하려고 명시적으로 적어 둡니다.
+ */
+const SAME_ON_PURPOSE = new Set([
+  'tab.todo',   // 탭 이름은 사용자 결정에 따라 두 언어 모두 'TO DO'
+]);
+
 test('두 언어의 문구가 서로 달라야 함 (번역 누락 방지)', () => {
   const ko = renderAll('ko');
   const en = renderAll('en');
   for (const key of Object.keys(ko)) {
+    if (SAME_ON_PURPOSE.has(key)) continue;
     assert.notEqual(ko[key][0], en[key][0],
       `${key} 의 한/영 문구가 동일합니다. 번역이 빠졌는지 확인하세요.`);
   }
