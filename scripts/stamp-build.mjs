@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const target = resolve(root, 'public/js/lib/version.js');
+const swTarget = resolve(root, 'public/sw.js');
 
 /*
  * 인자를 줬으면 그 값이 이깁니다. 비어 있어도 마찬가지입니다.
@@ -49,3 +50,23 @@ if (!check.includes(`commit: '${sha}'`)) {
 }
 
 console.log(`[stamp] version.js -> commit=${sha.slice(0, 7)} builtAt=${builtAt}`);
+
+/*
+ * 서비스 워커의 캐시 이름에도 같은 커밋을 찍습니다.
+ *
+ * sw.js 는 캐시 우선이라, 이 파일 자체가 바뀌지 않으면 브라우저가 워커를 갱신하지 않고
+ * 옛 파일을 계속 내놓습니다. 손으로 버전을 올리게 두면 반드시 잊습니다.
+ * 실제로 최초 구현 이후 한 번도 올리지 않아, 배포 네 번이 통째로 사용자에게 가지 않았습니다.
+ */
+const swSource = readFileSync(swTarget, 'utf-8');
+const swNext = swSource.replace(/const CACHE_VERSION = '[^']*'/, `const CACHE_VERSION = 'daily-kit-${sha.slice(0, 12)}'`);
+if (swNext === swSource) {
+  console.error('[stamp] sw.js 에서 CACHE_VERSION 을 찾지 못했습니다. 파일 형식이 바뀌었는지 확인하세요.');
+  process.exit(1);
+}
+writeFileSync(swTarget, swNext, 'utf-8');
+if (!readFileSync(swTarget, 'utf-8').includes(`'daily-kit-${sha.slice(0, 12)}'`)) {
+  console.error('[stamp] sw.js 기록 후 확인에 실패했습니다.');
+  process.exit(1);
+}
+console.log(`[stamp] sw.js -> CACHE_VERSION=daily-kit-${sha.slice(0, 12)}`);
