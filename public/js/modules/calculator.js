@@ -1,13 +1,45 @@
-/** 계산기 모듈: 키패드 + 키보드 입력 + 계산 기록 */
-import { $, el, toast } from '../lib/dom.js';
+/** 계산기 모듈: 키패드 + 키보드 입력 + 계산 기록(메모 포함) */
+import { $, el, toast, uid } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 import { evaluate, formatNumber, normalize } from '../lib/calc-engine.js';
+import { onTabChange } from '../lib/nav.js';
 
 const HISTORY_KEY = 'calc.history';
 const MAX_HISTORY = 40;
+const MAX_NOTE = 120;
 
 let history = [];
 let exprInput, resultBox, historyList;
+// 전역 키보드 입력을 계산기로 보낼지 판단합니다.
+// 예전에는 #panel-calc 의 hidden 을 봤지만, 가로 페이저로 바꾸면서 패널이
+// 더 이상 hidden 을 쓰지 않아 항상 '보이는 중'으로 판정됐습니다.
+// 그 결과 다른 탭에서 숫자를 눌러도 계산기에 입력됐습니다.
+let calcActive = false;
+
+/**
+ * 손가락이 주 입력 수단인지 봅니다.
+ * (pointer: coarse) 는 터치가 주 입력인 기기에서만 참입니다.
+ * 터치스크린 노트북은 트랙패드가 주 입력이라 fine 으로 보고됩니다.
+ */
+function isTouchPrimary() {
+  try {
+    return window.matchMedia?.('(pointer: coarse)').matches === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 폰에서는 시스템 키보드가 올라와 계산기 자판을 가립니다.
+ * inputmode="none" 은 '가상 키보드를 띄우지 말라'는 표준 신호입니다.
+ * 물리 키보드 입력에는 영향이 없어서, 태블릿에 키보드를 붙여 써도 그대로 동작합니다.
+ */
+function applyKeyboardMode() {
+  if (!exprInput) return;
+  const touch = isTouchPrimary();
+  exprInput.setAttribute('inputmode', touch ? 'none' : 'text');
+  exprInput.dataset.keypadOnly = String(touch);
+}
 
 // 입력 중인 수식의 미리보기 결과를 갱신합니다.
 function updatePreview() {
@@ -64,6 +96,66 @@ function clearAll() {
   exprInput.focus();
 }
 
+/**
+ * 저장된 기록을 현재 구조로 맞춥니다.
+ * 메모 기능이 없던 시절 기록에는 id 도 note 도 없습니다.
+ * 손상된 항목(수식이 없거나 값이 숫자가 아님)은 버립니다.
+ */
+function migrateHistory(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => item && typeof item.expr === 'string' && Number.isFinite(item.value))
+    .map((item) => ({
+      ...item,
+      id: typeof item.id === 'string' && item.id ? item.id : uid(),
+      note: typeof item.note === 'string' && item.note ? item.note : null,
+    }));
+}
+
+const rowOf = (id) => [...historyList.children].find((node) => node.dataset?.id === id);
+
+/** 기록 한 줄에 메모 입력칸을 엽니다. */
+function openNoteEditor(id) {
+  const item = history.find((h) => h.id === id);
+  const row = rowOf(id);
+  if (!item || !row || row.querySelector('.hist-note-form')) return;
+
+  row.querySelector('.hist-note')?.remove();
+  const input = el('input', {
+    class: 'field hist-note-input',
+    maxlength: String(MAX_NOTE),
+    placeholder: '왜 이 계산을 했나요?',
+    'aria-label': '계산 기록 메모',
+    autocomplete: 'off',
+  });
+  input.value = item.note || '';
+
+  const commit = () => {
+    const text = input.value.trim().slice(0, MAX_NOTE);
+    item.note = text || null;
+    save(HISTORY_KEY, history);
+    renderHistory();
+    toast(text ? '메모를 저장했습니다' : '메모를 지웠습니다');
+  };
+
+  const form = el('form', {
+    class: 'hist-note-form',
+    onsubmit: (e) => { e.preventDefault(); commit(); },
+  },
+  input,
+  el('button', { class: 'btn btn-primary btn-sm', type: 'submit' }, '저장'),
+  el('button', { class: 'btn btn-sm', type: 'button', onclick: () => renderHistory() }, '취소'));
+
+  // Esc 로도 닫힙니다. 모달이 아니라서 닫는 방법이 버튼뿐이면 답답합니다.
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); renderHistory(); }
+  });
+
+  row.append(form);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
 function renderHistory() {
   historyList.replaceChildren();
   if (!history.length) {
@@ -71,14 +163,27 @@ function renderHistory() {
     return;
   }
   history.forEach((item) => {
-    historyList.append(el('li', {
-      class: 'hist-item',
-      title: '클릭하면 결과를 수식에 넣습니다',
-      onclick: () => { insert(String(item.value)); },
-    },
+    const row = el('li', { class: 'hist-item', dataset: { id: item.id } },
+      // 줄 전체가 아니라 버튼을 눌러야 값이 들어갑니다.
+      // 메모 버튼과 클릭 영역이 겹치면 실수로 값이 입력됩니다.
+      el('button', {
+        class: 'hist-main',
+        type: 'button',
+        title: '누르면 결과를 수식에 넣습니다',
+        onclick: () => { insert(String(item.value)); },
+      },
       el('span', { class: 'hist-expr' }, item.expr),
-      el('span', { class: 'hist-val' }, formatNumber(item.value)),
-    ));
+      el('span', { class: 'hist-val' }, formatNumber(item.value))),
+      el('button', {
+        class: 'hist-note-btn',
+        type: 'button',
+        title: item.note ? '메모 수정' : '메모 남기기',
+        'aria-label': `${item.expr} 계산의 메모 ${item.note ? '수정' : '남기기'}`,
+        onclick: () => openNoteEditor(item.id),
+      }, item.note ? '📝' : '✎'),
+    );
+    if (item.note) row.append(el('p', { class: 'hist-note' }, item.note));
+    historyList.append(row);
   });
 }
 
@@ -89,7 +194,7 @@ function equals() {
     const value = evaluate(raw);
     resultBox.classList.remove('is-error');
     resultBox.textContent = formatNumber(value);
-    history.unshift({ expr: raw, value, at: Date.now() });
+    history.unshift({ id: uid(), expr: raw, value, at: Date.now(), note: null });
     history = history.slice(0, MAX_HISTORY);
     save(HISTORY_KEY, history);
     renderHistory();
@@ -106,9 +211,16 @@ export function initCalculator() {
   exprInput = $('#calc-expr');
   resultBox = $('#calc-result');
   historyList = $('#calc-history');
-  history = load(HISTORY_KEY, []);
-  if (!Array.isArray(history)) history = [];
+  history = migrateHistory(load(HISTORY_KEY, []));
   renderHistory();
+
+  applyKeyboardMode();
+  // 태블릿에 키보드를 붙였다 떼는 것처럼 주 입력 수단이 바뀌면 다시 맞춥니다.
+  try {
+    window.matchMedia?.('(pointer: coarse)')?.addEventListener?.('change', applyKeyboardMode);
+  } catch { /* 지원하지 않는 브라우저는 초기값 그대로 둡니다 */ }
+
+  onTabChange((tab) => { calcActive = tab === 'calc'; });
 
   $('#keypad').addEventListener('click', (e) => {
     const btn = e.target.closest('button');
@@ -137,10 +249,10 @@ export function initCalculator() {
   });
 
   // 계산기 탭이 활성화된 상태에서 전역 키보드 입력을 수식창으로 흘려보냅니다.
+  // PC 에서 수식창을 클릭하지 않고도 숫자·괄호·기호를 바로 칠 수 있게 하기 위한 것입니다.
   document.addEventListener('keydown', (e) => {
-    const calcVisible = !$('#panel-calc').hidden;
     const typingElsewhere = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-    if (!calcVisible || typingElsewhere || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!calcActive || typingElsewhere || e.metaKey || e.ctrlKey || e.altKey) return;
     if (/^[0-9+\-*/().%]$/.test(e.key)) { e.preventDefault(); insert(e.key); }
     else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); equals(); }
     else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
