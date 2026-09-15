@@ -82,6 +82,29 @@ async function goTab(pg, name) {
   if (await pg.locator('#sidebar').isHidden()) await pg.click('#menu-open');
   await pg.click(`.tab[data-tab="${name}"]`);
   await pg.waitForSelector('#sidebar', { state: 'hidden' });
+  /*
+   * 탭 전환은 부드러운 스크롤이라 클릭 직후에는 아직 움직이는 중입니다.
+   * 여기서 기다리지 않으면 호출하는 쪽마다 고정 대기를 넣게 되고,
+   * 느린 CI 에서 그 값이 모자라 실패합니다. (실제로 두 건이 그렇게 깨졌습니다)
+   */
+  await settlePagerOf(pg);
+}
+
+/*
+ * 가로 페이저가 멈출 때까지 기다립니다.
+ * 탭 전환은 부드러운 스크롤이라 즉시 끝나지 않고, 스크롤 도중에는
+ * watchPagerScroll 의 정착 처리가 중간 패널을 활성 탭으로 잡습니다.
+ * 고정 대기로는 느린 CI 에서 여러 장을 다 넘기지 못해 실제로 실패했습니다.
+ */
+async function settlePagerOf(pg) {
+  let prev = -1;
+  for (let i = 0; i < 50; i += 1) {
+    const now = await pg.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
+    if (now === prev) return now;
+    prev = now;
+    await pg.waitForTimeout(100);
+  }
+  return prev;
 }
 
 const results = [];
@@ -579,9 +602,11 @@ const main = async () => {
   // 날씨 카드를 누르면 날씨 탭으로
   await goTab(page, 'today');
   await page.click('#today-weather-card');
-  await page.waitForTimeout(200);
+  // 오늘(0번째)에서 날씨(2번째)까지 부드럽게 스크롤합니다. 200ms 로는 느린 CI 에서 모자랍니다.
+  await settlePagerOf(page);
   check('날씨 카드 클릭 -> 날씨 탭으로 이동',
-    (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true');
+    (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
 
   // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
   console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
@@ -1214,22 +1239,6 @@ export function isStamped() { return true; }`,
   // ---------- 11-a. 커스터마이즈 (테마 · 탭 · 위젯 · 카드 크기) ----------
   console.log('\n▶ 커스터마이즈');
 
-  /*
-   * 가로 페이저가 멈출 때까지 기다립니다.
-   * 탭 전환은 부드러운 스크롤이라 즉시 끝나지 않고, 스크롤 도중에는
-   * watchPagerScroll 의 정착 처리가 중간 패널을 활성 탭으로 잡습니다.
-   * 고정 대기(400ms)로는 느린 CI 에서 4장을 다 넘기지 못해 실제로 실패했습니다.
-   */
-  const settleMain = async (page2 = page) => {
-    let prev = -1;
-    for (let i = 0; i < 50; i += 1) {
-      const now = await page2.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
-      if (now === prev) return now;
-      prev = now;
-      await page2.waitForTimeout(100);
-    }
-    return prev;
-  };
   await goTab(page, 'settings');
   await page.waitForSelector('#customize .cz-section');
 
@@ -1344,13 +1353,13 @@ export function isStamped() { return true; }`,
 
   // 시계 위젯이 실제로 시간을 보여주는지 (껍데기만 그리고 끝나는 경우를 잡습니다)
   await goTab(page, 'today');
-  await settleMain();
+  await settlePagerOf(page);
   const widgetClock = (await page.textContent('#today-clock')) || '';
   check('시계 위젯이 시각을 표시함', /^\d{2}:\d{2}:\d{2}$/.test(widgetClock.trim()), widgetClock);
 
   // 위젯을 누르면 해당 탭으로 이동해야 합니다.
   await page.click('#today-clock');
-  await settleMain();
+  await settlePagerOf(page);
   const czActiveTab = await page.evaluate(() => (
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab ?? '(없음)'));
   check('위젯을 누르면 해당 탭으로 이동', czActiveTab === 'time', `실제: ${czActiveTab}`);
@@ -1414,7 +1423,7 @@ export function isStamped() { return true; }`,
   // 스와이프 인덱스가 새 순서로 다시 계산되는지. 탭 개수가 바뀐 뒤 가장 깨지기 쉬운 부분입니다.
   await goTab(page, 'weather');
   // 부드러운 스크롤이 끝날 때까지 기다립니다. 고정 대기는 느린 CI 에서 흔들립니다.
-  await settleMain();
+  await settlePagerOf(page);
   const snapOk = await page.evaluate(() => {
     const main = document.querySelector('#main');
     const tabs = [...document.querySelectorAll('#tabs .tab')].map((b) => b.dataset.tab);
