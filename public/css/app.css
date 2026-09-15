@@ -1358,12 +1358,27 @@ body[data-has-update="true"] .tab[data-tab="settings"] { position: relative; }
 body[data-has-update="true"] #menu-open::after,
 body[data-has-update="true"] .tab[data-tab="settings"]::after {
   content: '';
-  position: absolute; top: 5px; right: 5px;
+  position: absolute;
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--danger);
+}
+/*
+ * 메뉴 버튼의 점은 모서리에 '걸쳐' 놓습니다.
+ *
+ * 버튼 안쪽(top/right 5px)에 두었더니 ••• 바로 옆에 붙어서,
+ * 알림이 아니라 점 세 개의 '네 번째 점'처럼 보였습니다.
+ * 테두리를 넘어가야 버튼에 붙은 배지로 읽힙니다.
+ * 링은 버튼이 아니라 그 바깥 바탕색이어야 경계에서 끊겨 보이지 않습니다.
+ */
+body[data-has-update="true"] #menu-open::after {
+  top: -3px; right: -3px;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+/* 서랍의 '설정' 줄은 목록이라 줄 안쪽 오른편이 맞습니다. */
+body[data-has-update="true"] .tab[data-tab="settings"]::after {
+  top: 50%; right: 10px; margin-top: -4px;
   box-shadow: 0 0 0 2px var(--surface);
 }
-body[data-has-update="true"] .tab[data-tab="settings"]::after { top: 50%; right: 10px; margin-top: -4px; }
 
 
 /* =========================================================
