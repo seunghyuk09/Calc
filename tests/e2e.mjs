@@ -1980,6 +1980,333 @@ export function isStamped() { return true; }`,
   });
   check('탭 구성이 바뀐 뒤에도 페이저 위치가 맞음', snapOk === true);
 
+  // ---------- 11-a2. 화면 편집 (그 탭에서 직접 끌어 옮기기) ----------
+  console.log('\n▶ 화면 편집');
+
+  const cardsOf = (tab) => page.evaluate((tb) => (
+    [...document.querySelectorAll(`#panel-${tb} > [data-card]`)].map((n) => n.dataset.card)), tab);
+  const widgetsNow = () => page.evaluate(() => (
+    [...document.querySelectorAll('#today-widgets > [data-widget]')].map((n) => n.dataset.widget)));
+  const arrangingOn = () => page.evaluate(() => document.body.dataset.arranging === 'on');
+  /* 서랍이 덮고 있으면 카드를 잡을 수 없습니다. 버튼만 직접 눌러 편집을 켭니다. */
+  const openArrange = async () => {
+    await page.$eval('#arr-start', (n) => n.click());
+    await page.waitForTimeout(400);
+  };
+  const closeArrange = async () => {
+    await page.$eval('#arr-done', (n) => n.click());
+    await page.waitForTimeout(300);
+  };
+  const boxOf = (sel) => page.evaluate((s) => {
+    const r = document.querySelector(s).getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.top, h: r.height, bottom: r.bottom };
+  }, sel);
+  /*
+   * 손잡이를 잡아 목표 카드의 '아래 절반'에 놓습니다. 그러면 그 뒤로 갑니다.
+   *
+   * 가로로도 움직여야 합니다. 이 페이지는 1280px 라 .grid-2 가 카드를 두 칸에 나란히 놓습니다.
+   * 아래로만 끌면 옆 칸에 있는 목표 카드에 영영 닿지 않습니다. (좁은 화면에서만 한 줄로 쌓입니다)
+   *
+   * 앞선 검사가 패널을 스크롤해 둔 채로 넘어올 수 있습니다. 손잡이가 화면 밖에 있으면
+   * 누르는 지점이 헤더 위가 되어 드래그가 아예 시작되지 않습니다. 먼저 맨 위로 올립니다.
+   * 놓는 지점도 화면 안으로 눌러 둡니다. 화면 밖 좌표로는 이벤트가 가지 않습니다.
+   */
+  const dragOnto = async (panelSel, grabSel, targetSel) => {
+    await page.evaluate((s) => { document.querySelector(s).scrollTop = 0; }, panelSel);
+    await page.waitForTimeout(200);
+    const grab = await boxOf(grabSel);
+    const target = await boxOf(targetSel);
+    const { width: vw, height: vh } = page.viewportSize();
+    const inView = grab.y > 0 && grab.y < vh && grab.x > 0 && grab.x < vw;
+    const dropX = Math.min(Math.max(target.x, 4), vw - 4);
+    const dropY = Math.min(target.top + target.h * 0.8, vh - 12);
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x, grab.y + 20, { steps: 4 });
+    await page.waitForTimeout(80);
+    await page.mouse.move(dropX, dropY, { steps: 14 });
+    await page.waitForTimeout(200);
+    const during = await page.evaluate((s) => (
+      [...document.querySelectorAll(`${s} > [data-card],${s} > [data-widget]`)]
+        .map((n) => n.dataset.card || n.dataset.widget)), panelSel);
+    await page.mouse.up();
+    await page.waitForTimeout(450);
+    return {
+      during, inView,
+      where: `손잡이 ${Math.round(grab.x)},${Math.round(grab.y)} -> 놓은 곳 ${Math.round(dropX)},${Math.round(dropY)}`,
+    };
+  };
+
+  await goTab(page, 'quote');
+  await settlePagerOf(page);
+  const quoteBefore = await cardsOf('quote');
+  check('편집 전: 카드가 원래 순서', quoteBefore.join(',') === 'quote.today,quote.mine',
+    quoteBefore.join(','));
+
+  await openArrange();
+  check('편집 막대가 뜸', (await page.evaluate(() => !document.querySelector('#arr-dock').hidden)) === true);
+  check('카드마다 도구줄이 붙음',
+    (await page.evaluate(() => document.querySelectorAll('#panel-quote .arr-bar').length)) === 2);
+  /*
+   * 편집 중에는 카드 내용이 눌리면 안 됩니다.
+   * 계산기 자판 위에서 손잡이를 잡으려다 숫자가 눌리면 곤란합니다.
+   */
+  check('편집 중에는 카드 내용이 눌리지 않음',
+    (await page.evaluate(() => {
+      const body = document.querySelector('#panel-quote [data-card="quote.today"] > *:not(.arr-bar)');
+      return body ? getComputedStyle(body).pointerEvents : '(없음)';
+    })) === 'none');
+
+  // 손가락으로 끌기. 두 번째 카드의 아래 절반까지 내리면 그 뒤로 갑니다.
+  const dragged = await dragOnto('#panel-quote', '[data-arr-bar="quote.today"] .arr-grab',
+    '[data-card="quote.mine"]');
+  check('드래그 시작점이 화면 안에 있음 (밖이면 검사 자체가 헛돕니다)', dragged.inView, dragged.where);
+  check('끄는 도중에 자리가 미리 바뀜', dragged.during.join(',') === 'quote.mine,quote.today',
+    `${dragged.during.join(',')} (${dragged.where})`);
+  const quoteAfter = await cardsOf('quote');
+  check('끌어 놓으면 순서가 바뀜', quoteAfter.join(',') === 'quote.mine,quote.today',
+    `${quoteAfter.join(',')} (${dragged.where})`);
+  check('끝난 뒤 임시 변형이 남지 않음',
+    (await page.evaluate(() => [...document.querySelectorAll('#panel-quote > [data-card]')]
+      .every((n) => !n.style.transform))) === true);
+  check('바꾼 순서가 저장됨',
+    (await page.evaluate(() => (JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}')
+      .cardOrder || {}).quote?.join(','))) === 'quote.mine,quote.today');
+
+  // 키보드만 쓰는 경우. ▲▼ 로도 같은 일을 할 수 있어야 합니다.
+  await page.$eval('[data-arr-bar="quote.today"] [data-arr-move="up"]', (n) => n.click());
+  await page.waitForTimeout(400);
+  check('▲ 로도 순서가 바뀜', (await cardsOf('quote')).join(',') === 'quote.today,quote.mine',
+    (await cardsOf('quote')).join(','));
+  check('맨 위 카드의 ▲ 는 꺼져 있음',
+    (await page.evaluate(() => document.querySelector('[data-arr-bar="quote.today"] [data-arr-move="up"]').disabled)) === true);
+
+  // 크기도 그 자리에서 바꿉니다.
+  await page.$eval('[data-arr-bar="quote.today"] [data-arr-size="compact"]', (n) => n.click());
+  await page.waitForTimeout(400);
+  check('카드 크기를 그 자리에서 바꿈',
+    (await page.getAttribute('[data-card="quote.today"]', 'data-size')) === 'compact',
+    String(await page.getAttribute('[data-card="quote.today"]', 'data-size')));
+  check('크기를 바꿔도 도구줄이 살아 있음',
+    (await page.evaluate(() => document.querySelectorAll('#panel-quote .arr-bar').length)) === 2);
+
+  await closeArrange();
+  check('완료하면 도구줄이 전부 걷힘',
+    (await page.evaluate(() => document.querySelectorAll('.arr-bar').length)) === 0);
+  check('완료하면 편집 표시가 지워짐', (await arrangingOn()) === false);
+
+  // 새로고침해도 바꾼 순서가 남아야 합니다.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.waitForTimeout(400);
+  await goTab(page, 'quote');
+  await settlePagerOf(page);
+  await page.$eval('[data-arr-bar="quote.today"] [data-arr-move="down"]', (n) => n.click()).catch(() => {});
+  check('새로고침 뒤에도 편집 모드는 꺼져 있음', (await arrangingOn()) === false);
+
+  // 순서를 한 번 더 바꿔 저장한 뒤, 새로고침해서 남는지 봅니다.
+  await openArrange();
+  await page.$eval('[data-arr-bar="quote.today"] [data-arr-move="down"]', (n) => n.click());
+  await page.waitForTimeout(400);
+  await closeArrange();
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.waitForTimeout(400);
+  check('새로고침해도 바꾼 카드 순서가 남음',
+    (await cardsOf('quote')).join(',') === 'quote.mine,quote.today',
+    (await cardsOf('quote')).join(','));
+
+  /*
+   * '오늘' 탭 위젯.
+   * 위젯은 통째로 <button> 이라 누르면 해당 탭으로 건너뜁니다.
+   * 옮기다가 화면이 넘어가 버리면 편집이 불가능합니다.
+   */
+  await goTab(page, 'today');
+  await settlePagerOf(page);
+  const wBefore = await widgetsNow();
+  await openArrange();
+  check('위젯에는 크기 버튼이 없음 (오늘 탭은 한 묶음으로 움직입니다)',
+    (await page.evaluate(() => document.querySelectorAll('#today-widgets [data-arr-size]').length)) === 0);
+  const wDrag = await dragOnto('#panel-today', `[data-arr-bar="${wBefore[0]}"] .arr-grab`,
+    `[data-widget="${wBefore[1]}"]`);
+  const wAfter = await widgetsNow();
+  check('위젯도 끌어서 순서가 바뀜',
+    wAfter[0] === wBefore[1] && wAfter[1] === wBefore[0],
+    `${wBefore.join(',')} -> ${wAfter.join(',')} (${wDrag.where})`);
+  check('위젯을 옮겨도 탭이 넘어가지 않음',
+    (await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)) === 'today');
+  check('위젯 순서가 저장됨',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}').widgets))
+      .join(',') === wAfter.join(','));
+  check('위젯을 옮긴 뒤에도 도구줄이 살아 있음',
+    (await page.evaluate(() => document.querySelectorAll('#today-widgets .arr-bar').length)) === wAfter.length);
+
+  /*
+   * 편집 중에 위젯 몸통을 눌러도 넘어가면 안 됩니다.
+   *
+   * 누르면 해당 탭으로 건너뛰는 위젯을 골라야 합니다. '오늘 할 일' 위젯은 버튼이 아니라
+   * 상자라서 몸통을 눌러도 원래 아무 일이 없습니다. 그걸 누르면 무엇을 고쳐도 통과합니다.
+   */
+  const navWidget = wAfter.find((name) => name !== 'todo');
+  check('누르면 이동하는 위젯이 화면에 있음 (없으면 아래 검사가 헛돕니다)', !!navWidget,
+    wAfter.join(','));
+  const goesTo = await page.evaluate((name) => (
+    document.querySelector(`[data-widget="${name}"]`)?.dataset.goto), navWidget);
+  {
+    const body = await boxOf(`[data-widget="${navWidget}"]`);
+    await page.mouse.click(body.x, body.y);
+    await page.waitForTimeout(500);
+    const now = await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab);
+    check('편집 중 위젯을 눌러도 탭이 넘어가지 않음', now === 'today',
+      `${navWidget} 를 눌렀더니 ${now} (편집이 아니면 ${goesTo} 로 갑니다)`);
+  }
+  await closeArrange();
+
+  // 편집을 끝내면 위젯은 원래대로 눌러서 이동할 수 있어야 합니다.
+  {
+    const body = await boxOf(`[data-widget="${navWidget}"]`);
+    await page.mouse.click(body.x, body.y);
+    await settlePagerOf(page);
+    const went = await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab);
+    check('편집을 끝내면 위젯 누르기가 되살아남', went === goesTo, `이동한 탭: ${went} (기대 ${goesTo})`);
+  }
+
+  // 딴 탭으로 넘어가면 편집이 저절로 꺼져야 합니다. 도구줄이 남으면 무엇을 고치는지 헷갈립니다.
+  await goTab(page, 'quote');
+  await settlePagerOf(page);
+  await openArrange();
+  await goTab(page, 'memo');
+  await settlePagerOf(page);
+  check('탭을 옮기면 편집이 저절로 꺼짐', (await arrangingOn()) === false);
+  check('옮긴 뒤 도구줄도 남지 않음',
+    (await page.evaluate(() => document.querySelectorAll('.arr-bar').length)) === 0);
+
+  // 편집 중 보고 있던 자리와 페이저가 흔들리면 안 됩니다. (예전에 색만 바꿔도 위로 튀었습니다)
+  await goTab(page, 'settings');
+  await settlePagerOf(page);
+  await page.evaluate(() => { document.querySelector('#panel-settings').scrollTop = 600; });
+  await page.waitForTimeout(200);
+  const arrBefore = await page.evaluate(() => ({
+    top: Math.round(document.querySelector('#panel-settings').scrollTop),
+    left: Math.round(document.querySelector('#main').scrollLeft),
+  }));
+  await openArrange();
+  const arrAfter = await page.evaluate(() => ({
+    top: Math.round(document.querySelector('#panel-settings').scrollTop),
+    left: Math.round(document.querySelector('#main').scrollLeft),
+  }));
+  check('편집을 켜도 보고 있던 자리가 그대로',
+    arrBefore.top > 300 && arrBefore.top === arrAfter.top, `${arrBefore.top}px -> ${arrAfter.top}px`);
+  check('편집을 켜도 페이저가 제자리',
+    arrBefore.left === arrAfter.left, `${arrBefore.left} -> ${arrAfter.left}`);
+  await closeArrange();
+
+  /*
+   * 전화기 폭에서도 되는지.
+   *
+   * 이 페이지는 1280px 라 카드가 두 칸에 나란히 놓입니다. 실제로 쓰는 건 전화기이고,
+   * 거기서는 카드가 한 줄로 쌓여 두 번째 카드가 화면 아래로 넘어갑니다.
+   * 그 상황에서 끌려면 패널이 손가락을 따라 스크롤해 줘야 합니다. 그 길을 따로 봅니다.
+   */
+  {
+    const phone = await context.newPage();
+    await phone.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+    }));
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.goto(BASE, { waitUntil: 'networkidle' });
+    await phone.waitForSelector('body[data-ready="true"]');
+    /*
+     * 저장소는 창끼리 같습니다. 앞 검사가 이미 순서를 뒤집고 카드를 '작게'로 줄여 놨습니다.
+     * 그대로 두면 '바뀌었는지' 보는 검사가 처음부터 목표 상태라 무엇을 해도 통과합니다.
+     * 깨끗한 자리에서 다시 시작합니다.
+     */
+    await phone.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+      delete raw.cardOrder;
+      raw.cards = {};
+      localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+    });
+    await phone.reload({ waitUntil: 'networkidle' });
+    await phone.waitForSelector('body[data-ready="true"]');
+    await goTab(phone, 'quote');
+    await phone.waitForTimeout(500);
+
+    const phoneCards = () => phone.evaluate(() => (
+      [...document.querySelectorAll('#panel-quote > [data-card]')].map((n) => n.dataset.card)));
+    check('전화기 폭: 기본 순서에서 시작 (여기가 어긋나면 아래 검사가 헛돕니다)',
+      (await phoneCards()).join(',') === 'quote.today,quote.mine', (await phoneCards()).join(','));
+
+    await phone.$eval('#arr-start', (n) => n.click());
+    await phone.waitForTimeout(400);
+    check('전화기 폭: 편집이 켜짐',
+      (await phone.evaluate(() => document.body.dataset.arranging === 'on')) === true);
+
+    // 좁은 폭에서 도구줄이 화면을 넘기면 버튼을 누를 수가 없습니다.
+    for (const w of [320, 360, 390]) {
+      await phone.setViewportSize({ width: w, height: 844 });
+      await phone.waitForTimeout(250);
+      const over = await phone.evaluate(() => {
+        const panel = document.querySelector('.panel[data-arranging="on"]');
+        const dock = document.querySelector('#arr-dock');
+        const bad = [];
+        if (panel.scrollWidth - panel.clientWidth > 1) bad.push(`패널 +${panel.scrollWidth - panel.clientWidth}px`);
+        const d = dock.getBoundingClientRect();
+        if (d.left < -1 || d.right > window.innerWidth + 1) bad.push(`막대 ${Math.round(d.left)}~${Math.round(d.right)}`);
+        return bad;
+      });
+      check(`전화기 폭(${w}px): 편집 중에도 가로 넘침 없음`, over.length === 0,
+        over.length ? over.join(', ') : '정상');
+    }
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.waitForTimeout(300);
+
+    // 두 번째 카드가 화면 밖에 있는지 확인하고, 그 상태에서 끌어 봅니다.
+    const layout = await phone.evaluate(() => {
+      const b = document.querySelector('[data-card="quote.mine"]').getBoundingClientRect();
+      return { bottom: Math.round(b.bottom), vh: window.innerHeight };
+    });
+    check('전화기 폭: 두 번째 카드가 화면 아래로 넘어감 (따라 스크롤이 필요한 상황)',
+      layout.bottom > layout.vh, `카드 끝 ${layout.bottom}px / 화면 ${layout.vh}px`);
+
+    await phone.evaluate(() => { document.querySelector('#panel-quote').scrollTop = 0; });
+    await phone.waitForTimeout(200);
+    const before = await phoneCards();
+    const g = await phone.evaluate(() => {
+      const r = document.querySelector('[data-arr-bar="quote.today"] .arr-grab').getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    });
+    await phone.mouse.move(g.x, g.y);
+    await phone.mouse.down();
+    await phone.mouse.move(g.x, g.y + 20, { steps: 4 });
+    await phone.waitForTimeout(80);
+    // 화면 아래 끝 가까이로 끌면 패널이 따라 올라와 두 번째 카드가 올라옵니다.
+    await phone.mouse.move(g.x, 810, { steps: 14 });
+    await phone.waitForTimeout(400);
+    const scrolled = await phone.evaluate(() => Math.round(document.querySelector('#panel-quote').scrollTop));
+    await phone.mouse.up();
+    await phone.waitForTimeout(450);
+    const after = await phoneCards();
+    check('전화기 폭: 화면 끝으로 끌면 패널이 따라 스크롤함', scrolled > 20, `${scrolled}px 내려감`);
+    check('전화기 폭: 한 줄로 쌓인 상태에서도 순서가 바뀜',
+      after.join(',') === 'quote.mine,quote.today', `${before.join(',')} -> ${after.join(',')}`);
+    await phone.close();
+  }
+
+  // 뒷 검사에 영향을 주지 않도록 전부 되돌립니다.
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+    delete raw.cardOrder;
+    raw.widgets = ['weather', 'todo'];
+    raw.cards = {};
+    localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.waitForTimeout(400);
+  check('되돌리기: 카드 순서가 기본으로', (await cardsOf('quote')).join(',') === 'quote.today,quote.mine',
+    (await cardsOf('quote')).join(','));
+
   // ---------- 11-b. 넓고 긴 화면에서 세로 여백 ----------
   // .panel 은 플렉스 아이템이라 화면 높이만큼 늘어나고 그 위에 display:grid 가 얹힙니다.
   // 그리드의 align-content 기본값(normal = stretch)은 남는 세로 공간을 행 사이에 나눠 넣어,

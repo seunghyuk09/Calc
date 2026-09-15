@@ -16,6 +16,7 @@ import { initAi } from './modules/ai.js';
 import { initBanner } from './modules/banner.js';
 import { initTheme, initSettings } from './modules/settings.js';
 import { initAppearance, refreshAppearance, applyTabLayout } from './modules/appearance.js';
+import { initArrange, startArrange, arrangeFollowTab } from './modules/arrange.js';
 import { initUpdate, registerServiceWorker } from './modules/update.js';
 import { initLang, t, onLangChange, applyStatic } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
@@ -68,6 +69,8 @@ function setActiveTab(tab) {
   }
 
   save(TAB_KEY, tab);
+  // 딴 화면으로 넘어가면 편집을 끝냅니다. 도구줄이 남아 있으면 무엇을 편집 중인지 헷갈립니다.
+  arrangeFollowTab(tab);
   runLazyInit(tab);
   showHeaderTab(tab);
   announceTab(tab);
@@ -262,6 +265,15 @@ function initMenu() {
     announceTab(currentTab);
   });
   $('#menu-open')?.addEventListener('click', menuOpen);
+  /*
+   * 서랍을 먼저 닫고 편집을 켭니다.
+   * 서랍이 덮고 있으면 카드를 잡을 수가 없고, menuClose 가 초점을 돌려주므로
+   * 그 뒤에 켜야 편집 막대로 초점이 제대로 갑니다.
+   */
+  $('#arr-start')?.addEventListener('click', () => {
+    menuClose();
+    startArrange(currentTab);
+  });
   $('#menu-close')?.addEventListener('click', menuClose);
   $('#sidebar-scrim')?.addEventListener('click', menuClose);
   document.addEventListener('keydown', (e) => {
@@ -422,6 +434,7 @@ function boot() {
   // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
   safeInit('커스터마이즈', initAppearance);
   safeInit('메뉴', initMenu);
+  safeInit('화면 편집', initArrange);
   safeInit('업데이트', initUpdate);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);

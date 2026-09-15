@@ -1536,6 +1536,118 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
 }
 .more-body .btn { justify-content: flex-start; width: 100%; }
 
+/* ==========================================================
+   화면 편집 (카드를 그 탭에서 직접 끌어 옮기기)
+   ========================================================== */
+
+/* 서랍 맨 아래의 진입 버튼. 탭 목록과 붙어 보이지 않게 선으로 끊습니다. */
+.sidebar-action {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  justify-content: flex-start;
+}
+
+/*
+ * 편집 중에만 뜨는 막대.
+ * 화면 아래에 고정합니다. 카드를 끌다 보면 화면이 스크롤되는데,
+ * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
+ */
+.arr-dock {
+  position: fixed; z-index: 45;
+  left: calc(10px + var(--sa-left)); right: calc(10px + var(--sa-right));
+  bottom: calc(10px + var(--sa-bottom));
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow), 0 10px 30px rgba(0, 0, 0, .22);
+}
+.arr-dock-hint { font-size: 12px; color: var(--text-faint); flex: 1; min-width: 0; }
+.arr-dock .btn { flex: none; }
+
+/* 편집 중인 패널은 막대에 가리지 않도록 아래를 비워 둡니다. */
+.panel[data-arranging="on"] { padding-bottom: calc(96px + var(--sa-bottom)); }
+
+/*
+ * 편집 중인 카드.
+ * 점선 테두리로 '지금은 누르는 화면이 아니라 옮기는 화면'임을 알립니다.
+ */
+[data-arr-item] {
+  position: relative;
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+/*
+ * 카드 내용은 눌리지 않게 막습니다. 계산기 자판 위에서 손잡이를 잡으려다
+ * 숫자가 눌리면 안 됩니다. 도구줄만 다시 살립니다.
+ */
+[data-arr-item] > *:not(.arr-bar) { pointer-events: none; }
+[data-arr-item] > .arr-bar { pointer-events: auto; }
+
+/* 끌리는 중인 카드는 떠 있는 것처럼 보여야 어디를 잡았는지 알 수 있습니다. */
+[data-arr-drag="on"] {
+  z-index: 46;
+  opacity: .92;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .3);
+  /* 끌고 있는 동안에는 자리 옮김 애니메이션이 오히려 손가락을 따라오지 못하게 합니다. */
+  transition: none;
+}
+
+/* 카드 위에 붙는 도구줄. */
+.arr-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: -4px -4px 10px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.arr-name {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  margin-right: auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.arr-nudge { display: flex; gap: 3px; flex: none; }
+.arr-opts { display: flex; gap: 3px; flex: none; }
+
+.arr-opt {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 30px; min-width: 30px; padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.arr-opt:hover:not(:disabled) { border-color: var(--accent); }
+.arr-opt.is-on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+.arr-opt:disabled { opacity: .4; cursor: default; }
+.arr-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.arr-step { padding: 4px 6px; }
+
+/*
+ * 손잡이.
+ * touch-action: none 을 여기에만 겁니다. 카드 전체에 걸면 편집 중에 화면을
+ * 세로로 넘길 수가 없고, 넓게 걸면 좌우 탭 넘김까지 같이 죽습니다.
+ */
+.arr-grab {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  min-height: 32px; min-width: 34px;
+  border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 15px; line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.arr-grab:active { cursor: grabbing; }
+.arr-grab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 좁은 화면에서는 이름과 버튼이 한 줄에 다 들어가지 않습니다. 줄을 나눠 씁니다. */
+@media (max-width: 420px) {
+  .arr-name { flex: 1 1 100%; margin-right: 0; order: -1; }
+}
+
 </style>
 </head>
 <body>
@@ -1589,6 +1701,10 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
       <button class="tab" role="tab" data-tab="ai"       aria-selected="false"><span aria-hidden="true">🤖</span><span data-i18n="tab.ai">AI 검색</span></button>
       <button class="tab" role="tab" data-tab="settings" aria-selected="false"><span aria-hidden="true">⚙️</span><span data-i18n="tab.settings">설정</span></button>
     </nav>
+    <!-- 보고 있는 그 탭에서 바로 카드를 끌어 옮깁니다. 설정 탭까지 건너갈 필요가 없습니다. -->
+    <button class="btn btn-ghost sidebar-action" id="arr-start" type="button">
+      <span aria-hidden="true">⠿</span> <span data-i18n="arr.open">화면 편집</span>
+    </button>
   </aside>
 
   <main class="app-main" id="main">
@@ -1966,6 +2082,16 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
 
   </main>
 </div>
+
+<!--
+  화면 편집 중에만 뜨는 막대.
+  편집 모드에서 빠져나갈 길이 화면에 늘 보여야 합니다. 안 그러면 갇힌 느낌이 듭니다.
+-->
+<div class="arr-dock" id="arr-dock" role="toolbar" aria-label="화면 편집" hidden>
+  <span class="arr-dock-hint" id="arr-hint" data-i18n="arr.hint">카드를 끌어 옮기고, 크기를 고르세요.</span>
+  <button class="btn btn-sm btn-primary" id="arr-done" type="button" data-i18n="arr.done">완료</button>
+</div>
+<span class="sr-only" id="arr-live" aria-live="polite" role="status"></span>
 <script>
 /* 단일 파일 빌드 — scripts/build-standalone.mjs 가 생성합니다. 직접 수정하지 마세요. */
 "use strict";
@@ -2277,6 +2403,19 @@ const DICT = {
     'cz.card.calc.pad': '계산기 자판', 'cz.card.calc.hist': '계산 기록',
     'cz.card.weather.now': '현재 날씨', 'cz.card.weather.week': '주간 예보',
     'cz.card.todo.plan': '계획표',
+    // ---- 화면 편집 (카드를 끌어 옮기기) ----
+    'arr.open': '화면 편집',
+    'arr.enter': '화면 편집 시작',
+    'arr.done': '완료',
+    'arr.hint': '카드를 끌어 옮기고, 크기를 고르세요.',
+    'arr.hintTouch': '카드를 꾹 눌러 끌면 자리가 바뀝니다.',
+    'arr.grab': (name) => `${name} 옮기기`,
+    'arr.moved': (name, i, n) => `${n}개 중 ${i}번째로 옮겼습니다 — ${name}`,
+    'arr.reset': '이 탭 순서 되돌리기',
+    'arr.none': '이 화면에는 옮길 카드가 없습니다.',
+    'arr.size.compact': '작게', 'arr.size.normal': '보통', 'arr.size.large': '크게',
+    'arr.span.auto': '반폭', 'arr.span.full': '전체폭',
+    'arr.aria.size': '카드 크기', 'arr.aria.span': '카드 폭',
     // ---- 활동 분류 ----
     'cat.work': '업무', 'cat.personal': '개인', 'cat.study': '학습',
     'cat.health': '운동·건강', 'cat.meet': '약속', 'cat.money': '금전', 'cat.etc': '기타',
@@ -2444,6 +2583,19 @@ const DICT = {
     'cz.card.calc.pad': 'Keypad', 'cz.card.calc.hist': 'History',
     'cz.card.weather.now': 'Current weather', 'cz.card.weather.week': 'Weekly forecast',
     'cz.card.todo.plan': 'Planner',
+    // ---- Arrange mode (drag cards around) ----
+    'arr.open': 'Arrange screen',
+    'arr.enter': 'Start arranging',
+    'arr.done': 'Done',
+    'arr.hint': 'Drag cards to reorder, and pick a size.',
+    'arr.hintTouch': 'Press and hold a card, then drag to move it.',
+    'arr.grab': (name) => `Move ${name}`,
+    'arr.moved': (name, i, n) => `Moved ${name} to position ${i} of ${n}`,
+    'arr.reset': 'Reset this tab order',
+    'arr.none': 'Nothing to rearrange on this screen.',
+    'arr.size.compact': 'Small', 'arr.size.normal': 'Normal', 'arr.size.large': 'Large',
+    'arr.span.auto': 'Half', 'arr.span.full': 'Full',
+    'arr.aria.size': 'Card size', 'arr.aria.span': 'Card width',
     // ---- Categories ----
     'cat.work': 'Work', 'cat.personal': 'Personal', 'cat.study': 'Study',
     'cat.health': 'Health', 'cat.meet': 'Meeting', 'cat.money': 'Money', 'cat.etc': 'Other',
@@ -2890,6 +3042,7 @@ const DEFAULTS = Object.freeze({
   tabHidden: [],
   widgets: ['weather', 'todo'],
   cards: {},
+  cardOrder: {},
 });
 
 const listeners = new Set();
@@ -2944,6 +3097,30 @@ function normalizeCards(raw) {
   return out;
 }
 
+/**
+ * 카드 순서. { 탭이름: [카드id, ...] }
+ *
+ * 카드 id 는 '탭.이름' 꼴입니다. 다른 탭 것이 섞여 들어오면 배치가 엉키므로 접두사를 봅니다.
+ * 저장에 없는 카드는 버리지 않고 orderedCards 가 원래 순서로 뒤에 붙입니다.
+ * 그래야 나중에 카드를 추가해도 기존 사용자 화면에서 조용히 사라지지 않습니다.
+ */
+function normalizeCardOrder(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.entries(raw).forEach(([tab, list]) => {
+    if (!isStr(tab) || !ALL_TABS.includes(tab) || !Array.isArray(list)) return;
+    const seen = new Set();
+    const ids = [];
+    list.forEach((id) => {
+      if (!isStr(id) || !id.startsWith(`${tab}.`) || seen.has(id)) return;
+      seen.add(id);
+      ids.push(id);
+    });
+    if (ids.length) out[tab] = ids;
+  });
+  return out;
+}
+
 function getPrefs() {
   const raw = load(PREFS_KEY, null) || {};
   return {
@@ -2954,6 +3131,7 @@ function getPrefs() {
     tabHidden: normalizeHidden(raw.tabHidden),
     widgets: normalizeWidgets(raw.widgets),
     cards: normalizeCards(raw.cards),
+    cardOrder: normalizeCardOrder(raw.cardOrder),
   };
 }
 
@@ -2981,9 +3159,31 @@ function setPrefs(patch) {
     tabHidden: next.tabHidden,
     widgets: next.widgets,
     cards: next.cards,
+    cardOrder: next.cardOrder,
   });
   notify();
   return getPrefs();
+}
+
+/**
+ * 한 탭의 카드 순서.
+ * 저장된 순서를 먼저 쓰고, 저장에 없는 카드는 화면에 있던 순서대로 뒤에 붙입니다.
+ * @param {string} tab 탭 이름
+ * @param {string[]} present 지금 그 탭에 실제로 있는 카드 id 들 (HTML 순서)
+ */
+function orderedCards(tab, present, prefs = getPrefs()) {
+  const have = new Set(present);
+  const saved = (prefs.cardOrder[tab] || []).filter((id) => have.has(id));
+  const seen = new Set(saved);
+  const out = saved.slice();
+  present.forEach((id) => { if (!seen.has(id)) out.push(id); });
+  return out;
+}
+
+/** 한 탭의 카드 순서를 저장합니다. */
+function setCardOrder(tab, ids) {
+  const prefs = getPrefs();
+  return setPrefs({ cardOrder: normalizeCardOrder({ ...prefs.cardOrder, [tab]: ids }) });
 }
 
 /** 카드 하나의 크기/폭만 바꿉니다. */
@@ -2996,7 +3196,14 @@ function setCardPref(id, patch) {
 
 /** 전부 기본값으로 되돌립니다. */
 function resetPrefs() {
-  return setPrefs({ ...DEFAULTS, tabOrder: ALL_TABS.slice(), tabHidden: [], widgets: DEFAULTS.widgets.slice(), cards: {} });
+  return setPrefs({
+    ...DEFAULTS,
+    tabOrder: ALL_TABS.slice(),
+    tabHidden: [],
+    widgets: DEFAULTS.widgets.slice(),
+    cards: {},
+    cardOrder: {},
+  });
 }
 
 function onPrefsChange(fn) {
@@ -3022,7 +3229,7 @@ function moveItem(list, name, delta) {
   out.splice(to, 0, out.splice(from, 1)[0]);
   return out;
 }
-  return { getPrefs, visibleTabs, cardPref, setPrefs, setCardPref, resetPrefs, onPrefsChange, moveItem, SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS, CARD_DEFAULTS, DEFAULTS };
+  return { getPrefs, visibleTabs, cardPref, setPrefs, orderedCards, setCardOrder, setCardPref, resetPrefs, onPrefsChange, moveItem, SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS, CARD_DEFAULTS, DEFAULTS };
 })();
 
 /* ===== js/lib/categories.js ===== */
@@ -6626,7 +6833,7 @@ const __m_js_modules_appearance_js = (function () {
   const { t, onLangChange } = __m_js_lib_i18n_js;
   const { load, save } = __m_js_lib_store_js;
   const { SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
-  getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem, } = __m_js_lib_prefs_js;
+  getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem, orderedCards, } = __m_js_lib_prefs_js;
 /**
  * appearance.js — 커스터마이즈를 화면에 적용하고, 설정 탭의 편집 UI 를 그립니다.
  *
@@ -6686,6 +6893,32 @@ function applyCardPrefs(prefs = getPrefs()) {
     const { size, span } = cardPref(node.dataset.card, prefs);
     if (size === 'normal') node.removeAttribute('data-size'); else node.dataset.size = size;
     if (span === 'auto') node.removeAttribute('data-span'); else node.dataset.span = span;
+  });
+}
+
+/**
+ * 저장된 순서대로 각 탭의 카드를 다시 배치합니다.
+ *
+ * '오늘' 탭은 여기서 건드리지 않습니다. 그 탭의 순서는 위젯 목록(prefs.widgets)이
+ * 정하고 today.js 가 직접 그립니다.
+ */
+function applyCardOrder(prefs = getPrefs()) {
+  ALL_TABS.forEach((tab) => {
+    if (tab === 'today') return;
+    const panel = document.querySelector(`#panel-${tab}`);
+    if (!panel) return;
+    const nodes = [...panel.children].filter((n) => n.matches('[data-card]'));
+    if (nodes.length < 2) return;
+
+    const present = nodes.map((n) => n.dataset.card);
+    const want = orderedCards(tab, present, prefs);
+    // 이미 그 순서면 손대지 않습니다. appendChild 는 옮긴 요소의 스크롤을 0 으로 되돌립니다.
+    if (want.every((id, i) => present[i] === id)) return;
+
+    const byId = new Map(nodes.map((n) => [n.dataset.card, n]));
+    const keepTop = panel.scrollTop;
+    want.forEach((id) => { const n = byId.get(id); if (n) panel.appendChild(n); });
+    if (keepTop && panel.scrollTop !== keepTop) panel.scrollTop = keepTop;
   });
 }
 
@@ -6984,6 +7217,7 @@ function renderCustomize() {
 function initAppearance() {
   applySkinAccent();
   applyCardPrefs();
+  applyCardOrder();
   renderCustomize();
   onLangChange(renderCustomize);
 }
@@ -6992,9 +7226,431 @@ function initAppearance() {
 function refreshAppearance(prefs) {
   applySkinAccent(prefs);
   applyCardPrefs(prefs);
+  applyCardOrder(prefs);
   renderCustomize();
 }
-  return { applySkinAccent, applyCardPrefs, applyTabLayout, initAppearance, refreshAppearance };
+  return { applySkinAccent, applyCardPrefs, applyCardOrder, applyTabLayout, initAppearance, refreshAppearance };
+})();
+
+/* ===== js/modules/arrange.js ===== */
+const __m_js_modules_arrange_js = (function () {
+  const { $, $$, el } = __m_js_lib_dom_js;
+  const { t } = __m_js_lib_i18n_js;
+  const { CARD_SIZES, CARD_SPANS, ALL_WIDGETS,
+  getPrefs, setPrefs, setCardPref, setCardOrder, cardPref, onPrefsChange, } = __m_js_lib_prefs_js;
+/**
+ * arrange.js — 화면 편집 (카드를 그 탭에서 직접 끌어 옮기고 크기를 고릅니다)
+ *
+ * 예전에는 설정 탭까지 들어가 목록의 ▲▼ 를 눌러야 순서를 바꿀 수 있었습니다.
+ * 보고 있는 화면과 고치는 화면이 달라서, 바꿔 놓고 다시 건너가 확인해야 했습니다.
+ * 여기서는 보고 있는 그 탭에서 카드를 손가락으로 끌어 옮깁니다.
+ *
+ * 편집 모드를 따로 두는 이유:
+ * 카드 안에는 계산기 자판, 체크박스, 입력창이 들어 있습니다. 평소에 드래그를 걸어 두면
+ * 숫자를 누르려다 카드가 끌려갑니다. 그래서 '편집 중'일 때만 손잡이가 나타납니다.
+ *
+ * 다루는 것은 두 가지입니다. 둘 다 '한 상자 안의 목록'이라 같은 코드로 움직입니다.
+ *   카드   : 각 탭의 .panel > [data-card]      -> prefs.cardOrder[탭]
+ *   위젯   : '오늘' 탭의 #today-widgets > [data-widget] -> prefs.widgets
+ *
+ * 저장은 prefs.js 가 합니다. 여기서는 DOM 과 손가락만 다룹니다.
+ */
+
+
+
+/** 지금 편집 중인 탭. null 이면 편집 모드가 아닙니다. */
+let current = null;
+
+/** 드래그 중인 정보. null 이면 끌고 있지 않습니다. */
+let drag = null;
+
+/** 자동 스크롤 타이머 id. 카드를 화면 끝으로 끌면 패널이 따라 스크롤합니다. */
+let autoScrollRaf = 0;
+
+/** 지금 편집 중인 탭 이름. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+function arrangingTab() {
+  return current;
+}
+
+const panelOf = (tab) => document.querySelector(`#panel-${tab}`);
+
+/**
+ * 그 탭에서 옮길 수 있는 것들이 담긴 상자와 항목 종류.
+ * '오늘' 탭만 위젯 상자를 따로 쓰고, 나머지는 패널 자신이 상자입니다.
+ */
+function boxOf(tab) {
+  const panel = panelOf(tab);
+  if (!panel) return null;
+  if (tab === 'today') {
+    const host = $('#today-widgets');
+    return host ? { host, kind: 'widget', panel } : null;
+  }
+  return { host: panel, kind: 'card', panel };
+}
+
+/** 상자 안에서 실제로 옮길 수 있는 항목들. (도구줄이나 안내문은 제외) */
+function itemsOf(box) {
+  const sel = box.kind === 'widget' ? '[data-widget]' : '[data-card]';
+  return [...box.host.children].filter((node) => node.matches(sel));
+}
+
+const idOf = (node) => node.dataset.card || node.dataset.widget || '';
+
+/** 화면에 보여 줄 이름. 카드와 위젯의 사전 키가 다릅니다. */
+function labelOf(node) {
+  const id = idOf(node);
+  return node.dataset.widget ? t(`cz.widget.${id}`) : t(`cz.card.${id}`);
+}
+
+/* ---------- 도구줄 ---------- */
+
+function optButton(label, on, onClick, extra) {
+  const btn = el('button', {
+    class: `arr-opt${on ? ' is-on' : ''}`,
+    type: 'button',
+    'aria-pressed': String(on),
+    ...extra,
+  }, label);
+  btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  return btn;
+}
+
+/**
+ * 카드 위에 붙는 편집 도구줄.
+ *
+ * 손잡이만으로는 키보드로 순서를 바꿀 수 없어 ▲▼ 도 같이 답니다.
+ * 손가락으로 끌 수 없는 환경(키보드만 쓰는 경우)에서도 같은 일을 할 수 있어야 합니다.
+ */
+function toolbar(node, box, index, total) {
+  const id = idOf(node);
+  const name = labelOf(node);
+
+  const grab = el('button', {
+    class: 'arr-grab', type: 'button',
+    'aria-label': t('arr.grab', name),
+    title: t('arr.grab', name),
+    dataset: { grab: id },
+  }, '⠿');
+
+  const move = (delta) => {
+    const items = itemsOf(box);
+    const from = items.indexOf(node);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= items.length) return;
+    // 아래로 갈 때는 목표의 '다음' 자리에, 위로 갈 때는 목표 '앞'에 넣습니다.
+    box.host.insertBefore(node, delta > 0 ? items[to].nextSibling : items[to]);
+    commit(box);
+    announce(t('arr.moved', name, to + 1, items.length));
+    // 다시 그려지면 이 버튼은 사라지므로, 새로 그려진 같은 자리의 버튼으로 초점을 옮깁니다.
+    refocus(id, delta > 0 ? 'down' : 'up');
+  };
+
+  const row = el('div', { class: 'arr-bar', dataset: { arrBar: id } },
+    grab,
+    el('span', { class: 'arr-name' }, name),
+    el('div', { class: 'arr-nudge' },
+      el('button', {
+        class: 'arr-opt arr-step', type: 'button', dataset: { arrMove: 'up' },
+        disabled: index === 0, 'aria-label': `${name} ▲`,
+      }, '▲'),
+      el('button', {
+        class: 'arr-opt arr-step', type: 'button', dataset: { arrMove: 'down' },
+        disabled: index === total - 1, 'aria-label': `${name} ▼`,
+      }, '▼'),
+    ),
+  );
+  row.querySelector('[data-arr-move="up"]').addEventListener('click', (e) => { e.stopPropagation(); move(-1); });
+  row.querySelector('[data-arr-move="down"]').addEventListener('click', (e) => { e.stopPropagation(); move(1); });
+
+  // 위젯은 크기 설정이 없습니다. ('오늘' 탭 카드들은 한 묶음으로 같이 움직입니다)
+  if (box.kind === 'card') {
+    const pref = cardPref(id);
+    row.append(
+      el('div', { class: 'arr-opts', role: 'group', 'aria-label': t('arr.aria.size') },
+        ...CARD_SIZES.map((size) => optButton(
+          t(`arr.size.${size}`), pref.size === size,
+          () => { setCardPref(id, { size }); refocus(id, `size:${size}`); },
+          { dataset: { arrSize: size } },
+        ))),
+      el('div', { class: 'arr-opts', role: 'group', 'aria-label': t('arr.aria.span') },
+        ...CARD_SPANS.map((span) => optButton(
+          t(`arr.span.${span}`), pref.span === span,
+          () => { setCardPref(id, { span }); refocus(id, `span:${span}`); },
+          { dataset: { arrSpan: span } },
+        ))),
+    );
+  }
+  return row;
+}
+
+/**
+ * 눌렀던 버튼으로 초점을 되돌립니다.
+ * 설정이 바뀌면 도구줄을 다시 그리는데, 그때 초점이 몸통으로 튀면
+ * 키보드로 연달아 누를 수가 없습니다.
+ */
+let pendingFocus = null;
+function refocus(id, what) {
+  pendingFocus = { id, what };
+}
+
+function applyPendingFocus() {
+  if (!pendingFocus) return;
+  const { id, what } = pendingFocus;
+  pendingFocus = null;
+  const bar = document.querySelector(`[data-arr-bar="${CSS.escape(id)}"]`);
+  if (!bar) return;
+  let target = null;
+  if (what === 'up' || what === 'down') target = bar.querySelector(`[data-arr-move="${what}"]`);
+  else if (what.startsWith('size:')) target = bar.querySelector(`[data-arr-size="${what.slice(5)}"]`);
+  else if (what.startsWith('span:')) target = bar.querySelector(`[data-arr-span="${what.slice(5)}"]`);
+  // 끝으로 밀려 ▲▼ 가 꺼졌으면 손잡이로 물러납니다. 비활성 버튼에는 초점이 가지 않습니다.
+  if (!target || target.disabled) target = bar.querySelector('.arr-grab');
+  try { target?.focus({ preventScroll: true }); } catch { /* 초점 실패는 치명적이지 않습니다 */ }
+}
+
+function announce(text) {
+  const live = $('#arr-live');
+  if (live) live.textContent = text;
+}
+
+/* ---------- 편집 모드 켜고 끄기 ---------- */
+
+/** 도구줄을 싹 걷어냅니다. */
+function stripBars(root = document) {
+  $$('.arr-bar', root).forEach((bar) => bar.remove());
+}
+
+/** 지금 상태대로 도구줄을 다시 답니다. */
+function decorate() {
+  if (!current) return;
+  const box = boxOf(current);
+  if (!box) return;
+  stripBars(box.host);
+  const items = itemsOf(box);
+  items.forEach((node, i) => {
+    node.dataset.arrItem = 'on';
+    node.prepend(toolbar(node, box, i, items.length));
+  });
+  const bar = $('#arr-hint');
+  if (bar) bar.textContent = items.length ? t('arr.hint') : t('arr.none');
+  applyPendingFocus();
+}
+
+/**
+ * 편집 모드 시작.
+ * @param {string} tab 편집할 탭 이름
+ */
+function startArrange(tab) {
+  const box = boxOf(tab);
+  if (!box) return false;
+  if (current && current !== tab) stopArrange();
+  current = tab;
+  document.body.dataset.arranging = 'on';
+  box.panel.dataset.arranging = 'on';
+  const dock = $('#arr-dock');
+  if (dock) dock.hidden = false;
+  decorate();
+  // 편집을 시작하자마자 '완료'로 초점을 보내 두면 키보드로 빠져나올 길이 분명해집니다.
+  try { $('#arr-done')?.focus({ preventScroll: true }); } catch { /* 초점 실패는 넘어갑니다 */ }
+  return true;
+}
+
+/** 편집 모드 종료. 도구줄을 걷고 표시를 지웁니다. */
+function stopArrange() {
+  if (!current) return;
+  endDrag(true);
+  const box = boxOf(current);
+  if (box) {
+    stripBars(box.host);
+    box.panel.removeAttribute('data-arranging');
+    itemsOf(box).forEach((node) => { delete node.dataset.arrItem; });
+  }
+  // 탭을 옮기고 나서 껐다면 예전 패널에 표시가 남아 있을 수 있어 전부 훑습니다.
+  $$('.panel[data-arranging]').forEach((p) => p.removeAttribute('data-arranging'));
+  stripBars();
+  delete document.body.dataset.arranging;
+  const dock = $('#arr-dock');
+  if (dock) dock.hidden = true;
+  current = null;
+  pendingFocus = null;
+}
+
+/* ---------- 순서 저장 ---------- */
+
+/** 지금 DOM 순서를 저장합니다. */
+function commit(box) {
+  const ids = itemsOf(box).map(idOf).filter(Boolean);
+  if (!ids.length) return;
+  if (box.kind === 'widget') {
+    // 저장에는 '켜져 있는 위젯'만 들어갑니다. 꺼진 것은 애초에 화면에 없습니다.
+    const on = ids.filter((name) => ALL_WIDGETS.includes(name));
+    setPrefs({ widgets: on });
+  } else {
+    setCardOrder(current, ids);
+  }
+}
+
+/* ---------- 손가락으로 끌기 ---------- */
+
+/** 패널 위/아래 끝에서 이만큼 안쪽에 오면 따라 스크롤합니다. */
+const EDGE = 72;
+const EDGE_SPEED = 14;
+
+function autoScroll(panel, clientY) {
+  cancelAnimationFrame(autoScrollRaf);
+  const rect = panel.getBoundingClientRect();
+  let dir = 0;
+  if (clientY < rect.top + EDGE) dir = -1;
+  else if (clientY > rect.bottom - EDGE) dir = 1;
+  if (!dir) return;
+  const step = () => {
+    if (!drag) return;
+    panel.scrollTop += dir * EDGE_SPEED;
+    autoScrollRaf = requestAnimationFrame(step);
+  };
+  autoScrollRaf = requestAnimationFrame(step);
+}
+
+function onPointerDown(e) {
+  if (!current || drag) return;
+  const grab = e.target.closest?.('.arr-grab');
+  if (!grab) return;
+  const box = boxOf(current);
+  if (!box) return;
+  const card = grab.closest('[data-arr-item]');
+  if (!card || card.parentElement !== box.host) return;
+
+  e.preventDefault();
+  try { grab.setPointerCapture(e.pointerId); } catch { /* 캡처 실패해도 이동은 됩니다 */ }
+  drag = {
+    box, card, grab, pointerId: e.pointerId,
+    startX: e.clientX, startY: e.clientY, moved: false,
+  };
+  card.dataset.arrDrag = 'on';
+}
+
+function onPointerMove(e) {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  e.preventDefault();
+  const dx = e.clientX - drag.startX;
+  const dy = e.clientY - drag.startY;
+  if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;   // 손 떨림은 무시합니다
+  drag.moved = true;
+  drag.card.style.transform = `translate(${dx}px, ${dy}px)`;
+
+  autoScroll(drag.box.panel, e.clientY);
+
+  // 포인터가 올라가 있는 형제를 찾습니다. 끌리는 카드 자신은 뺍니다.
+  const target = itemsOf(drag.box).find((node) => {
+    if (node === drag.card) return false;
+    const r = node.getBoundingClientRect();
+    return e.clientY >= r.top && e.clientY <= r.bottom
+      && e.clientX >= r.left && e.clientX <= r.right;
+  });
+  if (!target) return;
+
+  const r = target.getBoundingClientRect();
+  const after = (e.clientY - r.top) > r.height / 2;
+  const next = after ? target.nextSibling : target;
+  if (next === drag.card || (after && target.nextSibling === drag.card)) return;
+
+  /*
+   * DOM 에서 자리를 옮기면 카드의 '원래 자리'가 바뀝니다.
+   * 그대로 두면 손가락과 카드가 어긋나므로, 옮기기 직전의 화면 위치를 재어 두고
+   * 옮긴 뒤 같은 화면 위치에 있도록 기준점을 다시 잡습니다.
+   */
+  const before = drag.card.getBoundingClientRect();
+  drag.box.host.insertBefore(drag.card, next);
+  drag.card.style.transform = '';
+  const now = drag.card.getBoundingClientRect();
+  drag.startX = e.clientX - (before.left - now.left);
+  drag.startY = e.clientY - (before.top - now.top);
+  drag.card.style.transform =
+    `translate(${e.clientX - drag.startX}px, ${e.clientY - drag.startY}px)`;
+}
+
+/**
+ * 드래그를 끝냅니다.
+ * @param {boolean} silent 참이면 저장하지 않습니다. (편집 모드를 끄면서 정리할 때)
+ */
+function endDrag(silent = false) {
+  cancelAnimationFrame(autoScrollRaf);
+  autoScrollRaf = 0;
+  if (!drag) return;
+  const { card, grab, box, moved, pointerId } = drag;
+  drag = null;
+  card.style.transform = '';
+  delete card.dataset.arrDrag;
+  try { grab.releasePointerCapture(pointerId); } catch { /* 이미 풀렸으면 넘어갑니다 */ }
+  if (silent || !moved) return;
+  commit(box);
+  const items = itemsOf(box);
+  announce(t('arr.moved', labelOf(card), items.indexOf(card) + 1, items.length));
+  // 저장하면 화면을 다시 그리는 모듈이 있어 도구줄이 날아갑니다. 다시 답니다.
+  decorate();
+}
+
+function onPointerUp(e) {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  endDrag();
+}
+
+/*
+ * 편집 중에는 카드를 '누르는' 일이 일어나면 안 됩니다.
+ *
+ * '오늘' 탭의 위젯은 통째로 <button> 이고, 누르면 해당 탭으로 건너뜁니다.
+ * 손잡이를 놓는 순간에도 click 이 한 번 올라가기 때문에, 카드를 옮기자마자
+ * 화면이 딴 탭으로 넘어가 버립니다. 잡아 채는 단계에서 끊습니다.
+ *
+ * 도구줄 버튼은 제 일을 해야 하므로 통과시킵니다. 손잡이는 누르는 버튼이 아니라
+ * 잡는 손잡이라서 click 을 흘려보내면 안 됩니다.
+ */
+function onClickCapture(e) {
+  if (!current) return;
+  const item = e.target.closest?.('[data-arr-item]');
+  if (!item) return;
+  if (e.target.closest('.arr-grab')) { e.preventDefault(); e.stopPropagation(); return; }
+  if (e.target.closest('.arr-bar')) return;
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+/* ---------- 부트스트랩 ---------- */
+
+function initArrange() {
+  const dock = $('#arr-dock');
+  if (!dock) return;
+
+  $('#arr-done')?.addEventListener('click', () => stopArrange());
+
+  // 손잡이는 문서 전체에서 위임으로 받습니다. 도구줄은 계속 새로 그려집니다.
+  document.addEventListener('pointerdown', onPointerDown, { passive: false });
+  document.addEventListener('pointermove', onPointerMove, { passive: false });
+  document.addEventListener('pointerup', onPointerUp);
+  document.addEventListener('pointercancel', onPointerUp);
+  // 잡아 채는 단계여야 아래쪽(위젯 컨테이너)의 위임 처리보다 먼저 막을 수 있습니다.
+  document.addEventListener('click', onClickCapture, true);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && current) { e.preventDefault(); stopArrange(); }
+  });
+
+  /*
+   * 설정이 바뀌면 today.js 가 위젯을, appearance.js 가 카드 크기를 다시 적용합니다.
+   * 그 과정에서 도구줄이 통째로 날아가므로 다시 답니다.
+   * 끌고 있는 중에는 건드리지 않습니다. 손가락 밑에서 DOM 이 바뀌면 자리가 튑니다.
+   */
+  onPrefsChange(() => {
+    if (!current || drag) return;
+    requestAnimationFrame(() => { if (current && !drag) decorate(); });
+  });
+}
+
+/** 지금 보고 있는 탭이 바뀌면 편집 모드를 끕니다. 딴 화면에 도구줄이 남으면 혼란스럽습니다. */
+function arrangeFollowTab(tab) {
+  if (current && current !== tab) stopArrange();
+}
+  return { arrangingTab, startArrange, stopArrange, initArrange, arrangeFollowTab };
 })();
 
 /* ===== js/lib/version.js ===== */
@@ -7317,6 +7973,7 @@ const __m_js_main_js = (function () {
   const { initBanner } = __m_js_modules_banner_js;
   const { initTheme, initSettings } = __m_js_modules_settings_js;
   const { initAppearance, refreshAppearance, applyTabLayout } = __m_js_modules_appearance_js;
+  const { initArrange, startArrange, arrangeFollowTab } = __m_js_modules_arrange_js;
   const { initUpdate, registerServiceWorker } = __m_js_modules_update_js;
   const { initLang, t, onLangChange, applyStatic } = __m_js_lib_i18n_js;
   const { setNavigator, notifyTabChange } = __m_js_lib_nav_js;
@@ -7325,6 +7982,7 @@ const __m_js_main_js = (function () {
  * main.js — 앱 부트스트랩
  * 탭 전환, 각 모듈 초기화, 서비스 워커 등록을 담당합니다.
  */
+
 
 
 
@@ -7390,6 +8048,8 @@ function setActiveTab(tab) {
   }
 
   save(TAB_KEY, tab);
+  // 딴 화면으로 넘어가면 편집을 끝냅니다. 도구줄이 남아 있으면 무엇을 편집 중인지 헷갈립니다.
+  arrangeFollowTab(tab);
   runLazyInit(tab);
   showHeaderTab(tab);
   announceTab(tab);
@@ -7584,6 +8244,15 @@ function initMenu() {
     announceTab(currentTab);
   });
   $('#menu-open')?.addEventListener('click', menuOpen);
+  /*
+   * 서랍을 먼저 닫고 편집을 켭니다.
+   * 서랍이 덮고 있으면 카드를 잡을 수가 없고, menuClose 가 초점을 돌려주므로
+   * 그 뒤에 켜야 편집 막대로 초점이 제대로 갑니다.
+   */
+  $('#arr-start')?.addEventListener('click', () => {
+    menuClose();
+    startArrange(currentTab);
+  });
   $('#menu-close')?.addEventListener('click', menuClose);
   $('#sidebar-scrim')?.addEventListener('click', menuClose);
   document.addEventListener('keydown', (e) => {
@@ -7744,6 +8413,7 @@ function boot() {
   // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
   safeInit('커스터마이즈', initAppearance);
   safeInit('메뉴', initMenu);
+  safeInit('화면 편집', initArrange);
   safeInit('업데이트', initUpdate);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);

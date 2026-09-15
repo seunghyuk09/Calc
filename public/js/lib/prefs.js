@@ -68,6 +68,7 @@ export const DEFAULTS = Object.freeze({
   tabHidden: [],
   widgets: ['weather', 'todo'],
   cards: {},
+  cardOrder: {},
 });
 
 const listeners = new Set();
@@ -122,6 +123,30 @@ function normalizeCards(raw) {
   return out;
 }
 
+/**
+ * 카드 순서. { 탭이름: [카드id, ...] }
+ *
+ * 카드 id 는 '탭.이름' 꼴입니다. 다른 탭 것이 섞여 들어오면 배치가 엉키므로 접두사를 봅니다.
+ * 저장에 없는 카드는 버리지 않고 orderedCards 가 원래 순서로 뒤에 붙입니다.
+ * 그래야 나중에 카드를 추가해도 기존 사용자 화면에서 조용히 사라지지 않습니다.
+ */
+function normalizeCardOrder(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.entries(raw).forEach(([tab, list]) => {
+    if (!isStr(tab) || !ALL_TABS.includes(tab) || !Array.isArray(list)) return;
+    const seen = new Set();
+    const ids = [];
+    list.forEach((id) => {
+      if (!isStr(id) || !id.startsWith(`${tab}.`) || seen.has(id)) return;
+      seen.add(id);
+      ids.push(id);
+    });
+    if (ids.length) out[tab] = ids;
+  });
+  return out;
+}
+
 export function getPrefs() {
   const raw = load(PREFS_KEY, null) || {};
   return {
@@ -132,6 +157,7 @@ export function getPrefs() {
     tabHidden: normalizeHidden(raw.tabHidden),
     widgets: normalizeWidgets(raw.widgets),
     cards: normalizeCards(raw.cards),
+    cardOrder: normalizeCardOrder(raw.cardOrder),
   };
 }
 
@@ -159,9 +185,31 @@ export function setPrefs(patch) {
     tabHidden: next.tabHidden,
     widgets: next.widgets,
     cards: next.cards,
+    cardOrder: next.cardOrder,
   });
   notify();
   return getPrefs();
+}
+
+/**
+ * 한 탭의 카드 순서.
+ * 저장된 순서를 먼저 쓰고, 저장에 없는 카드는 화면에 있던 순서대로 뒤에 붙입니다.
+ * @param {string} tab 탭 이름
+ * @param {string[]} present 지금 그 탭에 실제로 있는 카드 id 들 (HTML 순서)
+ */
+export function orderedCards(tab, present, prefs = getPrefs()) {
+  const have = new Set(present);
+  const saved = (prefs.cardOrder[tab] || []).filter((id) => have.has(id));
+  const seen = new Set(saved);
+  const out = saved.slice();
+  present.forEach((id) => { if (!seen.has(id)) out.push(id); });
+  return out;
+}
+
+/** 한 탭의 카드 순서를 저장합니다. */
+export function setCardOrder(tab, ids) {
+  const prefs = getPrefs();
+  return setPrefs({ cardOrder: normalizeCardOrder({ ...prefs.cardOrder, [tab]: ids }) });
 }
 
 /** 카드 하나의 크기/폭만 바꿉니다. */
@@ -174,7 +222,14 @@ export function setCardPref(id, patch) {
 
 /** 전부 기본값으로 되돌립니다. */
 export function resetPrefs() {
-  return setPrefs({ ...DEFAULTS, tabOrder: ALL_TABS.slice(), tabHidden: [], widgets: DEFAULTS.widgets.slice(), cards: {} });
+  return setPrefs({
+    ...DEFAULTS,
+    tabOrder: ALL_TABS.slice(),
+    tabHidden: [],
+    widgets: DEFAULTS.widgets.slice(),
+    cards: {},
+    cardOrder: {},
+  });
 }
 
 export function onPrefsChange(fn) {

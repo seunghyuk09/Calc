@@ -16,6 +16,7 @@ const prefs = await import('../public/js/lib/prefs.js');
 const {
   ALL_TABS, ALL_WIDGETS, LOCKED_TABS,
   getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem,
+  orderedCards, setCardOrder,
 } = prefs;
 
 // store.js 는 모든 키에 접두사를 붙입니다. 가짜 저장소에 직접 심을 때도 맞춰야 합니다.
@@ -158,4 +159,89 @@ test('모든 위젯 이름이 정규화를 통과한다 (목록과 검사 로직
   wipe();
   setPrefs({ widgets: ALL_WIDGETS.slice() });
   assert.deepEqual(getPrefs().widgets, ALL_WIDGETS);
+});
+
+
+/* =========================================================
+   카드 순서 (화면 편집에서 끌어 옮긴 결과)
+
+   저장된 순서가 진실이되, 저장에 없는 카드는 버리면 안 됩니다.
+   버리면 새 카드를 추가했을 때 기존 사용자 화면에서 조용히 사라집니다.
+   ========================================================= */
+
+test('카드 순서: 저장된 게 없으면 화면에 있던 순서 그대로', () => {
+  wipe();
+  assert.deepEqual(orderedCards('calc', ['calc.pad', 'calc.hist']), ['calc.pad', 'calc.hist']);
+});
+
+test('카드 순서: 저장하고 되읽기', () => {
+  wipe();
+  setCardOrder('calc', ['calc.hist', 'calc.pad']);
+  assert.deepEqual(getPrefs().cardOrder.calc, ['calc.hist', 'calc.pad']);
+  assert.deepEqual(orderedCards('calc', ['calc.pad', 'calc.hist']), ['calc.hist', 'calc.pad']);
+});
+
+test('카드 순서: 저장에 없는 카드는 뒤에 붙는다 (새 카드가 사라지면 안 됩니다)', () => {
+  wipe();
+  setCardOrder('calc', ['calc.hist', 'calc.pad']);
+  assert.deepEqual(
+    orderedCards('calc', ['calc.pad', 'calc.hist', 'calc.new']),
+    ['calc.hist', 'calc.pad', 'calc.new'],
+  );
+});
+
+test('카드 순서: 화면에서 없어진 카드는 조용히 빠진다', () => {
+  wipe();
+  setCardOrder('calc', ['calc.hist', 'calc.gone', 'calc.pad']);
+  assert.deepEqual(orderedCards('calc', ['calc.pad', 'calc.hist']), ['calc.hist', 'calc.pad']);
+});
+
+test('카드 순서: 다른 탭의 카드가 섞여 들어오면 버린다', () => {
+  wipe();
+  // 'calc' 목록에 'memo.note' 가 들어가면 그 탭 배치가 엉킵니다.
+  seed({ cardOrder: { calc: ['calc.hist', 'memo.note', 'calc.pad'] } });
+  assert.deepEqual(getPrefs().cardOrder.calc, ['calc.hist', 'calc.pad']);
+});
+
+test('카드 순서: 모르는 탭과 이상한 값은 버린다', () => {
+  wipe();
+  seed({
+    cardOrder: {
+      calc: ['calc.pad'],
+      없는탭: ['없는탭.a'],
+      memo: '배열이 아님',
+      quote: [],
+      time: [null, 42, 'time.clock', 'time.clock'],
+    },
+  });
+  const got = getPrefs().cardOrder;
+  assert.deepEqual(Object.keys(got).sort(), ['calc', 'time']);
+  assert.deepEqual(got.time, ['time.clock'], '중복과 쓰레기가 남았습니다');
+});
+
+test('카드 순서: 저장값이 통째로 망가져도 던지지 않는다', () => {
+  wipe();
+  seed({ cardOrder: '문자열' });
+  assert.doesNotThrow(() => getPrefs());
+  assert.deepEqual(getPrefs().cardOrder, {});
+  seed({ cardOrder: ['배열'] });
+  assert.deepEqual(getPrefs().cardOrder, {});
+});
+
+test('카드 순서: 다른 설정을 바꿔도 살아남는다', () => {
+  wipe();
+  setCardOrder('calc', ['calc.hist', 'calc.pad']);
+  setCardPref('calc.pad', { size: 'large' });
+  setPrefs({ accent: 'green' });
+  assert.deepEqual(getPrefs().cardOrder.calc, ['calc.hist', 'calc.pad'],
+    '다른 설정을 저장하면서 카드 순서가 날아갔습니다');
+  assert.equal(cardPref('calc.pad').size, 'large');
+});
+
+test('카드 순서: 초기화하면 기본으로 돌아온다', () => {
+  wipe();
+  setCardOrder('calc', ['calc.hist', 'calc.pad']);
+  resetPrefs();
+  assert.deepEqual(getPrefs().cardOrder, {});
+  assert.deepEqual(orderedCards('calc', ['calc.pad', 'calc.hist']), ['calc.pad', 'calc.hist']);
 });

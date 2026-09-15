@@ -1526,3 +1526,115 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
   background: var(--surface); box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, .18);
 }
 .more-body .btn { justify-content: flex-start; width: 100%; }
+
+/* ==========================================================
+   화면 편집 (카드를 그 탭에서 직접 끌어 옮기기)
+   ========================================================== */
+
+/* 서랍 맨 아래의 진입 버튼. 탭 목록과 붙어 보이지 않게 선으로 끊습니다. */
+.sidebar-action {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  justify-content: flex-start;
+}
+
+/*
+ * 편집 중에만 뜨는 막대.
+ * 화면 아래에 고정합니다. 카드를 끌다 보면 화면이 스크롤되는데,
+ * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
+ */
+.arr-dock {
+  position: fixed; z-index: 45;
+  left: calc(10px + var(--sa-left)); right: calc(10px + var(--sa-right));
+  bottom: calc(10px + var(--sa-bottom));
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow), 0 10px 30px rgba(0, 0, 0, .22);
+}
+.arr-dock-hint { font-size: 12px; color: var(--text-faint); flex: 1; min-width: 0; }
+.arr-dock .btn { flex: none; }
+
+/* 편집 중인 패널은 막대에 가리지 않도록 아래를 비워 둡니다. */
+.panel[data-arranging="on"] { padding-bottom: calc(96px + var(--sa-bottom)); }
+
+/*
+ * 편집 중인 카드.
+ * 점선 테두리로 '지금은 누르는 화면이 아니라 옮기는 화면'임을 알립니다.
+ */
+[data-arr-item] {
+  position: relative;
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+/*
+ * 카드 내용은 눌리지 않게 막습니다. 계산기 자판 위에서 손잡이를 잡으려다
+ * 숫자가 눌리면 안 됩니다. 도구줄만 다시 살립니다.
+ */
+[data-arr-item] > *:not(.arr-bar) { pointer-events: none; }
+[data-arr-item] > .arr-bar { pointer-events: auto; }
+
+/* 끌리는 중인 카드는 떠 있는 것처럼 보여야 어디를 잡았는지 알 수 있습니다. */
+[data-arr-drag="on"] {
+  z-index: 46;
+  opacity: .92;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .3);
+  /* 끌고 있는 동안에는 자리 옮김 애니메이션이 오히려 손가락을 따라오지 못하게 합니다. */
+  transition: none;
+}
+
+/* 카드 위에 붙는 도구줄. */
+.arr-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: -4px -4px 10px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.arr-name {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  margin-right: auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.arr-nudge { display: flex; gap: 3px; flex: none; }
+.arr-opts { display: flex; gap: 3px; flex: none; }
+
+.arr-opt {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 30px; min-width: 30px; padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.arr-opt:hover:not(:disabled) { border-color: var(--accent); }
+.arr-opt.is-on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+.arr-opt:disabled { opacity: .4; cursor: default; }
+.arr-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.arr-step { padding: 4px 6px; }
+
+/*
+ * 손잡이.
+ * touch-action: none 을 여기에만 겁니다. 카드 전체에 걸면 편집 중에 화면을
+ * 세로로 넘길 수가 없고, 넓게 걸면 좌우 탭 넘김까지 같이 죽습니다.
+ */
+.arr-grab {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  min-height: 32px; min-width: 34px;
+  border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 15px; line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.arr-grab:active { cursor: grabbing; }
+.arr-grab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 좁은 화면에서는 이름과 버튼이 한 줄에 다 들어가지 않습니다. 줄을 나눠 씁니다. */
+@media (max-width: 420px) {
+  .arr-name { flex: 1 1 100%; margin-right: 0; order: -1; }
+}
