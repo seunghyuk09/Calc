@@ -4,15 +4,30 @@
 한 화면에 모은 웹 앱입니다. **빌드 도구·외부 라이브러리 의존성 0** 으로 만들어졌고,
 PWA 로 동작해 모바일 홈 화면에 설치할 수 있습니다.
 
+## 어디서 받나
+
+| 쓰는 방법 | 주소 | 비고 |
+|---|---|---|
+| **웹 (설치 불필요)** | https://seunghyuk09.github.io/Calc/ | 폰 브라우저에서 "홈 화면에 추가" 하면 앱처럼 씁니다 |
+| **안드로이드 APK** | [releases/download/nightly/dailykit-debug.apk](https://github.com/seunghyuk09/Calc/releases/download/nightly/dailykit-debug.apk) | 로그인 없이 바로 받아집니다. main 에 머지될 때마다 교체됩니다 |
+| **바탕화면 단일 파일** | `dist/데일리킷.html` | 저장소에서 받아 더블클릭 |
+| iOS | 없음 | 서명 없는 아카이브라 설치 불가. TestFlight 가 필요합니다 |
+
+> **Actions 아티팩트로 안내하지 않는 이유:** 아티팩트 다운로드 URL 은 로그인한 사용자만 열 수 있고
+> 항상 zip 으로 내려오며, **GitHub 모바일 앱에서는 아예 받을 수 없습니다**(탭하면 웹사이트로 튕깁니다).
+> 릴리스 자산은 이 세 가지 제약이 모두 없어서 폰에서 바로 설치됩니다.
+>
+> APK 는 디버그 서명이라 안드로이드에서 '출처를 알 수 없는 앱 설치' 허용이 필요합니다.
+
 ## 실행
 
 ```bash
 npm start          # http://127.0.0.1:8099
 npm run build            # 단일 파일(dist/) + 미리보기 페이지 생성
-npm run test:unit        # 단위 테스트 (계산 엔진 9종 + 기간 계산 10종)
-npm run test:assets      # 정적 파일 참조 무결성 검사 (sw.js / manifest / index.html)
-npm run test:e2e         # 실제 Chromium E2E 테스트 (47종, http 모드)
-npm run test:standalone  # 단일 파일을 file:// 로 열어 같은 47종 실행
+npm run test:unit        # 단위 테스트 37종 (계산 엔진 9 + 기간 계산 13 + 다국어 15)
+npm run test:assets      # 정적 파일 참조 무결성 + iOS 아이콘 검사
+npm run test:e2e         # 실제 Chromium E2E 테스트 (109종, http 모드)
+npm run test:standalone  # 단일 파일을 file:// 로 열어 같은 109종 실행
 npm test                 # 전부
 ```
 
@@ -211,7 +226,7 @@ Capacitor 기본 템플릿은 `armv7` 을 넣어 줍니다. 배포 타깃이 iOS
 | 대상 | 트리거 | 결과 | 사람 손 |
 |---|---|---|---|
 | **웹 (GitHub Pages)** | `main` 에 머지 | 몇 분 안에 자동 반영 | 없음 |
-| **디버그 APK** | `main` 에 머지 | Actions 아티팩트로 내려받기 | 없음 |
+| **디버그 APK** | `main` 에 머지 | `nightly` 릴리스에 공개 (로그인 불필요) | 없음 |
 | **릴리스 AAB** | `v1.2.3` 형태 태그 푸시 | 서명된 AAB 생성 | 시크릿 등록 1회 + Play 업로드 |
 | **iOS 아카이브** | `main` 에 머지 | 서명 없는 `.xcarchive` 아티팩트 | 없음 (설치는 불가) |
 | **릴리스 IPA** | `v1.2.3` 형태 태그 푸시 | 서명된 IPA 생성 | 시크릿 등록 1회 |
@@ -258,7 +273,7 @@ base64 -w0 dailykit.keystore > keystore.b64
 2. **비공개 테스트** — 2023-11-13 이후 만든 개인 계정은 **테스터 12명이 연속 14일** 참여해야
    프로덕션 액세스를 신청할 수 있습니다
 3. **개인정보처리방침 URL** — 위치·알림 권한을 쓰므로 필요합니다
-4. **AAB 업로드** — Actions 아티팩트에서 내려받아 Play Console 에 올립니다
+4. **AAB 업로드** — 태그 릴리스 페이지에 붙은 `.aab` 를 받아 Play Console 에 올립니다
 
 > 4번은 Play Developer API 서비스 계정을 만들면 자동화할 수 있지만, 계정 생성과 권한 부여가
 > 수기 작업이고 실수 시 영향이 커서 이번에는 넣지 않았습니다. 필요하면 추가하겠습니다.
