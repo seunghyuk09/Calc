@@ -489,7 +489,27 @@ const main = async () => {
   const cdp = await swipeCtx.newCDPSession(sp);
   await sp.goto(BASE, { waitUntil: 'networkidle' });
   await sp.waitForSelector('body[data-ready="true"]');
-  await sp.waitForTimeout(600);
+  await sp.waitForTimeout(400);
+
+  // 뒤로가기 제스처로 앱을 벗어나면 #main 자체가 사라집니다.
+  // 그때 예외로 죽지 않고 검사 실패로 보이도록 -1 을 돌려줍니다.
+  const pagerLeft = () => sp.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
+
+  /**
+   * 스크롤이 멈출 때까지 기다립니다.
+   * 고정 대기(900ms)로는 느린 러너에서 9장을 가로지르는 부드러운 스크롤이 끝나지 않아
+   * 애니메이션 도중 값을 읽고 검사가 흔들립니다. (CI 에서 실제로 났습니다)
+   */
+  const settlePager = async () => {
+    let prev = null;
+    for (let i = 0; i < 50; i += 1) {
+      const now = await pagerLeft();
+      if (now === prev) return now;
+      prev = now;
+      await sp.waitForTimeout(100);
+    }
+    return prev;
+  };
 
   /** 화면 가운데 높이에서 가로로 dx 만큼 손가락을 끕니다. */
   const swipe = async (dx, steps = 12) => {
@@ -504,11 +524,9 @@ const main = async () => {
       await sp.waitForTimeout(12);
     }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await sp.waitForTimeout(900);   // 스냅 애니메이션 + 탭 상태 반영
+    await settlePager();          // 스냅 애니메이션이 끝날 때까지
+    await sp.waitForTimeout(250); // 탭 상태 반영(스크롤 멈춤 감지 120ms) 여유
   };
-  // 뒤로가기 제스처로 앱을 벗어나면 #main 자체가 사라집니다.
-  // 그때 예외로 죽지 않고 검사 실패로 보이도록 -1 을 돌려줍니다.
-  const pagerLeft = () => sp.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
   const selectedTab = () => sp.evaluate(() =>
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab ?? '(앱 이탈)');
 
@@ -546,24 +564,26 @@ const main = async () => {
 
   // 마지막 장에서 왼쪽으로 쓸 때도 같습니다.
   await sp.click('.tab[data-tab="settings"]');
-  await sp.waitForTimeout(900);
+  const lastLeft = await settlePager();
   const urlBeforeLastEdge = sp.url();
-  const lastLeft = await pagerLeft();
   await swipe(-W * 0.7);
+  // 픽셀이 아니라 '몇 번째 장인가'로 봅니다. 스냅 위치가 1~2px 어긋나도 의미는 같습니다.
+  const lastIndex = Math.round(lastLeft / W);
   check('마지막 장에서 더 쓸어도 제자리이고 앱을 벗어나지 않음',
-    (await pagerLeft()) === lastLeft && sp.url() === urlBeforeLastEdge,
-    `scrollLeft ${lastLeft} -> ${await pagerLeft()}, url ${sp.url().slice(-20)}`);
+    Math.round((await pagerLeft()) / W) === lastIndex && sp.url() === urlBeforeLastEdge,
+    `${lastIndex}번째 장 유지 여부: scrollLeft ${lastLeft} -> ${await pagerLeft()}, url ${sp.url().slice(-20)}`);
 
   // 탭 버튼으로도 같은 자리로 가야 합니다.
+  await sp.click('.tab[data-tab="today"]');
+  await settlePager();
   await sp.click('.tab[data-tab="settings"]');
-  await sp.waitForTimeout(900);
-  check('탭 버튼을 누르면 그 장으로 스크롤', Math.round(await pagerLeft()) === W * 9,
-    `기대 ${W * 9}, 실제 ${await pagerLeft()}`);
+  const settingsLeft = await settlePager();
+  check('탭 버튼을 누르면 그 장으로 스크롤', Math.round(settingsLeft / W) === 9,
+    `기대 9번째 장(${W * 9}), 실제 ${settingsLeft}`);
 
   // 낙서판 위에서는 페이저가 움직이면 안 됩니다 (그림이 끊깁니다).
   await sp.click('.tab[data-tab="memo"]');
-  await sp.waitForTimeout(900);
-  const memoLeft = await pagerLeft();
+  const memoLeft = await settlePager();
   const cBox = await sp.locator('#draw-canvas').boundingBox();
   const cy = cBox.y + cBox.height / 2;
   const cx = cBox.x + cBox.width * 0.85;
@@ -575,7 +595,7 @@ const main = async () => {
     await sp.waitForTimeout(12);
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await sp.waitForTimeout(900);
+  await settlePager();
   check('낙서판 위 스와이프는 페이지를 넘기지 않음 (touch-action: none)',
     (await pagerLeft()) === memoLeft, `${memoLeft} -> ${await pagerLeft()}`);
 
