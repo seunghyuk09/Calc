@@ -58,9 +58,46 @@ jsFiles.forEach((file) => {
   });
 });
 
+// 5) iOS 앱 아이콘: 알파 채널이 있으면 App Store 업로드가 거부됩니다(ERROR ITMS-90717).
+//    또한 arm64 전용 바이너리는 UIRequiredDeviceCapabilities 에 arm64 가 있어야 합니다(ERROR ITMS-90502).
+const iosIcon = resolve(root, 'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png');
+if (existsSync(iosIcon)) {
+  const png = readFileSync(iosIcon);
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!png.subarray(0, 8).equals(sig)) {
+    problems.push('iOS 아이콘이 PNG 파일이 아닙니다');
+  } else {
+    const width = png.readUInt32BE(16);
+    const height = png.readUInt32BE(20);
+    const colorType = png[25]; // 2 = RGB(알파 없음), 4/6 = 알파 포함
+    if (width !== 1024 || height !== 1024) {
+      problems.push(`iOS 아이콘은 1024x1024 여야 합니다 (현재: ${width}x${height})`);
+    }
+    if (colorType !== 2 && colorType !== 0 && colorType !== 3) {
+      problems.push(`iOS 아이콘에 알파 채널이 있습니다 (PNG color type ${colorType}). 'node scripts/make-ios-icon.mjs' 로 다시 만드세요`);
+    }
+    // tRNS 청크도 투명도를 만들므로 함께 막습니다.
+    if (png.includes(Buffer.from('tRNS', 'ascii'))) {
+      problems.push("iOS 아이콘에 tRNS 투명도 청크가 있습니다. 'node scripts/make-ios-icon.mjs' 로 다시 만드세요");
+    }
+  }
+}
+
+const iosPlist = resolve(root, 'ios/App/App/Info.plist');
+if (existsSync(iosPlist)) {
+  const plist = readFileSync(iosPlist, 'utf-8');
+  const caps = plist.match(/<key>UIRequiredDeviceCapabilities<\/key>\s*<array>([\s\S]*?)<\/array>/)?.[1] ?? '';
+  if (caps.includes('armv7')) {
+    problems.push('ios/App/App/Info.plist 의 UIRequiredDeviceCapabilities 에 armv7 이 있습니다. arm64 로 바꾸세요');
+  }
+  if (!caps.includes('arm64')) {
+    problems.push('ios/App/App/Info.plist 의 UIRequiredDeviceCapabilities 에 arm64 가 없습니다');
+  }
+}
+
 if (problems.length) {
   console.error('정적 파일 검사 실패:');
   problems.forEach((p) => console.error(`  - ${p}`));
   process.exit(1);
 }
-console.log('정적 파일 검사 통과: sw.js / manifest / index.html 참조가 모두 유효합니다');
+console.log('정적 파일 검사 통과: sw.js / manifest / index.html / iOS 아이콘이 모두 유효합니다');
