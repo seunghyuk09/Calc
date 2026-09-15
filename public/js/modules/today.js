@@ -1,9 +1,9 @@
 /**
  * '오늘' 탭 — 플래너의 첫 페이지
  *
- * 앱을 열면 가장 먼저 보이는 화면입니다. 두 가지만 보여줍니다.
- *  1) 현재 날씨: 아이콘 + 기온. 누르면 날씨 탭의 주간 예보로 이동합니다.
- *  2) 오늘 할 일: 체크하지 않은 항목이 천천히 순환합니다. 누르면 계획표의 해당 항목으로 갑니다.
+ * 앱을 열면 가장 먼저 보이는 화면입니다.
+ * 어떤 요약 카드를 어떤 순서로 놓을지는 설정 탭에서 고릅니다. (lib/prefs.js 의 widgets)
+ * 카드는 전부 버튼이고, 누르면 그 기능의 탭으로 넘어갑니다.
  *
  * 자동으로 움직이는 화면은 읽으려는 순간 지나가버리므로,
  * 손을 올리거나 포커스가 들어오면 멈추고 일시정지 버튼도 따로 둡니다. (WCAG 2.2.2)
@@ -12,14 +12,25 @@
 import { $, el } from '../lib/dom.js';
 import { t, getLang, onLangChange } from '../lib/i18n.js';
 import { isCurrent, SCOPES } from '../lib/period.js';
+import { load } from '../lib/store.js';
+import { getPrefs, onPrefsChange } from '../lib/prefs.js';
 import { getItems, onTodoChange, revealItem } from './todo.js';
 import { getWeather, onWeatherChange, describe } from './weather.js';
+import { getTimerState } from './time.js';
 import { goToTab, onTabChange } from '../lib/nav.js';
 
 const ROTATE_MS = 3500;
 const VISIBLE_ROWS = 3; // 상자 안에 한 번에 보이는 할 일 개수
+const TICK_MS = 1000;   // 시계·타이머 위젯 갱신 주기
+
+// 다른 모듈이 localStorage 에 쓰는 키입니다.
+// 모듈마다 구독 훅을 새로 만드는 대신, 요약만 필요하므로 저장된 값을 직접 읽습니다.
+const QUOTE_KEY = 'quote.items';
+const MEMO_KEY = 'memo.items';
+const CALC_HISTORY_KEY = 'calc.history';
 
 let rotateTimer = null;
+let clockTimer = null;
 let rotateIndex = 0;
 let paused = false;      // 사용자가 버튼으로 멈춘 상태
 let hovering = false;    // 손/포인터가 올라가 있는 동안
@@ -67,6 +78,12 @@ export function maxRotateIndex(count, visible = VISIBLE_ROWS) {
   return Math.max(0, count - visible);
 }
 
+/** 저장된 배열을 읽습니다. 값이 망가져 있으면 빈 배열로 취급합니다. */
+function listOf(key) {
+  const raw = load(key, []);
+  return Array.isArray(raw) ? raw : [];
+}
+
 function formatDate(lang) {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
   try {
@@ -84,58 +101,57 @@ const numOr = (value, digits = 0) => (
   typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—'
 );
 
-function renderWeather() {
-  const box = $('#today-weather');
-  if (!box) return;
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** 초를 mm:ss 로. 한 시간이 넘으면 h:mm:ss 로 늘립니다. */
+function clock(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${pad2(m)}:${pad2(s % 60)}`;
+}
+
+/* =========================================================
+   위젯
+   각 위젯은 { title, tab, body } 를 돌려줍니다.
+   body 는 카드 안에 들어갈 요소이고, tab 은 눌렀을 때 이동할 탭입니다.
+   ========================================================= */
+
+function weatherBody() {
   const wx = getWeather();
   const lang = getLang();
 
   if (wx.status === 'loading') {
-    box.replaceChildren(
+    return el('div', { class: 'today-wx', id: 'today-weather' },
       el('div', { class: 'today-wx-icon' }, el('span', { class: 'spinner' })),
       el('div', { class: 'today-wx-body' },
-        el('div', { class: 'today-wx-desc' }, t('today.weather.loading'))),
-    );
-    return;
+        el('div', { class: 'today-wx-desc' }, t('today.weather.loading'))));
   }
-
   if (wx.status === 'error') {
-    box.replaceChildren(
+    return el('div', { class: 'today-wx', id: 'today-weather' },
       el('div', { class: 'today-wx-icon' }, '🌡️'),
       el('div', { class: 'today-wx-body' },
         el('div', { class: 'today-wx-desc' }, t('today.weather.error')),
-        el('div', { class: 'today-wx-sub' }, t('today.weather.hint'))),
-    );
-    return;
+        el('div', { class: 'today-wx-sub' }, t('today.weather.hint'))));
   }
 
   const [desc, icon] = describe(wx.code, lang);
-  const high = numOr(wx.high);
-  const low = numOr(wx.low);
-  box.replaceChildren(
+  return el('div', { class: 'today-wx', id: 'today-weather' },
     el('div', { class: 'today-wx-icon', 'aria-hidden': 'true' }, icon),
     el('div', { class: 'today-wx-body' },
       el('div', { class: 'today-wx-temp' }, `${numOr(wx.temperature, 1)}°`),
       el('div', { class: 'today-wx-desc' }, desc),
       el('div', { class: 'today-wx-sub' },
-        `${wx.place?.name || ''} · ${low}° / ${high}°`),
-    ),
-    el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'),
-  );
-  // 스크린리더에는 한 문장으로 읽히도록 카드 전체에 라벨을 답니다.
-  box.closest('.today-card')?.setAttribute(
-    'aria-label',
-    `${t('today.weather.title')}: ${desc} ${numOr(wx.temperature, 1)}도. ${t('today.weather.hint')}`,
-  );
+        `${wx.place?.name || ''} · ${numOr(wx.low)}° / ${numOr(wx.high)}°`)),
+    el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'));
 }
 
-function renderTodo() {
-  const track = $('#today-rot');
-  const countEl = $('#today-todo-count');
-  if (!track || !countEl) return;
-
+function todoBody() {
   rows = todayRows();
-  countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
+  const track = el('div', {
+    class: 'today-rot', id: 'today-rot', tabindex: '0',
+    'aria-label': t('today.aria.rotation'),
+  });
 
   if (!rows.length) {
     const items = getItems();
@@ -144,32 +160,141 @@ function renderTodo() {
       item?.done && SCOPES.includes(item.scope) && typeof item.period === 'string'
       && isCurrent(item.scope, item.period)
     ));
-    track.replaceChildren(el('div', { class: 'today-rot-empty' },
+    track.append(el('div', { class: 'today-rot-empty' },
       t(finishedToday ? 'today.todo.allDone' : 'today.todo.empty')));
-    updateRotateControl();
-    return;
+    return track;
   }
 
-  track.replaceChildren(...rows.map((item, i) => el('button', {
+  rows.forEach((item, i) => track.append(el('button', {
     class: 'today-rot-item',
     type: 'button',
     dataset: { id: item.id },
     'aria-label': `${item.text}. ${t('today.aria.position', i + 1, rows.length)}. ${t('today.todo.hint')}`,
   },
   el('span', { class: `today-rot-dot scope-${item.scope}`, 'aria-hidden': 'true' }),
-  el('span', { class: 'today-rot-text' }, item.text),
-  )));
+  el('span', { class: 'today-rot-text' }, item.text))));
 
   if (rotateIndex > maxRotateIndex(rows.length)) rotateIndex = 0;
-  scrollToIndex(false);
-  updateRotateControl();
+  return track;
+}
+
+function clockBody() {
+  const now = new Date();
+  return el('div', { class: 'today-line' },
+    el('div', { class: 'today-big', id: 'today-clock' },
+      `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`));
+}
+
+function timerBody() {
+  const state = getTimerState();
+  if (!state.running && state.remain === state.total) {
+    return el('div', { class: 'today-line' },
+      el('div', { class: 'today-sub', id: 'today-timer' }, t('today.timer.idle')));
+  }
+  return el('div', { class: 'today-line' },
+    el('div', { class: 'today-big', id: 'today-timer' }, clock(state.remain)),
+    el('div', { class: 'today-sub' },
+      state.running ? t('today.timer.running') : t('today.rotate.pause')));
+}
+
+function quoteBody() {
+  const items = listOf(QUOTE_KEY);
+  const first = items.find((q) => q && typeof q.text === 'string' && q.text.trim());
+  if (!first) return el('div', { class: 'today-sub' }, t('today.quote.empty'));
+  return el('div', { class: 'today-quote' },
+    el('div', { class: 'today-quote-text' }, first.text),
+    first.author ? el('div', { class: 'today-sub' }, `— ${first.author}`) : '');
+}
+
+function memoBody() {
+  const items = listOf(MEMO_KEY);
+  const first = items.find((m) => m && typeof m.text === 'string' && m.text.trim());
+  if (!first) return el('div', { class: 'today-sub' }, t('today.memo.empty'));
+  return el('div', {},
+    el('div', { class: 'today-clip' }, first.text),
+    items.length > 1 ? el('div', { class: 'today-sub' }, t('today.memo.more', items.length - 1)) : '');
+}
+
+function calcBody() {
+  const items = listOf(CALC_HISTORY_KEY);
+  const first = items.find((h) => h && typeof h.expr === 'string');
+  if (!first) return el('div', { class: 'today-sub' }, t('today.calc.empty'));
+  return el('div', {},
+    el('div', { class: 'today-sub today-clip' }, first.expr),
+    el('div', { class: 'today-big today-big-sm' }, String(first.value ?? '')),
+    first.note ? el('div', { class: 'today-sub today-clip' }, `📝 ${first.note}`) : '');
+}
+
+const WIDGETS = {
+  weather: { tab: 'weather', title: 'today.weather.title', hint: 'today.weather.hint', body: weatherBody },
+  todo: { tab: 'todo', title: 'today.todo.title', hint: 'today.todo.hint', body: todoBody },
+  clock: { tab: 'time', title: 'today.clock.title', hint: 'today.widget.hint', body: clockBody },
+  timer: { tab: 'time', title: 'today.timer.title', hint: 'today.widget.hint', body: timerBody },
+  quote: { tab: 'quote', title: 'today.quote.title', hint: 'today.widget.hint', body: quoteBody },
+  memo: { tab: 'memo', title: 'today.memo.title', hint: 'today.widget.hint', body: memoBody },
+  calc: { tab: 'calc', title: 'today.calc.title', hint: 'today.widget.hint', body: calcBody },
+};
+
+/**
+ * 카드 하나를 만듭니다.
+ * 할 일 위젯만 버튼이 아니라 div 입니다. 안에 항목 버튼과 일시정지 버튼이 들어가는데,
+ * 버튼 안에 버튼을 넣으면 HTML 규칙 위반이고 클릭이 엉킵니다.
+ */
+function widgetCard(name) {
+  const spec = WIDGETS[name];
+  if (!spec) return null;
+  const interactive = name !== 'todo';
+
+  const head = el('div', { class: 'today-card-head' },
+    el('span', { class: 'card-title' }, t(spec.title)),
+    el('span', { class: 'card-sub', ...(name === 'todo' ? { id: 'today-todo-count' } : {}) },
+      name === 'todo' ? '' : t(spec.hint)));
+
+  if (name === 'todo') {
+    const toggle = el('button', {
+      class: 'icon-btn today-rot-toggle', id: 'today-rot-toggle', type: 'button',
+      'aria-pressed': String(paused),
+    }, paused ? '▶' : '⏸');
+    head.append(toggle);
+  }
+
+  const card = el(interactive ? 'button' : 'div', {
+    class: `card today-card${interactive ? '' : '-static'}`,
+    dataset: { widget: name, goto: spec.tab },
+    ...(interactive ? { type: 'button', id: `today-${name}-card` } : {}),
+  }, head, spec.body());
+
+  return card;
+}
+
+function renderWidgets() {
+  const host = $('#today-widgets');
+  if (!host) return;
+  const { widgets } = getPrefs();
+  if (!widgets.length) {
+    host.replaceChildren(el('div', { class: 'today-rot-empty' }, t('today.empty')));
+    rows = [];
+    return;
+  }
+  host.replaceChildren(...widgets.map(widgetCard).filter(Boolean));
+
+  if (widgets.includes('todo')) {
+    updateTodoCount();
+    scrollToIndex(false);
+    updateRotateControl();
+  }
+}
+
+function updateTodoCount() {
+  const countEl = $('#today-todo-count');
+  if (countEl) countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
 }
 
 /** 현재 순환 위치로 스크롤합니다. 항목 높이가 제각각이어도 되도록 실제 위치를 씁니다. */
 function scrollToIndex(smooth = true) {
   const track = $('#today-rot');
   const target = track?.children?.[rotateIndex];
-  if (!track || !target) return;
+  if (!track || !target || !track.children[0]) return;
   track.scrollTo({
     top: target.offsetTop - track.children[0].offsetTop,
     behavior: smooth && !prefersReducedMotion() ? 'smooth' : 'auto',
@@ -211,61 +336,102 @@ function syncTimer() {
   }
 }
 
+/**
+ * 시계·타이머 위젯은 1초마다 숫자만 갈아 끼웁니다.
+ * 카드를 통째로 다시 그리면 매 초 포커스가 날아갑니다.
+ */
+function tickClock() {
+  const clockEl = $('#today-clock');
+  if (clockEl) {
+    const now = new Date();
+    clockEl.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  }
+  const timerEl = $('#today-timer');
+  if (timerEl) {
+    const state = getTimerState();
+    const idle = !state.running && state.remain === state.total;
+    timerEl.textContent = idle ? t('today.timer.idle') : clock(state.remain);
+  }
+}
+
+function syncClock() {
+  const needed = tabActive && document.visibilityState !== 'hidden'
+    && ($('#today-clock') || $('#today-timer'));
+  if (needed) {
+    if (!clockTimer) clockTimer = setInterval(tickClock, TICK_MS);
+  } else if (clockTimer) {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+}
+
 function renderAll() {
   const lang = getLang();
   $('#panel-today')?.setAttribute('lang', lang);
   const dateEl = $('#today-date');
   if (dateEl) dateEl.textContent = formatDate(lang);
-  renderWeather();
-  renderTodo();
+  renderWidgets();
   syncTimer();
+  syncClock();
 }
 
 export function initToday() {
-  // --- 날씨 카드: 누르면 주간 예보로 ---
-  $('#today-weather-card').addEventListener('click', () => {
-    goToTab('weather');
-    // 탭을 바꾼 직후에는 아직 숨김이 풀리지 않아 스크롤이 먹지 않습니다. 한 프레임 뒤에 옮깁니다.
-    requestAnimationFrame(() => {
-      $('#wx-week')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
+  const host = $('#today-widgets');
+  if (!host) return;
+
+  // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
+  host.addEventListener('click', (e) => {
+    const item = e.target.closest('.today-rot-item');
+    if (item) {
+      goToTab('todo');
+      revealItem(item.dataset.id);
+      return;
+    }
+    if (e.target.closest('#today-rot-toggle')) {
+      paused = !paused;
+      updateRotateControl();
+      syncTimer();
+      return;
+    }
+    const card = e.target.closest('.today-card[data-goto]');
+    if (!card) return;
+    const tab = card.dataset.goto;
+    goToTab(tab);
+    // 탭을 바꾼 직후에는 아직 배치가 끝나지 않아 스크롤이 먹지 않습니다. 한 프레임 뒤에 옮깁니다.
+    if (tab === 'weather') {
+      requestAnimationFrame(() => {
+        $('#wx-week')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
   });
 
-  // --- 할 일: 누르면 계획표의 그 항목으로 ---
-  $('#today-rot').addEventListener('click', (e) => {
-    const btn = e.target.closest('.today-rot-item');
-    if (!btn) return;
-    goToTab('todo');
-    revealItem(btn.dataset.id);
-  });
-
-  // --- 순환 멈춤/시작 ---
-  const track = $('#today-rot');
-  $('#today-rot-toggle').addEventListener('click', () => {
-    paused = !paused;
-    updateRotateControl();
-    syncTimer();
-  });
-
-  // 손이 올라가 있거나 포커스가 들어와 있는 동안은 멈춥니다.
-  const hold = () => { hovering = true; syncTimer(); };
-  const release = () => { hovering = false; syncTimer(); };
-  track.addEventListener('pointerenter', hold);
-  track.addEventListener('pointerleave', release);
-  track.addEventListener('pointerdown', hold);
-  track.addEventListener('focusin', hold);
-  track.addEventListener('focusout', release);
+  /*
+   * 순환 목록 위에 손이나 포커스가 있는 동안만 멈춥니다.
+   * 위젯은 다시 그려질 때마다 새 요소가 되므로 컨테이너에 위임하는데,
+   * pointerenter/leave 는 버블링하지 않아 위임이 되지 않습니다. over/out 을 씁니다.
+   * 카드 전체가 아니라 #today-rot 안일 때만 멈춰야 합니다.
+   * (일시정지 버튼은 카드 머리에 있어서, 카드 전체를 기준으로 잡으면
+   *  버튼을 한 번 누른 뒤 마우스가 그 자리에 남아 순환이 영영 멈춥니다)
+   */
+  const inRot = (node) => !!(node && node.closest && node.closest('#today-rot'));
+  const setHover = (on) => { if (hovering !== on) { hovering = on; syncTimer(); } };
+  host.addEventListener('pointerover', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('pointerout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
+  host.addEventListener('pointerdown', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('focusin', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('focusout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
 
   // 탭을 떠나거나 앱이 백그라운드로 가면 타이머를 멈춥니다.
   onTabChange((name) => {
     tabActive = name === 'today';
-    if (tabActive) renderAll(); else syncTimer();
+    if (tabActive) renderAll(); else { syncTimer(); syncClock(); }
   });
-  document.addEventListener('visibilitychange', syncTimer);
+  document.addEventListener('visibilitychange', () => { syncTimer(); syncClock(); });
 
-  onTodoChange(() => { renderTodo(); syncTimer(); });
-  onWeatherChange(renderWeather);
+  onTodoChange(() => { renderAll(); });
+  onWeatherChange(() => { renderAll(); });
   onLangChange(renderAll);
+  onPrefsChange(renderAll);
 
   renderAll();
 }

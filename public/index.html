@@ -49,45 +49,19 @@
   <main class="app-main" id="main">
 
     <!-- ================= 오늘 (플래너 첫 페이지) ================= -->
-    <section class="panel grid grid-2" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
+    <section class="panel grid" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
       <div class="today-head">
         <div class="today-date" id="today-date">—</div>
         <div class="today-swipe-hint" aria-hidden="true">← 좌우로 쓸어 탭 이동 →</div>
       </div>
 
-      <!-- 현재 날씨: 카드 전체가 버튼이라 어디를 눌러도 주간 예보로 갑니다 -->
-      <button class="card today-card" id="today-weather-card" type="button">
-        <div class="today-card-head">
-          <span class="card-title" data-i18n="today.weather.title">현재 날씨</span>
-          <span class="card-sub" data-i18n="today.weather.hint">눌러서 주간 예보 보기</span>
-        </div>
-        <div class="today-wx" id="today-weather">
-          <div class="today-wx-icon"><span class="spinner"></span></div>
-          <div class="today-wx-body">
-            <div class="today-wx-desc" data-i18n="today.weather.loading">날씨를 불러오는 중…</div>
-          </div>
-        </div>
-      </button>
-
-      <!-- 오늘 할 일: 미완료 항목이 천천히 순환합니다 -->
-      <div class="card today-card-static">
-        <div class="today-card-head">
-          <span class="card-title" data-i18n="today.todo.title">오늘 할 일</span>
-          <span class="card-sub" id="today-todo-count"></span>
-          <button class="icon-btn today-rot-toggle" id="today-rot-toggle" type="button"
-                  data-i18n-aria="today.rotate.pause" data-i18n-title="today.rotate.pause"
-                  aria-pressed="false" hidden>⏸</button>
-        </div>
-        <div class="today-rot" id="today-rot" tabindex="0"
-             data-i18n-aria="today.aria.rotation" aria-label="미완료 할 일 순환">
-          <div class="today-rot-empty" data-i18n="today.todo.empty">등록된 할 일이 없습니다. 눌러서 계획표를 여세요.</div>
-        </div>
-      </div>
+      <!-- 위젯은 설정 탭에서 고른 것만, 고른 순서대로 today.js 가 그립니다. -->
+      <div class="today-widgets grid grid-2" id="today-widgets"></div>
     </section>
 
     <!-- ================= 계산기 ================= -->
     <section class="panel grid grid-2" id="panel-calc" role="tabpanel" aria-label="계산기">
-      <div class="card">
+      <div class="card" data-card="calc.pad">
         <div class="calc-display">
           <input class="calc-expr" id="calc-expr" inputmode="text" autocomplete="off" spellcheck="false"
                  placeholder="0" aria-label="수식 입력">
@@ -117,7 +91,7 @@
         </div>
         <p class="card-sub" style="margin-top:10px">키보드로도 입력할 수 있어요. Enter = 계산, Esc = 초기화</p>
       </div>
-      <div class="card">
+      <div class="card" data-card="calc.hist">
         <div class="card-head">
           <h2 class="card-title">계산 기록</h2>
           <button class="btn btn-sm btn-ghost" id="calc-clear-hist" type="button">기록 지우기</button>
@@ -128,7 +102,7 @@
 
     <!-- ================= 날씨 ================= -->
     <section class="panel grid grid-2" id="panel-weather" role="tabpanel" aria-label="날씨">
-      <div class="card">
+      <div class="card" data-card="weather.now">
         <div class="card-head">
           <h2 class="card-title" id="wx-place">현재 날씨</h2>
           <button class="btn btn-sm" id="wx-locate" type="button">📍 내 위치</button>
@@ -139,7 +113,7 @@
         </form>
         <div id="wx-now"><p class="empty">날씨를 불러오는 중…</p></div>
       </div>
-      <div class="card">
+      <div class="card" data-card="weather.week">
         <div class="card-head"><h2 class="card-title">주간 예보 (7일)</h2></div>
         <ul class="wx-week" id="wx-week"><li class="empty">—</li></ul>
         <p class="card-sub" style="margin-top:12px">데이터: Open-Meteo (CC BY 4.0)</p>
@@ -148,7 +122,7 @@
 
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
     <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
-      <div class="card">
+      <div class="card" data-card="todo.plan">
         <div class="card-head">
           <h2 class="card-title" data-i18n="todo.title">계획표</h2>
           <span class="card-sub" id="todo-count"></span>
@@ -195,14 +169,14 @@
 
     <!-- ================= 시계 · 타이머 ================= -->
     <section class="panel grid grid-2" id="panel-time" role="tabpanel" aria-label="시계와 타이머">
-      <div class="card">
+      <div class="card" data-card="time.clock">
         <div class="card-head"><h2 class="card-title">시계</h2></div>
         <div class="clock-time" id="clock-time">--:--:--</div>
         <div class="clock-date" id="clock-date">—</div>
         <ul class="world-list" id="world-clocks"></ul>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="time.timer">
         <div class="card-head">
           <h2 class="card-title">타이머 · 뽀모도로</h2>
           <button class="btn btn-sm btn-ghost" id="notify-enable" type="button">🔔 알림 허용</button>
@@ -242,7 +216,7 @@
 
     <!-- ================= 메모 · 낙서 ================= -->
     <section class="panel grid grid-2" id="panel-memo" role="tabpanel" aria-label="메모와 낙서판">
-      <div class="card">
+      <div class="card" data-card="memo.draw">
         <div class="card-head">
           <h2 class="card-title">낙서판</h2>
           <span class="card-sub">손가락·마우스·펜</span>
@@ -262,7 +236,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="memo.note">
         <div class="card-head">
           <h2 class="card-title">간단 메모</h2>
           <span class="card-sub" id="memo-count"></span>
@@ -279,7 +253,7 @@
 
     <!-- ================= 글귀 ================= -->
     <section class="panel grid grid-2" id="panel-quote" role="tabpanel" aria-label="글귀">
-      <div class="card">
+      <div class="card" data-card="quote.today">
         <div class="card-head">
           <h2 class="card-title">오늘의 글귀</h2>
           <button class="btn btn-sm" id="quote-next" type="button">🔄 다른 글귀</button>
@@ -290,7 +264,7 @@
         </div>
         <p class="card-sub" style="margin-top:10px">내가 등록한 글귀가 있으면 우선 보여줍니다.</p>
       </div>
-      <div class="card">
+      <div class="card" data-card="quote.mine">
         <div class="card-head">
           <h2 class="card-title">내 글귀</h2>
           <span class="card-sub" id="quote-count"></span>
@@ -308,7 +282,7 @@
 
     <!-- ================= 음악 ================= -->
     <section class="panel grid" id="panel-music" role="tabpanel" aria-label="음악">
-      <div class="card">
+      <div class="card" data-card="music.player">
         <div class="card-head"><h2 class="card-title">YouTube 플레이어</h2></div>
         <form class="row" id="yt-form" style="margin-bottom:12px">
           <input class="field grow" id="yt-input" placeholder="YouTube 영상/재생목록 URL 또는 ID 붙여넣기" autocomplete="off">
@@ -321,7 +295,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="music.links">
         <div class="card-head"><h2 class="card-title">음악 서비스 바로가기</h2></div>
         <p class="note" style="margin-bottom:12px">
           <strong>기술적 한계 안내:</strong> 멜론·지니·유튜브뮤직은 외부 앱에서 <strong>계정 연결 후 재생하는 공식 API 를 제공하지 않습니다.</strong>
@@ -338,7 +312,7 @@
 
     <!-- ================= AI 검색 ================= -->
     <section class="panel grid" id="panel-ai" role="tabpanel" aria-label="AI 검색">
-      <div class="card">
+      <div class="card" data-card="ai.chat">
         <div class="card-head">
           <h2 class="card-title">AI 검색 · 질문</h2>
           <span class="card-sub" id="ai-mode">키 미설정</span>
@@ -364,7 +338,7 @@
 
     <!-- ================= 설정 ================= -->
     <section class="panel grid grid-2" id="panel-settings" role="tabpanel" aria-label="설정">
-      <div class="card">
+      <div class="card" data-card="settings.display">
         <div class="card-head"><h2 class="card-title">표시 설정</h2></div>
         <div class="row" style="margin-bottom:14px">
           <span class="card-sub grow">테마</span>
@@ -390,7 +364,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-card="settings.ai">
         <div class="card-head"><h2 class="card-title">AI 연동 (BYOK)</h2></div>
         <p class="card-sub" style="margin-bottom:8px">
           Anthropic API 키를 입력하면 AI 검색 탭이 활성화됩니다.
@@ -419,6 +393,12 @@
         </div>
         <input type="file" id="set-import-file" accept="application/json" class="sr-only">
         <p class="card-sub" id="set-storage-note" style="margin-top:10px"></p>
+      </div>
+
+      <!-- 커스터마이즈 UI 는 appearance.js 가 그립니다. 항목이 prefs 에 따라 달라지기 때문입니다. -->
+      <div class="card" data-card="settings.customize">
+        <div class="card-head"><h2 class="card-title" data-i18n="cz.title">화면 커스터마이즈</h2></div>
+        <div id="customize"></div>
       </div>
     </section>
 

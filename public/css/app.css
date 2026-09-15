@@ -743,3 +743,292 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   .today-card, .today-card:active { transition: none; transform: none; }
   .today-rot { scroll-behavior: auto; }
 }
+
+/* =========================================================
+   커스터마이즈: 스킨 · 강조색 · 카드 크기
+   -----------------------------------------------------
+   축이 셋입니다. 서로 간섭하지 않도록 담당 토큰을 나눠 둡니다.
+     data-theme  : light / dark      -> 배경과 글자 밝기 (위쪽에 이미 정의)
+     data-skin   : 분위기            -> 모서리, 그림자, 테두리, 글꼴, 모션
+     data-accent : 강조색            -> --accent 계열만
+   그래서 스킨 블록은 --accent 를 건드리지 않고, 강조색 블록은 배경을 건드리지 않습니다.
+   소스 순서상 강조색이 스킨보다 뒤에 와야 스킨이 강조색을 덮지 않습니다.
+   ========================================================= */
+
+:root {
+  --motion: .18s;
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --card-extra: none;          /* 스킨이 카드에 얹는 추가 그림자/윤곽 */
+  --card-border-width: 1px;
+  --surface-blur: none;
+}
+
+/* 부드러운 전환. 색과 그림자만 바꿔서 레이아웃 재계산이 없습니다. */
+.card, .btn, .key, .chip, .tab, .field, .icon-btn {
+  transition:
+    background-color var(--motion) var(--ease),
+    border-color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.card {
+  border-width: var(--card-border-width);
+  box-shadow: var(--shadow), var(--card-extra);
+  backdrop-filter: var(--surface-blur);
+}
+
+/* ---------- 스킨: 세련 (미니멀, 각진 모서리, 그림자 최소) ---------- */
+:root[data-skin="refined"] {
+  --radius: 6px; --radius-sm: 4px;
+  --shadow: 0 1px 1px rgba(16, 24, 40, .04);
+  --bg: #f7f7f6; --surface: #ffffff; --surface-2: #f1f1ef; --surface-3: #e6e6e3;
+  --border: #dedddb; --text: #16161a; --text-dim: #5c5c63; --text-faint: #8e8e96;
+}
+:root[data-theme="dark"][data-skin="refined"] {
+  --bg: #0c0c0d; --surface: #151517; --surface-2: #1d1d20; --surface-3: #27272b;
+  --border: #2a2a2e; --text: #ededf0; --text-dim: #9a9aa3; --text-faint: #6d6d76;
+  --shadow: 0 1px 1px rgba(0, 0, 0, .5);
+}
+
+/* ---------- 스킨: 귀여움 (둥근 모서리, 파스텔, 두꺼운 테두리) ---------- */
+:root[data-skin="cute"] {
+  --radius: 22px; --radius-sm: 14px;
+  --card-border-width: 2px;
+  --shadow: 0 4px 0 rgba(180, 150, 200, .16);
+  --bg: #fdf7fb; --surface: #ffffff; --surface-2: #fbeff7; --surface-3: #f5e1ee;
+  --border: #f0d9e8; --text: #3d2b38; --text-dim: #7a6472; --text-faint: #a893a2;
+}
+:root[data-theme="dark"][data-skin="cute"] {
+  --bg: #221a20; --surface: #2d232b; --surface-2: #392c36; --surface-3: #453444;
+  --border: #4a3745; --text: #f6e9f2; --text-dim: #c3aebc; --text-faint: #96808f;
+  --shadow: 0 4px 0 rgba(0, 0, 0, .28);
+}
+
+/* ---------- 스킨: 미래 (유리질감, 글로우, 느리고 부드러운 전환) ---------- */
+:root[data-skin="future"] {
+  --radius: 18px; --radius-sm: 12px;
+  --motion: .42s; --ease: cubic-bezier(.16, 1, .3, 1);
+  --surface-blur: saturate(150%) blur(10px);
+  --bg: #eef1f8; --surface: rgba(255, 255, 255, .72); --surface-2: rgba(255, 255, 255, .5);
+  --surface-3: rgba(226, 232, 245, .8);
+  --border: rgba(255, 255, 255, .8);
+  --text: #0e1524; --text-dim: #4a5670; --text-faint: #7b869c;
+  --shadow: 0 8px 32px rgba(23, 43, 92, .12);
+  --card-extra: inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+:root[data-theme="dark"][data-skin="future"] {
+  --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
+  --surface-3: rgba(44, 58, 88, .7);
+  --border: rgba(120, 150, 210, .22);
+  --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
+  --shadow: 0 8px 40px rgba(0, 0, 0, .55);
+  --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
+}
+
+/* ---------- 스킨: 레트로 (터미널풍, 고정폭 글꼴, 각진 모서리) ---------- */
+:root[data-skin="retro"] {
+  --radius: 3px; --radius-sm: 2px;
+  --font: var(--mono);
+  --shadow: none;
+  --card-border-width: 2px;
+  --bg: #efeada; --surface: #faf6e9; --surface-2: #e9e2cd; --surface-3: #ddd4ba;
+  --border: #b7ab89; --text: #2b2718; --text-dim: #5f5842; --text-faint: #8a8168;
+}
+:root[data-theme="dark"][data-skin="retro"] {
+  --bg: #0b0f0b; --surface: #10160f; --surface-2: #17200f; --surface-3: #1f2a16;
+  --border: #2f4024; --text: #cdf0b6; --text-dim: #8fb87a; --text-faint: #5f7d51;
+  --shadow: none;
+}
+
+/* ---------- 스킨: 자연 (어스톤, 따뜻한 배경) ---------- */
+:root[data-skin="nature"] {
+  --radius: 16px; --radius-sm: 11px;
+  --shadow: 0 1px 2px rgba(60, 50, 35, .06), 0 10px 26px rgba(60, 50, 35, .08);
+  --bg: #f4f1ea; --surface: #fffdf8; --surface-2: #ece7dc; --surface-3: #ded7c7;
+  --border: #d9d2c3; --text: #22201a; --text-dim: #5e594c; --text-faint: #8b8474;
+}
+:root[data-theme="dark"][data-skin="nature"] {
+  --bg: #14130f; --surface: #1d1c17; --surface-2: #26241d; --surface-3: #332f25;
+  --border: #3a362b; --text: #eeeade; --text-dim: #a8a290; --text-faint: #78725f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 26px rgba(0, 0, 0, .4);
+}
+
+/*
+ * 시스템이 다크일 때(data-theme 를 직접 고르지 않은 경우)도 스킨의 다크 값이 적용돼야 합니다.
+ * 위 [data-theme="dark"] 블록과 값이 같아야 하므로 함께 고쳐야 합니다.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-skin="refined"] {
+    --bg: #0c0c0d; --surface: #151517; --surface-2: #1d1d20; --surface-3: #27272b;
+    --border: #2a2a2e; --text: #ededf0; --text-dim: #9a9aa3; --text-faint: #6d6d76;
+    --shadow: 0 1px 1px rgba(0, 0, 0, .5);
+  }
+  :root:not([data-theme="light"])[data-skin="cute"] {
+    --bg: #221a20; --surface: #2d232b; --surface-2: #392c36; --surface-3: #453444;
+    --border: #4a3745; --text: #f6e9f2; --text-dim: #c3aebc; --text-faint: #96808f;
+    --shadow: 0 4px 0 rgba(0, 0, 0, .28);
+  }
+  :root:not([data-theme="light"])[data-skin="future"] {
+    --bg: #070b14; --surface: rgba(20, 28, 46, .66); --surface-2: rgba(30, 41, 64, .6);
+    --surface-3: rgba(44, 58, 88, .7);
+    --border: rgba(120, 150, 210, .22);
+    --text: #e9f0ff; --text-dim: #93a4c6; --text-faint: #64748f;
+    --shadow: 0 8px 40px rgba(0, 0, 0, .55);
+    --card-extra: inset 0 1px 0 rgba(160, 190, 255, .14), 0 0 22px rgba(90, 140, 255, .10);
+  }
+  :root:not([data-theme="light"])[data-skin="retro"] {
+    --bg: #0b0f0b; --surface: #10160f; --surface-2: #17200f; --surface-3: #1f2a16;
+    --border: #2f4024; --text: #cdf0b6; --text-dim: #8fb87a; --text-faint: #5f7d51;
+    --shadow: none;
+  }
+  :root:not([data-theme="light"])[data-skin="nature"] {
+    --bg: #14130f; --surface: #1d1c17; --surface-2: #26241d; --surface-3: #332f25;
+    --border: #3a362b; --text: #eeeade; --text-dim: #a8a290; --text-faint: #78725f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 26px rgba(0, 0, 0, .4);
+  }
+}
+
+/* ---------- 강조색 ----------
+   라이트에서는 흰 배경 위, 다크에서는 어두운 배경 위라 같은 색을 쓸 수 없습니다.
+   라이트는 본문 대비 4.5:1 을 넘기도록 어둡게, 다크는 밝게 잡았습니다.
+   --accent-text 는 강조색 위에 얹는 글자색이라 항상 대비가 큰 쪽으로 둡니다. */
+:root[data-accent="blue"]   { --accent: #2f62ea; --accent-soft: #e4ecfd; --accent-text: #ffffff; }
+:root[data-accent="violet"] { --accent: #6540e0; --accent-soft: #ebe6fd; --accent-text: #ffffff; }
+:root[data-accent="teal"]   { --accent: #0b7d77; --accent-soft: #dcf2f0; --accent-text: #ffffff; }
+:root[data-accent="green"]  { --accent: #18794e; --accent-soft: #ddf1e6; --accent-text: #ffffff; }
+:root[data-accent="amber"]  { --accent: #96590a; --accent-soft: #fbeed7; --accent-text: #ffffff; }
+:root[data-accent="rose"]   { --accent: #c02c4f; --accent-soft: #fce0e7; --accent-text: #ffffff; }
+:root[data-accent="slate"]  { --accent: #445065; --accent-soft: #e5e8ee; --accent-text: #ffffff; }
+:root[data-accent="pink"]   { --accent: #b83a8a; --accent-soft: #fbe2f1; --accent-text: #ffffff; }
+
+:root[data-theme="dark"][data-accent="blue"]   { --accent: #6c9bff; --accent-soft: #1b2b4d; }
+:root[data-theme="dark"][data-accent="violet"] { --accent: #a58bff; --accent-soft: #2a2050; }
+:root[data-theme="dark"][data-accent="teal"]   { --accent: #3ad6c8; --accent-soft: #123833; }
+:root[data-theme="dark"][data-accent="green"]  { --accent: #4dd693; --accent-soft: #133727; }
+:root[data-theme="dark"][data-accent="amber"]  { --accent: #f0ae4a; --accent-soft: #3d2c10; }
+:root[data-theme="dark"][data-accent="rose"]   { --accent: #ff7d9b; --accent-soft: #421c27; }
+:root[data-theme="dark"][data-accent="slate"]  { --accent: #a3b1c6; --accent-soft: #272d38; }
+:root[data-theme="dark"][data-accent="pink"]   { --accent: #f28ed2; --accent-soft: #3f1c34; }
+
+/* 다크 강조색은 밝아서 그 위에 흰 글자를 쓰면 안 보입니다. 어두운 글자로 바꿉니다. */
+:root[data-theme="dark"][data-accent] { --accent-text: #0d1117; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-accent="blue"]   { --accent: #6c9bff; --accent-soft: #1b2b4d; }
+  :root:not([data-theme="light"])[data-accent="violet"] { --accent: #a58bff; --accent-soft: #2a2050; }
+  :root:not([data-theme="light"])[data-accent="teal"]   { --accent: #3ad6c8; --accent-soft: #123833; }
+  :root:not([data-theme="light"])[data-accent="green"]  { --accent: #4dd693; --accent-soft: #133727; }
+  :root:not([data-theme="light"])[data-accent="amber"]  { --accent: #f0ae4a; --accent-soft: #3d2c10; }
+  :root:not([data-theme="light"])[data-accent="rose"]   { --accent: #ff7d9b; --accent-soft: #421c27; }
+  :root:not([data-theme="light"])[data-accent="slate"]  { --accent: #a3b1c6; --accent-soft: #272d38; }
+  :root:not([data-theme="light"])[data-accent="pink"]   { --accent: #f28ed2; --accent-soft: #3f1c34; }
+  :root:not([data-theme="light"])[data-accent] { --accent-text: #0d1117; }
+}
+
+/* ---------- 카드 크기 프리셋 ----------
+   바꾸는 것은 셋입니다: 안쪽 여백, 목록 스크롤 높이, 큰 숫자 표시 크기.
+   그 밖의 글자 크기는 그대로 둡니다. 전부 키우면 한 줄에 들어가던 글이 넘쳐
+   레이아웃이 깨지기 때문입니다. */
+.card { --pad: 16px; --list-h: 340px; --display-scale: 1; padding: var(--pad); }
+.card[data-size="compact"] { --pad: 11px; --list-h: 210px; --display-scale: .82; }
+.card[data-size="large"]   { --pad: 22px; --list-h: 520px; --display-scale: 1.24; }
+
+.hist-list { max-height: var(--list-h); }
+.chat-log  { max-height: calc(var(--list-h) + 80px); }
+.today-rot { max-height: calc(var(--today-rot-rows) * 46px * var(--display-scale, 1)); }
+
+.calc-expr     { font-size: calc(19px * var(--display-scale, 1)); }
+.calc-result   { font-size: calc(33px * var(--display-scale, 1)); }
+.clock-time    { font-size: calc(clamp(38px, 11vw, 62px) * var(--display-scale, 1)); }
+.timer-display { font-size: calc(clamp(40px, 13vw, 64px) * var(--display-scale, 1)); }
+.today-wx-temp { font-size: calc(30px * var(--display-scale, 1)); }
+.today-wx-icon { font-size: calc(46px * var(--display-scale, 1)); }
+
+/* 폭: 좁은 화면은 어차피 한 칸이라 넓은 화면에서만 의미가 있습니다. */
+@media (min-width: 760px) {
+  .grid-2 > .card[data-span="full"] { grid-column: 1 / -1; }
+}
+
+/* 커스터마이즈가 켜져 있어도 OS 의 '동작 줄이기'가 항상 이깁니다. */
+@media (prefers-reduced-motion: reduce) {
+  :root, :root[data-skin] { --motion: 0s; }
+  .card, .btn, .key, .chip, .tab, .field, .icon-btn { transition: none; }
+}
+
+/* ---------- '오늘' 위젯 ---------- */
+.today-widgets { grid-column: 1 / -1; }
+.today-line { display: flex; flex-direction: column; gap: 2px; }
+.today-big { font-family: var(--mono); font-weight: 700; letter-spacing: -.02em;
+             font-size: calc(30px * var(--display-scale, 1)); line-height: 1.15; }
+.today-big-sm { font-size: calc(22px * var(--display-scale, 1)); }
+.today-sub { font-size: 12.5px; color: var(--text-faint); }
+.today-quote-text { font-size: 14.5px; line-height: 1.6; }
+/* 요약 카드이므로 긴 글은 세 줄에서 자릅니다. 카드 높이가 제각각이면 화면이 어지럽습니다. */
+.today-clip {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; font-size: 13.5px; line-height: 1.55; word-break: break-word;
+}
+
+/* ---------- 커스터마이즈 UI ---------- */
+.cz-section { margin-bottom: 18px; }
+.cz-section:last-of-type { margin-bottom: 0; }
+.cz-hint { margin: 4px 0 10px; }
+.cz-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.cz-opts-tight { gap: 4px; }
+
+.cz-opt {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 38px; padding: 7px 13px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.cz-opt:hover { border-color: var(--accent); }
+.cz-opt.is-on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+.cz-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 스킨 미리보기 조각. 실제 스킨의 모서리와 색감을 작게 흉내 냅니다. */
+.cz-skin-chip { width: 18px; height: 18px; flex: none; border: 1px solid var(--border); }
+.cz-skin-default { border-radius: 5px; background: linear-gradient(135deg, #ffffff 50%, #3b6ef6 50%); }
+.cz-skin-refined { border-radius: 2px; background: linear-gradient(135deg, #ffffff 50%, #16161a 50%); }
+.cz-skin-cute    { border-radius: 9px; background: linear-gradient(135deg, #fdf7fb 50%, #f0a8d0 50%); }
+.cz-skin-future  { border-radius: 7px; background: linear-gradient(135deg, #dbe6ff 50%, #1b2b6b 50%); }
+.cz-skin-retro   { border-radius: 1px; background: linear-gradient(135deg, #faf6e9 50%, #2f4024 50%); }
+.cz-skin-nature  { border-radius: 6px; background: linear-gradient(135deg, #fffdf8 50%, #6f7a4a 50%); }
+
+.cz-swatch { width: 38px; height: 38px; padding: 0; justify-content: center; }
+.cz-dot { width: 20px; height: 20px; border-radius: 50%; display: block; }
+.cz-dot-blue   { background: #2f62ea; } .cz-dot-violet { background: #6540e0; }
+.cz-dot-teal   { background: #0b7d77; } .cz-dot-green  { background: #18794e; }
+.cz-dot-amber  { background: #96590a; } .cz-dot-rose   { background: #c02c4f; }
+.cz-dot-slate  { background: #445065; } .cz-dot-pink   { background: #b83a8a; }
+
+.cz-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cz-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.cz-row-label { flex: 1 1 auto; min-width: 0; font-size: 13.5px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cz-row .icon-btn:disabled { opacity: .35; cursor: default; }
+
+.cz-toggle {
+  min-width: 56px; min-height: 32px; padding: 5px 10px; flex: none;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-dim);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.cz-toggle.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+.cz-toggle:disabled { opacity: .45; cursor: default; }
+
+.cz-cards { display: flex; flex-direction: column; gap: 14px; }
+.cz-group-title { font-size: 12px; font-weight: 700; color: var(--text-faint);
+                  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.cz-card-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); margin-bottom: 6px;
+}
+.cz-card-row .cz-row-label { flex: 1 1 140px; }
+.cz-card-row .cz-opt { min-height: 30px; padding: 4px 9px; font-size: 12px; }

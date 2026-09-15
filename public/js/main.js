@@ -15,12 +15,20 @@ import { initMusic } from './modules/music.js';
 import { initAi } from './modules/ai.js';
 import { initBanner } from './modules/banner.js';
 import { initTheme, initSettings } from './modules/settings.js';
+import { initAppearance, refreshAppearance, applyTabLayout } from './modules/appearance.js';
 import { initLang } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
+import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
 const TAB_KEY = 'ui.activeTab';
-const TABS = ['today', 'calc', 'weather', 'todo', 'time', 'memo', 'quote', 'music', 'ai', 'settings'];
 const DEFAULT_TAB = 'today';
+
+/*
+ * 화면에 실제로 놓인 탭. 설정에서 순서를 바꾸거나 숨기면 이 배열이 바뀝니다.
+ * 가로 페이저의 인덱스 계산이 전부 이 순서를 기준으로 하므로,
+ * DOM 을 옮긴 뒤에는 반드시 이 배열도 같이 갱신해야 합니다.
+ */
+let TABS = ALL_TABS.slice();
 
 // 날씨는 네트워크 호출이 있으므로 탭을 처음 열 때 초기화합니다.
 // '오늘' 탭도 현재 날씨를 보여주므로 같은 초기화를 씁니다.
@@ -145,6 +153,18 @@ function blockEdgeBackGesture(main) {
   }, { passive: false });
 }
 
+/**
+ * 저장된 순서/숨김을 화면에 반영하고 페이저를 다시 맞춥니다.
+ * 보고 있던 탭이 숨겨졌다면 첫 탭으로 옮깁니다. 빈 화면이 남는 것보다 낫습니다.
+ */
+function syncTabLayout(prefs) {
+  TABS = applyTabLayout(prefs);
+  const tab = TABS.includes(currentTab) ? currentTab : (TABS[0] || DEFAULT_TAB);
+  setActiveTab(tab);
+  // DOM 을 옮긴 직후에는 패널 폭이 아직 확정되지 않아 스크롤 위치가 어긋납니다.
+  requestAnimationFrame(() => scrollToPanel(tab, false));
+}
+
 function initTabs() {
   $('#tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.tab');
@@ -153,11 +173,18 @@ function initTabs() {
   setNavigator(activate);
   watchPagerScroll();
 
+  TABS = applyTabLayout();
+
   // 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
   const startTab = load(TAB_KEY, DEFAULT_TAB);
-  setActiveTab(TABS.includes(startTab) ? startTab : DEFAULT_TAB);
+  setActiveTab(TABS.includes(startTab) ? startTab : (TABS[0] || DEFAULT_TAB));
   // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
   requestAnimationFrame(() => scrollToPanel(currentTab, false));
+
+  onPrefsChange((prefs) => {
+    refreshAppearance(prefs);
+    syncTabLayout(prefs);
+  });
 }
 
 /** 모듈 하나가 실패해도 나머지 앱은 살아 있도록 개별적으로 감쌉니다. */
@@ -196,6 +223,8 @@ function boot() {
   safeInit('음악', initMusic);
   safeInit('AI', initAi);
   safeInit('설정', initSettings);
+  // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
+  safeInit('커스터마이즈', initAppearance);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);

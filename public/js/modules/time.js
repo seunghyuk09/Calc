@@ -145,6 +145,14 @@ function resetTimer() {
   renderTimer();
 }
 
+/**
+ * '오늘' 탭의 타이머 위젯이 읽어 가는 현재 상태입니다.
+ * 구독 대신 위젯 쪽에서 1초마다 읽어 갑니다. (탭이 보일 때만 돕니다)
+ */
+export function getTimerState() {
+  return { running: timerRunning, remain: timerRemain, total: timerTotal, alarmAt };
+}
+
 function tickTimer() {
   if (!timerRunning) return;
   const remain = (timerEndAt - Date.now()) / 1000;
