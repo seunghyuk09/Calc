@@ -32,6 +32,32 @@ else {
 }
 
 /*
+ * 1-a2) 캐시 이름은 배포 때 자동으로 찍혀야 합니다.
+ *
+ * sw.js 는 캐시 우선이라, 이 파일이 안 바뀌면 브라우저가 워커를 갱신하지 않고
+ * 옛 파일을 계속 내놓습니다. 예전에는 손으로 올리게 돼 있었는데 한 번도 올리지 않아
+ * 배포 네 번이 통째로 사용자에게 가지 않았습니다. (앱은 지웠다 깔아야만 빠져나올 수 있었습니다)
+ * 그래서 stamp-build.mjs 가 커밋 SHA 로 바꿔 넣습니다. 찾을 자리가 사라지면 조용히 실패하므로 여기서 봅니다.
+ */
+if (!/const CACHE_VERSION = 'daily-kit-dev'/.test(sw)) {
+  problems.push("sw.js 의 CACHE_VERSION 이 'daily-kit-dev' 가 아닙니다 "
+    + '(배포 때 stamp-build.mjs 가 커밋으로 바꿉니다. 손으로 값을 넣으면 안 됩니다)');
+}
+
+/*
+ * 1-a3) 앱 안에서는 워커가 스스로 물러나야 합니다.
+ * 앱은 웹 자산이 APK 안에 들어 있어 캐시할 이유가 없고,
+ * 캐시가 남으면 APK 를 새로 깔아도 옛 화면이 계속 나옵니다.
+ */
+for (const [needle, what] of [
+  ['const IS_NATIVE_APP', '앱 판별'],
+  ['removeSelfFromApp', '앱에서 워커 지우기'],
+  ['if (IS_NATIVE_APP) return;', 'fetch 가로채지 않기'],
+]) {
+  if (!sw.includes(needle)) problems.push(`sw.js 에 ${what} 코드가 없습니다 (${needle})`);
+}
+
+/*
  * 1-b) 반대 방향도 봅니다: public/js 아래 모든 .js 가 APP_SHELL 에 들어 있는가.
  * 목록에 적힌 파일이 존재하는지만 보면, 새로 만든 모듈을 목록에 안 넣은 것을 잡지 못합니다.
  * 실제로 prefs.js 와 appearance.js 가 이렇게 빠져 있었습니다.

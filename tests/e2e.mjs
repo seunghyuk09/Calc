@@ -1100,6 +1100,25 @@ export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
       return { got, btn, note };
     };
 
+    /*
+     * 앱에서는 서비스 워커를 등록하면 안 됩니다.
+     *
+     * 웹 자산이 APK 안에 들어 있어 캐시할 이유가 없는데,
+     * 캐시가 남으면 APK 를 새로 깔아도 워커가 옛 파일을 계속 내놓습니다.
+     * 실제로 그 상태가 되어, 앱을 지우고 다시 까는 것 말고는 빠져나올 방법이 없었습니다.
+     */
+    {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await np.waitForTimeout(700);   // 등록은 load 이벤트 뒤에 일어납니다
+      const regs = await np.evaluate(() => navigator.serviceWorker.getRegistrations().then((r) => r.length));
+      check('앱: 서비스 워커를 등록하지 않음', regs === 0, `${regs}개 등록됨`);
+      await ctx.close();
+    }
+
     const same = await nativeCheck(SHA_OLD, '같은 커밋');
     check('앱: 릴리스가 같은 커밋이면 최신이라고 답함', same.got === 'latest', `상태: ${same.got}`);
     check('앱: 자동 설치가 안 된다는 안내가 항상 보임',
