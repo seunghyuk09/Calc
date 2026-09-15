@@ -16,6 +16,7 @@ import { initAi } from './modules/ai.js';
 import { initBanner } from './modules/banner.js';
 import { initTheme, initSettings } from './modules/settings.js';
 import { initAppearance, refreshAppearance, applyTabLayout } from './modules/appearance.js';
+import { initUpdate, registerServiceWorker } from './modules/update.js';
 import { initLang, t, onLangChange } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
@@ -269,18 +270,6 @@ function safeInit(name, fn) {
   }
 }
 
-function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  // sw.js 를 함께 배포하지 않는 환경(미리보기 등)에서는 등록을 건너뜁니다.
-  if (window.__DK_DISABLE_SW) return;
-  // file:// 로 열면 서비스 워커를 쓸 수 없습니다.
-  if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.warn('[sw] 등록 실패', err);
-    });
-  });
-}
 
 function boot() {
   safeInit('알림영역', initToastRegion);
@@ -299,6 +288,7 @@ function boot() {
   // 커스터마이즈는 카드 목록을 훑어야 하므로 모든 패널이 준비된 뒤에 돕니다.
   safeInit('커스터마이즈', initAppearance);
   safeInit('메뉴', initMenu);
+  safeInit('업데이트', initUpdate);
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);

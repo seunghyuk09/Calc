@@ -82,6 +82,29 @@ async function goTab(pg, name) {
   if (await pg.locator('#sidebar').isHidden()) await pg.click('#menu-open');
   await pg.click(`.tab[data-tab="${name}"]`);
   await pg.waitForSelector('#sidebar', { state: 'hidden' });
+  /*
+   * 탭 전환은 부드러운 스크롤이라 클릭 직후에는 아직 움직이는 중입니다.
+   * 여기서 기다리지 않으면 호출하는 쪽마다 고정 대기를 넣게 되고,
+   * 느린 CI 에서 그 값이 모자라 실패합니다. (실제로 두 건이 그렇게 깨졌습니다)
+   */
+  await settlePagerOf(pg);
+}
+
+/*
+ * 가로 페이저가 멈출 때까지 기다립니다.
+ * 탭 전환은 부드러운 스크롤이라 즉시 끝나지 않고, 스크롤 도중에는
+ * watchPagerScroll 의 정착 처리가 중간 패널을 활성 탭으로 잡습니다.
+ * 고정 대기로는 느린 CI 에서 여러 장을 다 넘기지 못해 실제로 실패했습니다.
+ */
+async function settlePagerOf(pg) {
+  let prev = -1;
+  for (let i = 0; i < 50; i += 1) {
+    const now = await pg.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
+    if (now === prev) return now;
+    prev = now;
+    await pg.waitForTimeout(100);
+  }
+  return prev;
 }
 
 const results = [];
@@ -579,9 +602,11 @@ const main = async () => {
   // 날씨 카드를 누르면 날씨 탭으로
   await goTab(page, 'today');
   await page.click('#today-weather-card');
-  await page.waitForTimeout(200);
+  // 오늘(0번째)에서 날씨(2번째)까지 부드럽게 스크롤합니다. 200ms 로는 느린 CI 에서 모자랍니다.
+  await settlePagerOf(page);
   check('날씨 카드 클릭 -> 날씨 탭으로 이동',
-    (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true');
+    (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
 
   // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
   console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
@@ -940,6 +965,192 @@ const main = async () => {
     overflowing.length ? `넘친 패널: ${overflowing.join(', ')}` : '전부 정상');
   await mobile.close();
 
+  // ---------- 10-a. 앱 업데이트 ----------
+  console.log('\n▶ 앱 업데이트');
+  await goTab(page, 'settings');
+  await page.waitForSelector('#update-body');
+  check('업데이트 카드가 그려짐', (await page.locator('#update-action').count()) === 1);
+  check('업데이트 카드가 설정 탭 맨 아래에 있음',
+    await page.evaluate(() => {
+      const last = document.querySelector('#panel-settings')?.lastElementChild;
+      return last?.dataset?.card === 'settings.update';
+    }),
+    await page.evaluate(() => document.querySelector('#panel-settings')?.lastElementChild?.dataset?.card));
+  check('현재 버전 표시', ((await page.textContent('#update-body')) || '').includes('dev'),
+    (await page.textContent('#update-body'))?.slice(0, 60));
+
+  if (IS_FILE) {
+    // 단일 파일은 서비스 워커를 쓸 수 없으므로 '확인할 수 없음' 이라고 정확히 말해야 합니다.
+    await page.click('#update-action');
+    await page.waitForTimeout(300);
+    check('단일 파일에서는 확인 불가라고 안내',
+      (await page.getAttribute('#update-msg', 'data-state')) === 'none',
+      await page.getAttribute('#update-msg', 'data-state'));
+  } else {
+    await page.click('#update-action');
+    // 서비스 워커에 물어보는 동안 '확인 중' 을 거쳐 결론이 나야 합니다.
+    await page.waitForFunction(
+      () => ['latest', 'ready', 'error', 'none'].includes(
+        document.querySelector('#update-msg')?.dataset.state),
+      null, { timeout: 15000 },
+    );
+    const updState = await page.getAttribute('#update-msg', 'data-state');
+    // sw.js 가 그대로이므로 새 버전은 없습니다. 있다고 나오면 잘못 판정한 것입니다.
+    check('바뀐 것이 없으면 최신이라고 답함', updState === 'latest',
+      `상태: ${updState} / ${await page.textContent('#update-msg')}`);
+    check('업데이트 버튼이 다시 눌리는 상태로 돌아옴',
+      (await page.isDisabled('#update-action')) === false);
+  }
+
+  /*
+   * 앱(안드로이드) 경로는 실기가 없어도 검증할 수 있습니다.
+   * Capacitor 전역을 심어 네이티브로 인식시키고, version.js 를 찍힌 것처럼 바꿔 치고,
+   * GitHub 릴리스 응답을 흉내 냅니다. 이렇게 하지 않으면 이 경로는 한 번도 안 돌아 봅니다.
+   */
+  if (!IS_FILE) {
+    console.log('\n▶ 앱 업데이트 (네이티브 모의)');
+    const SHA_OLD = '1'.repeat(40);
+    const SHA_NEW = '2'.repeat(40);
+
+    const nativeCheck = async (releaseSha, label, expect) => {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => {
+        window.Capacitor = { isNativePlatform: () => true };
+      });
+      // 설치된 빌드의 커밋을 SHA_OLD 로 고정합니다.
+      await ctx.route('**/js/lib/version.js', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: `export const BUILD = Object.freeze({ commit: '${'1'.repeat(40)}', builtAt: '2026-01-01T00:00:00.000Z' });
+export function shortVersion() { return BUILD.commit.slice(0, 7); }
+export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
+      }));
+      await ctx.route('**/api.github.com/**', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ target_commitish: releaseSha }),
+      }));
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await goTab(np, 'settings');
+      await np.waitForSelector('#update-action');
+      const note = (await np.textContent('#update-body')) || '';
+      await np.click('#update-action');
+      await np.waitForFunction(
+        () => ['latest', 'ready', 'error', 'none'].includes(
+          document.querySelector('#update-msg')?.dataset.state),
+        null, { timeout: 15000 },
+      );
+      const got = await np.getAttribute('#update-msg', 'data-state');
+      const btn = (await np.textContent('#update-action')) || '';
+      await ctx.close();
+      return { got, btn, note };
+    };
+
+    const same = await nativeCheck(SHA_OLD, '같은 커밋');
+    check('앱: 릴리스가 같은 커밋이면 최신이라고 답함', same.got === 'latest', `상태: ${same.got}`);
+    check('앱: 자동 설치가 안 된다는 안내가 항상 보임',
+      same.note.includes('자동으로 설치되지 않습니다') || same.note.includes('cannot install itself'),
+      same.note.slice(-70));
+
+    const newer = await nativeCheck(SHA_NEW, '다른 커밋');
+    check('앱: 릴리스가 다른 커밋이면 새 버전이 있다고 답함', newer.got === 'ready',
+      `상태: ${newer.got}`);
+    // 앱에서는 '적용' 이 아니라 '내려받기' 여야 합니다. 앱은 스스로 설치할 수 없습니다.
+    check('앱: 버튼이 내려받기로 바뀜',
+      newer.btn.includes('내려받기') || newer.btn.includes('Download'), newer.btn);
+
+    /*
+     * 자동 감지.
+     * 버튼을 누르지 않아도 새 버전을 찾아내고, 설정 탭까지 들어가지 않아도
+     * 알 수 있게 표시가 떠야 합니다. 표시가 없으면 맨 아래 카드는 아무도 못 봅니다.
+     */
+    {
+      const ctx = await browser.newContext();
+      let apiCalls = 0;
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      await ctx.route('**/js/lib/version.js', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: `export const BUILD = Object.freeze({ commit: '${'1'.repeat(40)}', builtAt: '' });
+export function shortVersion() { return BUILD.commit.slice(0, 7); }
+export function isStamped() { return true; }`,
+      }));
+      await ctx.route('**/api.github.com/**', (route) => {
+        apiCalls += 1;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ target_commitish: '2'.repeat(40) }),
+        });
+      });
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const ap = await ctx.newPage();
+      await ap.goto(BASE, { waitUntil: 'networkidle' });
+      await ap.waitForSelector('body[data-ready="true"]');
+
+      // 시작 3초 뒤에 도는 확인입니다. 버튼은 누르지 않습니다.
+      const found = await ap.waitForFunction(
+        () => document.body.dataset.hasUpdate === 'true', null, { timeout: 12000 },
+      ).then(() => true).catch(() => false);
+      check('앱: 버튼을 누르지 않아도 새 버전을 감지함', found === true,
+        `body[data-has-update]=${await ap.evaluate(() => document.body.dataset.hasUpdate)}`);
+
+      // 표시가 실제로 눈에 보이는 자리에 찍혀야 합니다.
+      const dot = await ap.evaluate(() => {
+        const after = getComputedStyle(document.querySelector('#menu-open'), '::after');
+        return { content: after.content, w: after.width };
+      });
+      check('앱: 메뉴 버튼에 새 버전 표시가 찍힘', dot.content !== 'none' && dot.w !== 'auto',
+        `content=${dot.content} width=${dot.w}`);
+
+      const callsAfterBoot = apiCalls;
+      // 설정 탭을 여러 번 오가도 간격 제한 안에서는 다시 두드리지 않아야 합니다.
+      await goTab(ap, 'settings');
+      await goTab(ap, 'today');
+      await goTab(ap, 'settings');
+      await ap.waitForTimeout(500);
+      check('앱: 간격 제한이 있어 열 때마다 서버를 두드리지 않음', apiCalls === callsAfterBoot,
+        `부팅 후 ${callsAfterBoot}회 -> 탭 왕복 뒤 ${apiCalls}회`);
+      await ctx.close();
+    }
+
+    /* 조용한 확인이 실패해도 에러를 띄우면 안 됩니다. 묻지도 않았는데 빨간 글씨가 뜹니다. */
+    {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      await ctx.route('**/js/lib/version.js', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        body: `export const BUILD = Object.freeze({ commit: '${'1'.repeat(40)}', builtAt: '' });
+export function shortVersion() { return BUILD.commit.slice(0, 7); }
+export function isStamped() { return true; }`,
+      }));
+      await ctx.route('**/api.github.com/**', (route) => route.abort('failed'));
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const ep = await ctx.newPage();
+      await ep.goto(BASE, { waitUntil: 'networkidle' });
+      await ep.waitForSelector('body[data-ready="true"]');
+      await ep.waitForTimeout(5000);   // 자동 확인(3초)이 지나갈 시간
+      await goTab(ep, 'settings');
+      await ep.waitForSelector('#update-msg');
+      const quietState = await ep.getAttribute('#update-msg', 'data-state');
+      check('앱: 자동 확인이 실패해도 에러를 띄우지 않음',
+        quietState !== 'error',
+        `상태: ${quietState}`);
+      check('앱: 자동 확인 실패 시 표시도 찍히지 않음',
+        (await ep.evaluate(() => document.body.dataset.hasUpdate)) === undefined);
+      await ctx.close();
+    }
+  }
+
   // ---------- 10-b. 메뉴 사이드바 ----------
   console.log('\n▶ 메뉴 사이드바');
   const barHidden = () => page.locator('#sidebar').isHidden();
@@ -1028,22 +1239,6 @@ const main = async () => {
   // ---------- 11-a. 커스터마이즈 (테마 · 탭 · 위젯 · 카드 크기) ----------
   console.log('\n▶ 커스터마이즈');
 
-  /*
-   * 가로 페이저가 멈출 때까지 기다립니다.
-   * 탭 전환은 부드러운 스크롤이라 즉시 끝나지 않고, 스크롤 도중에는
-   * watchPagerScroll 의 정착 처리가 중간 패널을 활성 탭으로 잡습니다.
-   * 고정 대기(400ms)로는 느린 CI 에서 4장을 다 넘기지 못해 실제로 실패했습니다.
-   */
-  const settleMain = async (page2 = page) => {
-    let prev = -1;
-    for (let i = 0; i < 50; i += 1) {
-      const now = await page2.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);
-      if (now === prev) return now;
-      prev = now;
-      await page2.waitForTimeout(100);
-    }
-    return prev;
-  };
   await goTab(page, 'settings');
   await page.waitForSelector('#customize .cz-section');
 
@@ -1158,13 +1353,13 @@ const main = async () => {
 
   // 시계 위젯이 실제로 시간을 보여주는지 (껍데기만 그리고 끝나는 경우를 잡습니다)
   await goTab(page, 'today');
-  await settleMain();
+  await settlePagerOf(page);
   const widgetClock = (await page.textContent('#today-clock')) || '';
   check('시계 위젯이 시각을 표시함', /^\d{2}:\d{2}:\d{2}$/.test(widgetClock.trim()), widgetClock);
 
   // 위젯을 누르면 해당 탭으로 이동해야 합니다.
   await page.click('#today-clock');
-  await settleMain();
+  await settlePagerOf(page);
   const czActiveTab = await page.evaluate(() => (
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab ?? '(없음)'));
   check('위젯을 누르면 해당 탭으로 이동', czActiveTab === 'time', `실제: ${czActiveTab}`);
@@ -1228,7 +1423,7 @@ const main = async () => {
   // 스와이프 인덱스가 새 순서로 다시 계산되는지. 탭 개수가 바뀐 뒤 가장 깨지기 쉬운 부분입니다.
   await goTab(page, 'weather');
   // 부드러운 스크롤이 끝날 때까지 기다립니다. 고정 대기는 느린 CI 에서 흔들립니다.
-  await settleMain();
+  await settlePagerOf(page);
   const snapOk = await page.evaluate(() => {
     const main = document.querySelector('#main');
     const tabs = [...document.querySelectorAll('#tabs .tab')].map((b) => b.dataset.tab);
@@ -1267,6 +1462,71 @@ const main = async () => {
   check('모든 그리드 패널이 위에서부터 쌓임', stretched.length === 0,
     stretched.length ? stretched.join(', ') : '전부 start');
   await desktop.close();
+
+  // ---------- 11-c. 기기 안전 영역 (상태바 · 내비게이션바) ----------
+  /*
+   * targetSdk 35 이상이면 안드로이드가 edge-to-edge 를 강제해, 화면이 상태바와
+   * 내비게이션바 밑까지 깔립니다. 그대로 두면 헤더의 '•••' 버튼과 테마 버튼이
+   * 시계·배터리 표시에 가려 눌리지 않습니다. 실제로 그 상태로 배포됐습니다.
+   *
+   * 헤드리스 브라우저에는 안전 영역이 없어 env() 가 항상 0 입니다.
+   * 그래서 CSS 가 변수를 거치게 해 두고, 여기서 값을 넣어 실제로 밀리는지 봅니다.
+   */
+  const safe = await browser.newPage();
+  await safe.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+  }));
+  await safe.setViewportSize({ width: 430, height: 860 });
+  await safe.goto(BASE, { waitUntil: 'networkidle' });
+  await safe.waitForSelector('body[data-ready="true"]');
+
+  const px = (v) => Math.round(parseFloat(v) || 0);
+  const safePad = (sel) => safe.evaluate((s2) => {
+    const cs = getComputedStyle(document.querySelector(s2));
+    return { top: cs.paddingTop, right: cs.paddingRight, bottom: cs.paddingBottom, left: cs.paddingLeft };
+  }, sel);
+
+  const beforePad = await safePad('.app-header');
+  /*
+   * Capacitor 가 하는 것과 똑같이 넣습니다.
+   * (SystemBars.injectSafeAreaCSS 가 documentElement 에 인라인으로 심습니다)
+   * 변수 이름이 어긋나면 폰에서만 조용히 안 먹으므로, 실제 이름 그대로 써야 의미가 있습니다.
+   */
+  await safe.evaluate(() => {
+    const r = document.documentElement.style;
+    r.setProperty('--safe-area-inset-top', '44px');
+    r.setProperty('--safe-area-inset-right', '12px');
+    r.setProperty('--safe-area-inset-bottom', '28px');
+    r.setProperty('--safe-area-inset-left', '12px');
+  });
+  await safe.waitForTimeout(150);
+  const afterPad = await safePad('.app-header');
+
+  check('안전 영역: 헤더가 상태바만큼 아래로 밀림',
+    px(afterPad.top) === px(beforePad.top) + 44,
+    `${beforePad.top} -> ${afterPad.top}`);
+  check('안전 영역: 헤더 좌우도 노치를 피함',
+    px(afterPad.left) === px(beforePad.left) + 12 && px(afterPad.right) === px(beforePad.right) + 12,
+    `좌 ${afterPad.left} / 우 ${afterPad.right}`);
+
+  const panelPad = await safePad('.panel:not([inert])');
+  check('안전 영역: 본문 아래가 내비게이션바를 피함', px(panelPad.bottom) >= 32 + 28,
+    panelPad.bottom);
+
+  /*
+   * 값만 맞아도 실제로 버튼이 내려가지 않으면 의미가 없습니다.
+   * 사용자가 겪은 문제는 '버튼이 상태바에 가려 안 눌린다' 였으므로 위치를 직접 봅니다.
+   */
+  const menuTop = await safe.evaluate(() => (
+    document.querySelector('#menu-open').getBoundingClientRect().top));
+  check('안전 영역: 메뉴 버튼이 상태바 아래에 놓임', menuTop >= 44,
+    `버튼 위쪽 ${Math.round(menuTop)}px (상태바 44px)`);
+
+  const themeTop = await safe.evaluate(() => (
+    document.querySelector('#theme-toggle').getBoundingClientRect().top));
+  check('안전 영역: 테마 버튼도 상태바 아래에 놓임', themeTop >= 44,
+    `버튼 위쪽 ${Math.round(themeTop)}px`);
+  await safe.close();
 
   // ---------- 12. 콘솔 에러 ----------
   console.log('\n▶ 콘솔');

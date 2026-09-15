@@ -3,7 +3,7 @@
  * 정적 파일: 캐시 우선(cache-first). 외부 API: 항상 네트워크(캐시하지 않음).
  * 앱 파일을 수정하면 CACHE_VERSION 을 올려야 사용자에게 새 버전이 반영됩니다.
  */
-const CACHE_VERSION = 'daily-kit-v5';
+const CACHE_VERSION = 'daily-kit-v6';
 
 const APP_SHELL = [
   './',
@@ -19,6 +19,7 @@ const APP_SHELL = [
   './js/lib/i18n.js',
   './js/lib/nav.js',
   './js/lib/prefs.js',
+  './js/lib/version.js',
   './js/modules/today.js',
   './js/modules/calculator.js',
   './js/modules/weather.js',
@@ -31,6 +32,7 @@ const APP_SHELL = [
   './js/modules/banner.js',
   './js/modules/settings.js',
   './js/modules/appearance.js',
+  './js/modules/update.js',
   './assets/favicon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
@@ -51,6 +53,15 @@ self.addEventListener('activate', (event) => {
     await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
+});
+
+/*
+ * 대기 중인 워커를 즉시 활성화합니다.
+ * install 에서도 skipWaiting 을 부르지만, 그 사이 페이지가 살아 있으면 대기 상태가 남을 수 있어
+ * 설정 화면의 '지금 적용' 버튼이 이 메시지로 확실히 밀어 줍니다.
+ */
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
