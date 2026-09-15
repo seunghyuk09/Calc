@@ -175,4 +175,6 @@ ${bundleWithIcons}
 mkdirSync(resolve(root, 'dist'), { recursive: true });
 const outPath = resolve(root, 'dist/데일리킷.html');
 writeFileSync(outPath, out, 'utf-8');
-console.log(`생성 완료: dist/데일리킷.html (${(out.length / 1024).toFixed(1)} KB)`);
+// out.length 는 문자 수입니다. 한글은 UTF-8 에서 3바이트라 그대로 쓰면 실제보다 작게 보고됩니다.
+const outBytes = Buffer.byteLength(out, 'utf-8');
+console.log(`생성 완료: dist/데일리킷.html (${(outBytes / 1024).toFixed(1)} KB, ${outBytes} bytes)`);

@@ -75,8 +75,8 @@ test('구독자가 예외를 던져도 다른 구독자에게 전파되지 않�
 // ---------- 사전 값의 품질 ----------
 // 키 일치만으로는 빈 문구, 번역 누락(양쪽이 같은 글자), 타입 불일치를 못 잡습니다.
 
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as i18n from '../public/js/lib/i18n.js';
 
@@ -137,20 +137,38 @@ test('index.html 의 data-i18n 키가 모두 사전에 존재', () => {
   }
 });
 
-test('todo.js 가 t() 로 부르는 키가 모두 사전에 존재', () => {
-  const src = readFileSync(resolve(ROOT, 'public/js/modules/todo.js'), 'utf-8');
+/**
+ * public/js 아래 모든 .js 를 읽어 하나로 잇습니다.
+ * 특정 파일만 검사하면 새 모듈이 사전을 쓰기 시작해도 테스트가 알아채지 못합니다.
+ * ('오늘' 탭을 추가했을 때 실제로 이 문제가 났습니다)
+ */
+function allAppJs() {
+  const root = resolve(ROOT, 'public/js');
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.js')) out.push(readFileSync(full, 'utf-8'));
+    }
+  };
+  walk(root);
+  return out.join('\n');
+}
+
+test('앱 코드가 t() 로 부르는 키가 모두 사전에 존재', () => {
+  const src = allAppJs();
   const known = new Set(dictKeys('ko'));
   const used = [...src.matchAll(/\bt\('([^']+)'/g)].map((m) => m[1]);
   assert.ok(used.length >= 5, `t() 호출이 너무 적게 발견됐습니다 (${used.length})`);
   for (const key of used) {
-    assert.ok(known.has(key), `todo.js 가 부르는 '${key}' 가 사전에 없습니다`);
+    assert.ok(known.has(key), `앱 코드가 부르는 '${key}' 가 사전에 없습니다`);
   }
 });
 
 test('사전에 있지만 아무데서도 쓰이지 않는 키가 없음', () => {
   const html = readFileSync(resolve(ROOT, 'public/index.html'), 'utf-8');
-  const js = readFileSync(resolve(ROOT, 'public/js/modules/todo.js'), 'utf-8');
-  const blob = html + js;
+  const blob = html + allAppJs();
   const unused = dictKeys('ko').filter((k) => !blob.includes(k));
   assert.deepEqual(unused, [], '쓰이지 않는 사전 키는 지우거나 사용하세요');
 });
