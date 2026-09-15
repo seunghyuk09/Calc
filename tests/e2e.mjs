@@ -1336,13 +1336,38 @@ export function isStamped() { return true; }`,
       check('앱: 버튼을 누르지 않아도 새 버전을 감지함', found === true,
         `body[data-has-update]=${await ap.evaluate(() => document.body.dataset.hasUpdate)}`);
 
-      // 표시가 실제로 눈에 보이는 자리에 찍혀야 합니다.
+      /*
+       * 표시가 실제로 눈에 보이는 자리에 찍혀야 합니다.
+       *
+       * 있는지만 보면 자리가 틀려도 통과합니다. 실제로 그랬습니다.
+       * 점을 버튼 '안쪽'(top/right 5px)에 두었더니 ••• 바로 옆에 붙어서,
+       * 알림이 아니라 점 세 개의 네 번째 점처럼 보였습니다.
+       * 그래서 '모서리를 넘어가는지'와 '잘리지 않는지'까지 같이 봅니다.
+       */
       const dot = await ap.evaluate(() => {
-        const after = getComputedStyle(document.querySelector('#menu-open'), '::after');
-        return { content: after.content, w: after.width };
+        const btn = document.querySelector('#menu-open');
+        const after = getComputedStyle(btn, '::after');
+        const b = btn.getBoundingClientRect();
+        const app = document.querySelector('.app').getBoundingClientRect();
+        // ::after 는 직접 잴 수 없어, 버튼 자리에 선언값을 얹어 화면 위치를 구합니다.
+        const top = b.top + parseFloat(after.top);
+        const right = b.right - parseFloat(after.right);
+        const ring = parseFloat(after.boxShadow.match(/(\d+(?:\.\d+)?)px\s*$/)?.[1] || '0');
+        return {
+          content: after.content,
+          w: after.width,
+          위로_넘어간_양: Math.round(b.top - top),
+          오른쪽으로_넘어간_양: Math.round(right - b.right),
+          잘린_양: Math.round(app.top - (top - ring)),
+        };
       });
       check('앱: 메뉴 버튼에 새 버전 표시가 찍힘', dot.content !== 'none' && dot.w !== 'auto',
         `content=${dot.content} width=${dot.w}`);
+      check('앱: 새 버전 표시가 버튼 모서리를 넘어가 배지로 보임 (안쪽이면 ••• 의 네 번째 점처럼 보입니다)',
+        dot.위로_넘어간_양 > 0 && dot.오른쪽으로_넘어간_양 > 0,
+        `위로 ${dot.위로_넘어간_양}px / 오른쪽으로 ${dot.오른쪽으로_넘어간_양}px 넘어감`);
+      check('앱: 새 버전 표시가 화면 밖으로 잘리지 않음', dot.잘린_양 <= 0,
+        dot.잘린_양 > 0 ? `${dot.잘린_양}px 잘림` : '잘리지 않음');
 
       const callsAfterBoot = apiCalls;
       // 설정 탭을 여러 번 오가도 간격 제한 안에서는 다시 두드리지 않아야 합니다.
