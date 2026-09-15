@@ -52,6 +52,19 @@ if (shellBlock) {
   });
 }
 
+/*
+ * 1-c) 안전 영역 변수 이름.
+ * 안드로이드 WebView 의 env(safe-area-inset-*) 는 믿을 수 없어서(크로미움 버그),
+ * Capacitor 가 documentElement 에 --safe-area-inset-* 를 심어 줍니다.
+ * CSS 가 그 이름을 안 쓰면 폰에서만 조용히 안 먹습니다. 브라우저 검사로는 안 잡힙니다.
+ */
+const appCss = readFileSync(resolve(publicDir, 'css/app.css'), 'utf-8');
+['top', 'right', 'bottom', 'left'].forEach((side) => {
+  if (!appCss.includes(`var(--safe-area-inset-${side},`)) {
+    problems.push(`app.css 가 Capacitor 의 --safe-area-inset-${side} 를 쓰지 않습니다 (안드로이드에서 안전 영역이 0 이 됩니다)`);
+  }
+});
+
 // 2) manifest 아이콘
 const manifest = JSON.parse(readFileSync(resolve(publicDir, 'manifest.webmanifest'), 'utf-8'));
 if (!Array.isArray(manifest.icons) || !manifest.icons.length) problems.push('manifest 에 아이콘이 없습니다');

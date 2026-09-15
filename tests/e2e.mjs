@@ -1362,6 +1362,71 @@ export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
     stretched.length ? stretched.join(', ') : '전부 start');
   await desktop.close();
 
+  // ---------- 11-c. 기기 안전 영역 (상태바 · 내비게이션바) ----------
+  /*
+   * targetSdk 35 이상이면 안드로이드가 edge-to-edge 를 강제해, 화면이 상태바와
+   * 내비게이션바 밑까지 깔립니다. 그대로 두면 헤더의 '•••' 버튼과 테마 버튼이
+   * 시계·배터리 표시에 가려 눌리지 않습니다. 실제로 그 상태로 배포됐습니다.
+   *
+   * 헤드리스 브라우저에는 안전 영역이 없어 env() 가 항상 0 입니다.
+   * 그래서 CSS 가 변수를 거치게 해 두고, 여기서 값을 넣어 실제로 밀리는지 봅니다.
+   */
+  const safe = await browser.newPage();
+  await safe.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+  }));
+  await safe.setViewportSize({ width: 430, height: 860 });
+  await safe.goto(BASE, { waitUntil: 'networkidle' });
+  await safe.waitForSelector('body[data-ready="true"]');
+
+  const px = (v) => Math.round(parseFloat(v) || 0);
+  const safePad = (sel) => safe.evaluate((s2) => {
+    const cs = getComputedStyle(document.querySelector(s2));
+    return { top: cs.paddingTop, right: cs.paddingRight, bottom: cs.paddingBottom, left: cs.paddingLeft };
+  }, sel);
+
+  const beforePad = await safePad('.app-header');
+  /*
+   * Capacitor 가 하는 것과 똑같이 넣습니다.
+   * (SystemBars.injectSafeAreaCSS 가 documentElement 에 인라인으로 심습니다)
+   * 변수 이름이 어긋나면 폰에서만 조용히 안 먹으므로, 실제 이름 그대로 써야 의미가 있습니다.
+   */
+  await safe.evaluate(() => {
+    const r = document.documentElement.style;
+    r.setProperty('--safe-area-inset-top', '44px');
+    r.setProperty('--safe-area-inset-right', '12px');
+    r.setProperty('--safe-area-inset-bottom', '28px');
+    r.setProperty('--safe-area-inset-left', '12px');
+  });
+  await safe.waitForTimeout(150);
+  const afterPad = await safePad('.app-header');
+
+  check('안전 영역: 헤더가 상태바만큼 아래로 밀림',
+    px(afterPad.top) === px(beforePad.top) + 44,
+    `${beforePad.top} -> ${afterPad.top}`);
+  check('안전 영역: 헤더 좌우도 노치를 피함',
+    px(afterPad.left) === px(beforePad.left) + 12 && px(afterPad.right) === px(beforePad.right) + 12,
+    `좌 ${afterPad.left} / 우 ${afterPad.right}`);
+
+  const panelPad = await safePad('.panel:not([inert])');
+  check('안전 영역: 본문 아래가 내비게이션바를 피함', px(panelPad.bottom) >= 32 + 28,
+    panelPad.bottom);
+
+  /*
+   * 값만 맞아도 실제로 버튼이 내려가지 않으면 의미가 없습니다.
+   * 사용자가 겪은 문제는 '버튼이 상태바에 가려 안 눌린다' 였으므로 위치를 직접 봅니다.
+   */
+  const menuTop = await safe.evaluate(() => (
+    document.querySelector('#menu-open').getBoundingClientRect().top));
+  check('안전 영역: 메뉴 버튼이 상태바 아래에 놓임', menuTop >= 44,
+    `버튼 위쪽 ${Math.round(menuTop)}px (상태바 44px)`);
+
+  const themeTop = await safe.evaluate(() => (
+    document.querySelector('#theme-toggle').getBoundingClientRect().top));
+  check('안전 영역: 테마 버튼도 상태바 아래에 놓임', themeTop >= 44,
+    `버튼 위쪽 ${Math.round(themeTop)}px`);
+  await safe.close();
+
   // ---------- 12. 콘솔 에러 ----------
   console.log('\n▶ 콘솔');
   const realErrors = consoleErrors.filter((e) =>

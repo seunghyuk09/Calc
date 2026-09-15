@@ -13,6 +13,26 @@
    ========================================================= */
 
 :root {
+  /*
+   * 기기의 안전 영역(상태바 · 내비게이션바 · 노치).
+   * targetSdk 35 이상이면 안드로이드가 edge-to-edge 를 강제해 화면이 그 밑까지 깔립니다.
+   * 이 값만큼 안쪽으로 밀지 않으면 헤더 버튼이 시계·배터리 표시에 가려 눌리지 않습니다.
+   *
+   * 안드로이드 WebView 에서는 env(safe-area-inset-*) 를 믿을 수 없습니다.
+   * 140 미만 버전에 값이 0 으로 오는 크로미움 버그가 있습니다.
+   * (https://issues.chromium.org/issues/40699457)
+   * 그래서 Capacitor 가 네이티브에서 실제 인셋을 읽어
+   * documentElement 에 --safe-area-inset-* 를 인라인으로 심어 줍니다.
+   * (@capacitor/android SystemBars.injectSafeAreaCSS, insetsHandling 기본값 'css')
+   *
+   * 우선순위: Capacitor 가 심은 값 -> 브라우저의 env() -> 0
+   * 웹과 iOS 에서는 앞의 변수가 없으므로 자연스럽게 env() 로 넘어갑니다.
+   */
+  --sa-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sa-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --sa-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --sa-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+
   color-scheme: light;
   --bg: #f4f5f7;
   --surface: #ffffff;
@@ -124,7 +144,7 @@ a { color: var(--accent); }
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: saturate(1.6) blur(12px);
   border-bottom: 1px solid var(--border);
-  padding: 10px 16px 0;
+  padding: calc(10px + var(--sa-top)) calc(16px + var(--sa-right)) 0 calc(16px + var(--sa-left));
 }
 
 .header-top {
@@ -213,8 +233,7 @@ a { color: var(--accent); }
   border-right: 1px solid var(--border);
   box-shadow: 0 0 40px rgba(0, 0, 0, .28);
   /* 노치와 홈 인디케이터를 피합니다. */
-  padding: calc(12px + env(safe-area-inset-top, 0px)) 10px
-           calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: calc(12px + var(--sa-top)) 10px calc(12px + var(--sa-bottom)) calc(10px + var(--sa-left));
   animation: sidebar-in var(--motion) var(--ease);
 }
 @keyframes sidebar-in { from { transform: translateX(-100%); } to { transform: none; } }
@@ -291,7 +310,7 @@ a { color: var(--accent); }
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  padding: 16px 16px 32px;
+  padding: 16px calc(16px + var(--sa-right)) calc(32px + var(--sa-bottom)) calc(16px + var(--sa-left));
   scrollbar-width: thin;
 }
 /* 화면 밖 패널은 키보드 탭 이동과 스크린리더에서 빠집니다. */
@@ -580,7 +599,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 
 /* ---------- 토스트 ---------- */
 .toast {
-  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 14px);
+  position: fixed; left: 50%; bottom: calc(26px + var(--sa-bottom)); transform: translate(-50%, 14px);
   background: var(--text); color: var(--bg);
   padding: 10px 17px; border-radius: 999px; font-size: 13px; font-weight: 600;
   opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 100;
