@@ -10,7 +10,7 @@ import { t, onLangChange } from '../lib/i18n.js';
 import { load, save } from '../lib/store.js';
 import {
   SKINS, BASES, ACCENTS, ALL_TABS, LOCKED_TABS, ALL_WIDGETS, CARD_SIZES, CARD_SPANS,
-  getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem,
+  getPrefs, setPrefs, setCardPref, resetPrefs, visibleTabs, cardPref, moveItem, orderedCards,
 } from '../lib/prefs.js';
 
 /** 탭 버튼과 패널의 원본을 보관합니다. 숨긴 탭은 DOM 에서 빠지므로 여기서 다시 꺼냅니다. */
@@ -61,6 +61,32 @@ export function applyCardPrefs(prefs = getPrefs()) {
     const { size, span } = cardPref(node.dataset.card, prefs);
     if (size === 'normal') node.removeAttribute('data-size'); else node.dataset.size = size;
     if (span === 'auto') node.removeAttribute('data-span'); else node.dataset.span = span;
+  });
+}
+
+/**
+ * 저장된 순서대로 각 탭의 카드를 다시 배치합니다.
+ *
+ * '오늘' 탭은 여기서 건드리지 않습니다. 그 탭의 순서는 위젯 목록(prefs.widgets)이
+ * 정하고 today.js 가 직접 그립니다.
+ */
+export function applyCardOrder(prefs = getPrefs()) {
+  ALL_TABS.forEach((tab) => {
+    if (tab === 'today') return;
+    const panel = document.querySelector(`#panel-${tab}`);
+    if (!panel) return;
+    const nodes = [...panel.children].filter((n) => n.matches('[data-card]'));
+    if (nodes.length < 2) return;
+
+    const present = nodes.map((n) => n.dataset.card);
+    const want = orderedCards(tab, present, prefs);
+    // 이미 그 순서면 손대지 않습니다. appendChild 는 옮긴 요소의 스크롤을 0 으로 되돌립니다.
+    if (want.every((id, i) => present[i] === id)) return;
+
+    const byId = new Map(nodes.map((n) => [n.dataset.card, n]));
+    const keepTop = panel.scrollTop;
+    want.forEach((id) => { const n = byId.get(id); if (n) panel.appendChild(n); });
+    if (keepTop && panel.scrollTop !== keepTop) panel.scrollTop = keepTop;
   });
 }
 
@@ -359,6 +385,7 @@ function renderCustomize() {
 export function initAppearance() {
   applySkinAccent();
   applyCardPrefs();
+  applyCardOrder();
   renderCustomize();
   onLangChange(renderCustomize);
 }
@@ -367,5 +394,6 @@ export function initAppearance() {
 export function refreshAppearance(prefs) {
   applySkinAccent(prefs);
   applyCardPrefs(prefs);
+  applyCardOrder(prefs);
   renderCustomize();
 }

@@ -71,6 +71,7 @@ const APP_SHELL = [
   './js/modules/banner.js',
   './js/modules/settings.js',
   './js/modules/appearance.js',
+  './js/modules/arrange.js',
   './js/modules/update.js',
   './assets/favicon.svg',
   './assets/icon-192.png',
