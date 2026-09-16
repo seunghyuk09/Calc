@@ -1117,6 +1117,23 @@ const main = async () => {
     `실제: ${await page.textContent('#banner-title')}`);
   check('배너 인디케이터 2개', (await page.locator('#banner-dots .banner-dot').count()) === 2);
 
+  /*
+   * 배너 맨 끝의 환경 안내는 어디서 도는지에 따라 달라야 합니다.
+   * 앱 주소(https://localhost)도 프로토콜이 https: 라, 프로토콜만 보면 앱 안에서
+   * '브라우저 메뉴 → 홈 화면에 추가' 를 띄웁니다. 실제로 그렇게 나오고 있었습니다.
+   * (여기서는 웹/파일만 확인할 수 있습니다. 앱 경우는 tests/banner-env.test.mjs 가 봅니다)
+   */
+  await page.fill('#set-banner', '');
+  await page.click('#set-banner-save');
+  await page.waitForTimeout(300);
+  const envDots = await page.locator('#banner-dots .banner-dot').count();
+  check('배너를 비우면 기본 2개 + 환경 안내 1개', envDots === 3, `실제 ${envDots}개`);
+  await page.locator('#banner-dots .banner-dot').nth(2).click();
+  await page.waitForTimeout(200);
+  const envTitle = await page.textContent('#banner-title');
+  const wantEnv = IS_FILE ? '오프라인으로 실행 중' : '홈 화면에 추가';
+  check(`환경 안내가 '${wantEnv}'`, envTitle === wantEnv, `실제: ${envTitle}`);
+
   // 잘못된 API 키 형식 거부
   await page.fill('#set-apikey', 'wrong-key-format');
   await page.click('#set-apikey-save');

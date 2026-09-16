@@ -7,7 +7,7 @@
   "scripts": {
     "start": "python3 -m http.server 8099 --directory public --bind 127.0.0.1",
     "build": "node scripts/build-standalone.mjs && node scripts/build-artifact.mjs",
-    "test:unit": "node --test tests/calc-engine.test.mjs tests/period.test.mjs tests/i18n.test.mjs tests/today.test.mjs tests/prefs.test.mjs tests/calendar.test.mjs tests/categories.test.mjs tests/memo.test.mjs tests/todo-time.test.mjs tests/native-url.test.mjs tests/version.test.mjs",
+    "test:unit": "node --test tests/calc-engine.test.mjs tests/period.test.mjs tests/i18n.test.mjs tests/today.test.mjs tests/prefs.test.mjs tests/calendar.test.mjs tests/categories.test.mjs tests/memo.test.mjs tests/todo-time.test.mjs tests/native-url.test.mjs tests/banner-env.test.mjs tests/version.test.mjs",
     "test:assets": "node scripts/verify-assets.mjs",
     "test:e2e": "node tests/e2e.mjs",
     "test:standalone": "node scripts/build-standalone.mjs && BASE_URL=\"file://$PWD/dist/데일리킷.html\" node tests/e2e.mjs",
