@@ -57,8 +57,13 @@ function syncThemeColor() {
 
 /** 카드마다 저장된 크기/폭을 답니다. */
 export function applyCardPrefs(prefs = getPrefs()) {
-  $$('[data-card]').forEach((node) => {
-    const { size, span } = cardPref(node.dataset.card, prefs);
+  /*
+   * 카드와 '오늘' 탭 위젯을 함께 다룹니다.
+   * 예전에는 [data-card] 만 봐서, 오늘 탭 위젯은 크기를 골라도 아무 일도 없었습니다.
+   * (도구줄에 크기 버튼 자체가 안 나왔습니다)
+   */
+  $$('[data-card], [data-widget]').forEach((node) => {
+    const { size, span } = cardPref(node.dataset.card || node.dataset.widget, prefs);
     if (size === 'normal') node.removeAttribute('data-size'); else node.dataset.size = size;
     if (span === 'auto') node.removeAttribute('data-span'); else node.dataset.span = span;
   });

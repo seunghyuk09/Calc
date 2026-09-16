@@ -134,6 +134,8 @@ a { color: var(--accent); }
   overflow: hidden;
   max-width: 1180px;
   margin: 0 auto;
+  /* 편집 막대(.arr-dock)가 이 상자를 기준으로 붙습니다. */
+  position: relative;
 }
 
 .app-header {
@@ -165,7 +167,14 @@ a { color: var(--accent); }
 }
 
 .icon-btn {
-  width: 36px; height: 36px;
+  /*
+   * 안드로이드의 '글꼴 크게' 설정은 WebView 의 글자만 키웁니다.
+   * 폭·높이를 px 로 못 박아 두면 글자가 상자를 비집고 나와 모양이 어그러져 보입니다.
+   * 최소 크기만 정하고 정사각형 비율을 고정해, 배율이 커져도 모양이 유지되게 합니다.
+   */
+  min-width: 36px; min-height: 36px;
+  aspect-ratio: 1;
+  flex: none;
   display: grid; place-items: center;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -372,8 +381,9 @@ a { color: var(--accent); }
   display: flex; align-items: center; gap: 8px;
   margin: 0 0 12px;
 }
-.card-title { font-size: 14px; font-weight: 700; margin: 0; margin-right: auto; }
-.card-sub { font-size: 12px; color: var(--text-faint); }
+/* em 이라 .card 의 글자 크기(= --card-scale)를 따릅니다. 14/15 = 기존 14px 와 같습니다. */
+.card-title { font-size: .933em; font-weight: 700; margin: 0; margin-right: auto; }
+.card-sub { font-size: .8em; color: var(--text-faint); }
 
 /* ---------- 폼 ---------- */
 .field {
@@ -1156,9 +1166,21 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
    바꾸는 것은 셋입니다: 안쪽 여백, 목록 스크롤 높이, 큰 숫자 표시 크기.
    그 밖의 글자 크기는 그대로 둡니다. 전부 키우면 한 줄에 들어가던 글이 넘쳐
    레이아웃이 깨지기 때문입니다. */
-.card { --pad: 16px; --list-h: 340px; --display-scale: 1; padding: var(--pad); }
-.card[data-size="compact"] { --pad: 11px; --list-h: 210px; --display-scale: .82; }
-.card[data-size="large"]   { --pad: 22px; --list-h: 520px; --display-scale: 1.24; }
+/*
+ * 카드 크기(작게 / 보통 / 크게).
+ *
+ * 예전에는 패딩 ±5px 와 큰 숫자 몇 개만 바뀌어서, 할 일·메모·글귀처럼 글이 주인 카드는
+ * 골라 봐야 차이를 알 수 없었습니다. 실제로 '바꿔도 별 차이 없다'는 말을 들었습니다.
+ * 이제 카드 안 글자 크기(--card-scale)까지 함께 움직입니다. 카드 안 글은 대부분
+ * 이 글자 크기를 물려받으므로 카드 전체가 눈에 띄게 커지고 작아집니다.
+ */
+.card {
+  --pad: 16px; --list-h: 340px; --display-scale: 1; --card-scale: 1;
+  padding: var(--pad);
+  font-size: calc(15px * var(--card-scale));
+}
+.card[data-size="compact"] { --pad: 11px; --list-h: 210px; --display-scale: .82; --card-scale: .86; }
+.card[data-size="large"]   { --pad: 22px; --list-h: 520px; --display-scale: 1.24; --card-scale: 1.18; }
 
 .hist-list { max-height: var(--list-h); }
 .chat-log  { max-height: calc(var(--list-h) + 80px); }
@@ -1347,9 +1369,18 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .todo-time.is-empty:hover { opacity: 1; border-color: var(--border); }
 .todo-item.done .todo-time { opacity: .5; }
 /* 그 자리에서 고칠 때 얹는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
-.todo-time-edit { flex: none; width: 108px; min-height: 30px; padding: 2px 6px; font-size: 13px; }
-/* 입력줄의 시각 칸. 글 입력칸을 너무 빼앗지 않게 좁게 둡니다. */
-.todo-time-input { flex: 0 0 auto; width: 104px; }
+.todo-time-edit { flex: none; width: auto; min-width: 7.6em; min-height: 30px; padding: 2px 6px; font-size: .87em; }
+/*
+ * 입력줄의 시각 칸.
+ * 폭을 px 로 못 박아 두면 카드 크기를 '크게'로 바꿨을 때 '--:--' 가 잘려 못 씁니다.
+ * em 으로 두어 글자 크기를 따라가게 합니다.
+ */
+.todo-time-input { flex: 0 0 auto; width: auto; min-width: 7.4em; }
+/*
+ * 글 입력칸이 이보다 좁아지면 줄을 바꿉니다.
+ * 셋(글·시각·추가)을 한 줄에 우겨 넣으면 '크게'에서 전부 잘립니다.
+ */
+#todo-input { min-width: 9em; }
 
 .cal-grid {
   display: grid;
@@ -1691,7 +1722,12 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
  * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
  */
 .arr-dock {
-  position: fixed; z-index: 45;
+  /*
+   * .app 을 기준으로 붙입니다. fixed 가 아닙니다.
+   * fixed 는 '보이는 화면'이 아니라 브라우저가 정한 배치 기준 화면을 따르는데,
+   * 안드로이드 WebView 에서 그 둘이 어긋나 막대가 화면 밖으로 밀려났습니다.
+   */
+  position: absolute; z-index: 45;
   left: calc(10px + var(--sa-left)); right: calc(10px + var(--sa-right));
   bottom: calc(10px + var(--sa-bottom));
   display: flex; align-items: center; gap: 10px;
@@ -2335,15 +2371,21 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
     </section>
 
   </main>
-</div>
 
-<!--
-  화면 편집 중에만 뜨는 막대.
-  편집 모드에서 빠져나갈 길이 화면에 늘 보여야 합니다. 안 그러면 갇힌 느낌이 듭니다.
--->
-<div class="arr-dock" id="arr-dock" role="toolbar" aria-label="화면 편집" hidden>
-  <span class="arr-dock-hint" id="arr-hint" data-i18n="arr.hint">카드를 끌어 옮기고, 크기를 고르세요.</span>
-  <button class="btn btn-sm btn-primary" id="arr-done" type="button" data-i18n="arr.done">완료</button>
+  <!--
+    화면 편집 중에만 뜨는 막대.
+    편집 모드에서 빠져나갈 길이 화면에 늘 보여야 합니다. 안 그러면 갇힌 느낌이 듭니다.
+
+    .app 안에 둡니다. 예전에는 body 바로 밑에서 position: fixed 로 띄웠는데,
+    안드로이드 WebView 처럼 '보이는 화면'과 '배치 기준 화면'이 다른 환경에서는
+    fixed 의 기준이 화면보다 훨씬 커져 막대가 화면 아래로 한참 밀려났습니다.
+    (실제로 재현됨: 화면 높이 844px 인데 막대가 3311px 위치에 놓였습니다)
+    .app 은 딱 보이는 만큼의 높이라, 그 안에 붙이면 어떤 환경에서도 화면 안에 있습니다.
+  -->
+  <div class="arr-dock" id="arr-dock" role="toolbar" aria-label="화면 편집" hidden>
+    <span class="arr-dock-hint" id="arr-hint" data-i18n="arr.hint">카드를 끌어 옮기고, 크기를 고르세요.</span>
+    <button class="btn btn-sm btn-primary" id="arr-done" type="button" data-i18n="arr.done">완료</button>
+  </div>
 </div>
 <span class="sr-only" id="arr-live" aria-live="polite" role="status"></span>
 <script>
@@ -5067,8 +5109,11 @@ function toolbar(node, box, index, total) {
   row.querySelector('[data-arr-move="up"]').addEventListener('click', (e) => { e.stopPropagation(); move(-1); });
   row.querySelector('[data-arr-move="down"]').addEventListener('click', (e) => { e.stopPropagation(); move(1); });
 
-  // 위젯은 크기 설정이 없습니다. ('오늘' 탭 카드들은 한 묶음으로 같이 움직입니다)
-  if (box.kind === 'card') {
+  /*
+   * 크기·폭 고르기. 위젯에도 답니다.
+   * 예전에는 카드에만 달아서, '오늘' 탭에서는 크기를 바꿀 방법이 아예 없었습니다.
+   */
+  {
     const pref = cardPref(id);
     row.append(
       el('div', { class: 'arr-opts', role: 'group', 'aria-label': t('arr.aria.size') },
@@ -5323,20 +5368,32 @@ function autoScroll(panel, clientY) {
 }
 
 function onPointerDown(e) {
-  // 편집이 꺼져 있을 때만 '꾹 누르기'를 셉니다. 켜져 있으면 손잡이로 잡습니다.
+  // 편집이 꺼져 있을 때만 '꾹 누르기'를 셉니다. 켜져 있으면 바로 잡습니다.
   if (!current) { startHold(e); return; }
   if (drag) return;
-  const grab = e.target.closest?.('.arr-grab');
-  if (!grab) return;
   const box = boxOf(current);
   if (!box) return;
-  const card = grab.closest('[data-arr-item]');
+
+  /*
+   * 편집 중에는 카드 아무 데나 잡아도 끌립니다.
+   *
+   * 예전에는 손잡이(⠿)만 잡을 수 있었습니다. 손가락으로는 그 작은 칸을 정확히
+   * 누르기 어려워 '드래그가 안 된다'는 말을 들었습니다. 홈 화면 아이콘 정렬처럼,
+   * 편집 중이면 카드 어디를 잡든 끌리는 것이 자연스럽습니다.
+   *
+   * 도구줄의 ▲▼ 와 크기 버튼은 눌려야 하므로 제외합니다.
+   * 손잡이는 '누르는 버튼'이 아니라 '잡는 곳'이라 여기서 받습니다.
+   */
+  const card = e.target.closest?.('[data-arr-item]');
   if (!card || card.parentElement !== box.host) return;
+  const onBar = e.target.closest('.arr-bar');
+  if (onBar && !e.target.closest('.arr-grab')) return;
 
   e.preventDefault();
-  try { grab.setPointerCapture(e.pointerId); } catch { /* 캡처 실패해도 이동은 됩니다 */ }
+  // 잡은 자리가 사라져도 이벤트가 이어지도록 카드 자신에게 포인터를 묶습니다.
+  try { card.setPointerCapture(e.pointerId); } catch { /* 캡처 실패해도 이동은 됩니다 */ }
   drag = {
-    box, card, grab, pointerId: e.pointerId,
+    box, card, grab: card, pointerId: e.pointerId,
     startX: e.clientX, startY: e.clientY, moved: false,
   };
   card.dataset.arrDrag = 'on';
@@ -8965,8 +9022,13 @@ function syncThemeColor() {
 
 /** 카드마다 저장된 크기/폭을 답니다. */
 function applyCardPrefs(prefs = getPrefs()) {
-  $$('[data-card]').forEach((node) => {
-    const { size, span } = cardPref(node.dataset.card, prefs);
+  /*
+   * 카드와 '오늘' 탭 위젯을 함께 다룹니다.
+   * 예전에는 [data-card] 만 봐서, 오늘 탭 위젯은 크기를 골라도 아무 일도 없었습니다.
+   * (도구줄에 크기 버튼 자체가 안 나왔습니다)
+   */
+  $$('[data-card], [data-widget]').forEach((node) => {
+    const { size, span } = cardPref(node.dataset.card || node.dataset.widget, prefs);
     if (size === 'normal') node.removeAttribute('data-size'); else node.dataset.size = size;
     if (span === 'auto') node.removeAttribute('data-span'); else node.dataset.span = span;
   });
