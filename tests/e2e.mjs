@@ -492,7 +492,7 @@ const main = async () => {
 
   // 단위 전환: Week / Month / Year 는 각각 독립된 목록
   for (const [sc, text, pattern] of [
-    ['week', 'Ship v1 beta', /^Week \d+, \d{4} · /],
+    ['week', 'Ship v1 beta', /^\d{4} · \w{3} \d+/],
     ['month', 'Hire designer', /^\w{3} \d{4}$/],
     ['year', 'Launch product', /^\d{4}$/],
   ]) {

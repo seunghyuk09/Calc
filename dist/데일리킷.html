@@ -3422,10 +3422,19 @@ function label(scope, key, lang = 'en') {
   }
 
   if (scope === 'week') {
-    const week = Number(key.split('-W')[1]);
+    /*
+     * 주차 번호('38주차')는 넣지 않습니다.
+     * 실제로 보는 것은 '며칠부터 며칠까지' 이고, 주차 번호는 그 앞자리를 차지하며
+     * 좁은 화면에서 날짜를 밀어냅니다. 주차를 세는 사람은 거의 없습니다.
+     *
+     * 연도는 남깁니다. 빼면 2020-W53 과 2026-W53 이 똑같은 글자가 되어
+     * 해를 넘겨 이동할 때 어느 해를 보고 있는지 알 수 없습니다.
+     * 달력 연도가 아니라 키의 연도(ISO 연도)를 씁니다. 연말에 걸친 주는
+     * 12월이어도 다음 해 1주차라, 달력 연도를 쓰면 저장 키와 어긋납니다.
+     */
     const isoYear = Number(key.split('-W')[0]);
     const range = weekRange(key, lang);
-    return ko ? `${isoYear}년 ${week}주차 · ${range}` : `Week ${week}, ${isoYear} · ${range}`;
+    return ko ? `${isoYear}년 ${range}` : `${isoYear} · ${range}`;
   }
 
   if (scope === 'month') {
