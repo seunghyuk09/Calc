@@ -87,10 +87,17 @@ async function purgeNativeWorkers() {
   if (!('serviceWorker' in navigator)) return;
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
-    if (!regs.length) return;
     await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+    /*
+     * 등록이 이미 없어도 캐시는 남아 있을 수 있어 항상 훑습니다.
+     *
+     * 지우는 사이에도 아직 살아 있는 옛 워커가 지나가는 요청을 캐시에 다시 넣습니다.
+     * 그래서 한 번 지우고 끝내면 '등록은 0인데 캐시는 1' 인 상태가 남습니다.
+     * 다음 실행 때 이 줄이 마저 치웁니다.
+     */
     const keys = await caches.keys();
     await Promise.all(keys.map((k) => caches.delete(k).catch(() => false)));
+    if (!regs.length) return;
     /*
      * 지금 화면은 아직 옛 워커가 내준 파일로 떠 있을 수 있습니다.
      * 등록을 지웠으니 다시 불러오면 APK 안의 파일이 그대로 쓰입니다.

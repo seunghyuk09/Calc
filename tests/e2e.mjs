@@ -1420,6 +1420,15 @@ export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
       // 정리 코드가 화면을 한 번 다시 불러옵니다. 그것까지 끝나기를 기다립니다.
       await np.waitForTimeout(1800);
       await np.waitForSelector('body[data-ready="true"]', { timeout: 15000 });
+      /*
+       * 한 번 더 엽니다.
+       * 캐시를 지우는 사이에도 아직 살아 있던 옛 워커가 지나가는 요청을 다시 캐시에 넣어,
+       * 첫 정리만으로는 '등록 0 · 캐시 1' 이 남을 수 있습니다. 다음 실행에서 마저 치웁니다.
+       * 앱에서도 똑같이 앱을 다시 켜면 정리되는 흐름입니다.
+       */
+      await np.reload({ waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]', { timeout: 15000 });
+      await np.waitForTimeout(900);
       const after = await np.evaluate(async () => ({
         regs: (await navigator.serviceWorker.getRegistrations()).length,
         caches: (await caches.keys()).length,
@@ -2787,8 +2796,13 @@ export function isStamped() { return true; }`,
   await settlePagerOf(page);
   const wBefore = await widgetsNow();
   await openArrange();
-  check('위젯에는 크기 버튼이 없음 (오늘 탭은 한 묶음으로 움직입니다)',
-    (await page.evaluate(() => document.querySelectorAll('#today-widgets [data-arr-size]').length)) === 0);
+  /*
+   * 위젯에도 크기 버튼이 있어야 합니다.
+   * 예전에는 일부러 빼 두었는데('오늘 탭은 한 묶음으로 움직인다'는 생각이었습니다),
+   * 그 결과 '오늘' 탭에서는 크기를 바꿀 방법이 아예 없었습니다. 실제로 그 지적을 받았습니다.
+   */
+  check('위젯에도 크기 버튼이 있음',
+    (await page.evaluate(() => document.querySelectorAll('#today-widgets [data-arr-size]').length)) > 0);
   const wDrag = await dragOnto('#panel-today', `[data-arr-bar="${wBefore[0]}"] .arr-grab`,
     `[data-widget="${wBefore[1]}"]`);
   const wAfter = await widgetsNow();
@@ -3216,6 +3230,154 @@ export function isStamped() { return true; }`,
     check('터치: 굴리는 것만으로는 편집이 켜지지 않음',
       (await tp.evaluate(() => document.body.dataset.arranging === 'on')) === false);
     await tp.close();
+    await ctx.close();
+  }
+
+  /* ---------- 편집 막대 · 카드 크기 ----------
+   *
+   * 실기기 화면을 받아 보고 찾은 것들입니다. 셋 다 데스크톱 폭에서는 멀쩡해 보였습니다.
+   */
+  {
+    /*
+     * '완료' 막대가 화면 안에 있어야 합니다.
+     *
+     * 예전에는 body 밑에서 position: fixed 였는데, '보이는 화면'과 '배치 기준 화면'이
+     * 다른 환경(안드로이드 WebView, 모바일 에뮬레이션)에서는 fixed 의 기준이 화면보다
+     * 훨씬 커집니다. 실제로 화면 높이 844px 에 막대가 3311px 위치에 놓여, 편집을 끄는
+     * 길이 화면에서 사라졌습니다. isMobile 을 켠 쪽이 그 상황을 재현합니다.
+     */
+    for (const mobile of [false, true]) {
+      const ctx = await browser.newContext({
+        viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: mobile,
+      });
+      await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+      }));
+      const dp = await ctx.newPage();
+      await dp.goto(BASE, { waitUntil: 'networkidle' });
+      await dp.waitForSelector('body[data-ready="true"]');
+      await dp.waitForTimeout(500);
+      await dp.$eval('#arr-start', (n) => n.click());
+      await dp.waitForTimeout(500);
+      const box = await dp.evaluate(() => {
+        const el = document.querySelector('#arr-dock');
+        const r = el.getBoundingClientRect();
+        const vh = document.documentElement.clientHeight;
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom), vh };
+      });
+      check(`완료 막대가 화면 안에 있음 (isMobile=${mobile})`,
+        box.top >= 0 && box.bottom <= box.vh + 1,
+        `막대 ${box.top}~${box.bottom} / 화면 ${box.vh}`);
+      await ctx.close();
+    }
+
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+    }));
+    const sp = await ctx.newPage();
+    await sp.goto(BASE, { waitUntil: 'networkidle' });
+    await sp.waitForSelector('body[data-ready="true"]');
+    await sp.waitForTimeout(600);
+
+    // '오늘' 탭 위젯에도 크기 버튼이 있어야 합니다. 예전에는 카드에만 달렸습니다.
+    await sp.$eval('#arr-start', (n) => n.click());
+    await sp.waitForTimeout(500);
+    const wBtns = await sp.evaluate(() => {
+      const bar = document.querySelector('#today-widgets .arr-bar');
+      return bar ? [...bar.querySelectorAll('button')].map((b) => b.textContent.trim()) : [];
+    });
+    check('오늘 탭 위젯에도 크기 버튼이 있음',
+      wBtns.includes('작게') && wBtns.includes('크게'), wBtns.join(' '));
+
+    /*
+     * 편집 중에는 손잡이가 아니라 카드 아무 데나 잡아도 끌려야 합니다.
+     * 손가락으로 34px 짜리 손잡이를 정확히 누르기는 어렵습니다.
+     */
+    const wOrder = () => sp.evaluate(() => (
+      [...document.querySelectorAll('#today-widgets > [data-widget]')].map((n) => n.dataset.widget)));
+    const wBefore = await wOrder();
+    if (wBefore.length >= 2) {
+      const grab = await sp.evaluate(() => {
+        const r = document.querySelector('#today-widgets > [data-widget]').getBoundingClientRect();
+        return { x: Math.round(r.x + r.width - 30), y: Math.round(r.bottom - 20) };   // 손잡이에서 먼 자리
+      });
+      const drop = await sp.evaluate(() => {
+        const r = document.querySelectorAll('#today-widgets > [data-widget]')[1].getBoundingClientRect();
+        return { x: Math.round(r.x + r.width / 2), y: Math.round(r.bottom - 12) };
+      });
+      await sp.mouse.move(grab.x, grab.y);
+      await sp.mouse.down();
+      await sp.mouse.move(grab.x, grab.y + 15, { steps: 3 });
+      await sp.waitForTimeout(80);
+      check('편집 중 카드 본체(손잡이 아님)로도 잡힘',
+        (await sp.evaluate(() => !!document.querySelector('[data-arr-drag="on"]'))) === true);
+      await sp.mouse.move(drop.x, Math.min(drop.y, 820), { steps: 14 });
+      await sp.waitForTimeout(200);
+      await sp.mouse.up();
+      await sp.waitForTimeout(500);
+      check('카드 본체를 끌어 순서가 바뀜',
+        (await wOrder()).join(',') !== wBefore.join(','),
+        `${wBefore.join(',')} -> ${(await wOrder()).join(',')}`);
+    }
+    // 도구줄 버튼은 드래그에 먹히지 않고 눌려야 합니다.
+    await sp.$eval('#today-widgets .arr-bar [data-arr-size="large"]', (n) => n.click());
+    await sp.waitForTimeout(500);
+    check('편집 중에도 크기 버튼이 눌림',
+      (await sp.evaluate(() => document.querySelector('#today-widgets > [data-widget]')?.dataset.size)) === 'large');
+    await sp.$eval('#arr-done', (n) => n.click());
+    await sp.waitForTimeout(300);
+
+    /*
+     * 크기를 바꾸면 실제로 눈에 띄어야 합니다.
+     * 예전에는 패딩 ±5px 과 큰 숫자 몇 개만 바뀌어 '골라도 차이가 없다'는 말을 들었습니다.
+     */
+    await goTab(sp, 'todo');
+    await sp.waitForTimeout(500);
+    const fontAt = async (size) => {
+      await sp.evaluate((sz) => {
+        const el = document.querySelector('[data-card="todo.plan"]');
+        el.dataset.size = sz === 'normal' ? '' : sz;
+        if (sz === 'normal') el.removeAttribute('data-size');
+      }, size);
+      await sp.waitForTimeout(150);
+      return sp.evaluate(() => parseFloat(
+        getComputedStyle(document.querySelector('[data-card="todo.plan"]')).fontSize));
+    };
+    const fSmall = await fontAt('compact');
+    const fLarge = await fontAt('large');
+    await fontAt('normal');
+    check('카드 크기를 바꾸면 글자 크기가 실제로 달라짐', fLarge - fSmall >= 3,
+      `작게 ${fSmall}px -> 크게 ${fLarge}px`);
+
+    /*
+     * 모든 카드를 '크게' 로 놓아도 가로로 넘치면 안 됩니다.
+     * 글자를 키우자 할 일 입력줄의 시각 칸이 잘렸습니다. 그 회귀를 여기서 잡습니다.
+     */
+    for (const w of [320, 360, 390]) {
+      await sp.setViewportSize({ width: w, height: 844 });
+      await sp.evaluate(() => {
+        document.querySelectorAll('[data-card], [data-widget]').forEach((n) => { n.dataset.size = 'large'; });
+      });
+      await sp.waitForTimeout(400);
+      const over = await sp.evaluate(() => {
+        const out = [];
+        document.querySelectorAll('.panel').forEach((panel) => {
+          if (panel.hidden) return;
+          panel.querySelectorAll('[data-card], [data-widget]').forEach((c) => {
+            const d = c.scrollWidth - c.clientWidth;
+            if (d > 1) out.push(`${c.dataset.card || c.dataset.widget} +${d}px`);
+          });
+        });
+        return out;
+      });
+      check(`${w}px · 모든 카드를 '크게' 로 놓아도 가로 넘침 없음`, over.length === 0,
+        over.join(', ') || '정상');
+    }
+    await sp.evaluate(() => {
+      document.querySelectorAll('[data-card], [data-widget]').forEach((n) => n.removeAttribute('data-size'));
+    });
+    await sp.setViewportSize({ width: 390, height: 844 });
     await ctx.close();
   }
 
