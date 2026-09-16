@@ -17,6 +17,7 @@ import { getPrefs, onPrefsChange } from '../lib/prefs.js';
 import { getItems, onTodoChange, revealItem, setDone, renameItem } from './todo.js';
 import { emojiOf, labelOf } from '../lib/categories.js';
 import { getWeather, onWeatherChange, describe } from './weather.js';
+import { arrangingTab, onArrangeChange } from './arrange.js';
 import { getTimerState } from './time.js';
 import { goToTab, onTabChange } from '../lib/nav.js';
 
@@ -356,9 +357,22 @@ function widgetCard(name) {
   return card;
 }
 
+/* 편집 중에 그리지 못하고 미뤄 둔 것이 있는지. 편집이 끝나면 한 번 그립니다. */
+let renderHeld = false;
+
 function renderWidgets() {
   const host = $('#today-widgets');
   if (!host) return;
+  /*
+   * 화면 편집 중에는 위젯을 다시 그리지 않습니다.
+   *
+   * 아래 replaceChildren 은 위젯 노드를 통째로 갈아치웁니다. 그런데 이 함수는
+   * 날씨가 도착하거나, 할 일이 하나 바뀌거나, 설정이 바뀌기만 해도 불립니다.
+   * 편집 중이라면 그 순간 손가락으로 잡고 있던 카드가 DOM 에서 사라져
+   * 드래그가 그 자리에서 조용히 끊깁니다. (앱을 열자마자 날씨가 도착하므로
+   * 하필 옮기려는 그때 잘 끊겼습니다)
+   */
+  if (arrangingTab()) { renderHeld = true; return; }
   const { widgets } = getPrefs();
   if (!widgets.length) {
     host.replaceChildren(el('div', { class: 'today-rot-empty' }, t('today.empty')));
@@ -524,6 +538,12 @@ export function initToday() {
 
   onTodoChange(() => { renderAll(); });
   onWeatherChange(() => { renderAll(); });
+  // 편집이 끝나면, 그동안 미뤄 둔 그리기를 한 번 처리합니다.
+  onArrangeChange((tab) => {
+    if (tab || !renderHeld) return;
+    renderHeld = false;
+    renderAll();
+  });
   onLangChange(renderAll);
   onPrefsChange(renderAll);
 

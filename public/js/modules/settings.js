@@ -5,6 +5,7 @@ import { load, save, remove, clearAll, exportAll, importAll, isPersistent,
 import { BANNER_KEY, parseBannerText, saveBanner } from './banner.js';
 import { APIKEY_KEY, MODEL_KEY, refreshAiMode } from './ai.js';
 import { getLang, setLang, onLangChange, LANGS } from '../lib/i18n.js';
+import { isNative } from './update.js';
 
 export const THEME_KEY = 'ui.theme';
 
@@ -37,8 +38,18 @@ export function initTheme() {
   });
 }
 
-function downloadJson(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+/** 백업 내용을 화면에 펼쳐 복사할 수 있게 합니다. (앱에서 파일이 안 나올 때의 길) */
+function showBackupText(text) {
+  const box = $('#backup-out');
+  const area = $('#backup-text');
+  if (!box || !area) return;
+  area.value = text;
+  box.hidden = false;
+  box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function downloadJson(filename, text) {
+  const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -127,8 +138,40 @@ export function initSettings() {
     const data = exportAll();
     // 백업 파일에 API 키가 그대로 들어가면 위험하므로 제외합니다.
     delete data[APIKEY_KEY];
-    downloadJson(`데일리킷_백업_${new Date().toISOString().slice(0, 10)}.json`, data);
-    toast('백업 파일을 내려받았습니다 (API 키는 제외)');
+    const text = JSON.stringify(data, null, 2);
+    // 내려받기는 그대로 시도합니다. 되는 환경이면 이쪽이 편합니다.
+    downloadJson(`데일리킷_백업_${new Date().toISOString().slice(0, 10)}.json`, text);
+
+    /*
+     * 앱에서는 파일이 안 나올 수 있습니다. (안드로이드 WebView 는 DownloadListener 없이
+     * blob: 내려받기를 처리하지 않는데, Capacitor 도 이 프로젝트도 그것을 달지 않았습니다)
+     * 되는지 여부를 화면에서 알 방법이 없으므로, 앱에서는 글로도 꺼낼 수 있게 함께 엽니다.
+     */
+    if (isNative()) {
+      showBackupText(text);
+      toast('백업을 준비했습니다 (API 키는 제외)');
+    } else {
+      toast('백업 파일을 내려받았습니다 (API 키는 제외)');
+    }
+  });
+
+  $('#backup-copy')?.addEventListener('click', async () => {
+    const box = $('#backup-text');
+    if (!box) return;
+    try {
+      await navigator.clipboard.writeText(box.value);
+      toast('복사했습니다. 메모장이나 메일에 붙여넣어 두세요');
+    } catch {
+      // 클립보드가 막힌 환경에서는 직접 선택할 수 있게 해 둡니다.
+      box.focus();
+      box.select();
+      toast('길게 눌러 복사해 주세요', 'error');
+    }
+  });
+
+  $('#backup-close')?.addEventListener('click', () => {
+    const box = $('#backup-out');
+    if (box) box.hidden = true;
   });
 
   $('#set-import').addEventListener('click', () => $('#set-import-file').click());

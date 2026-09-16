@@ -1386,6 +1386,102 @@ export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
       await ctx.close();
     }
 
+    /*
+     * 앱에 이미 남아 있는 워커를 화면 쪽에서 직접 지웁니다.
+     *
+     * 등록을 안 하는 것만으로는 부족합니다. 업데이트 기능이 생기기 전 버전이 등록해 둔
+     * 워커가 남아 있는 기기가 있고, 그 워커는 캐시 우선이라 APK 를 새로 깔아도
+     * 옛 화면을 계속 내놓습니다.
+     *
+     * sw.js 안에도 스스로를 지우는 코드가 있지만 그것은 브라우저가 워커를 갱신해 줄 때만
+     * 돕니다. 실제로 재현해 보니 sw.js 를 다시 받아 가지 않아 영영 그대로인 경우가 있었습니다.
+     * 그래서 화면 쪽에서도 지웁니다. 여기서는 그 동작만 봅니다.
+     *
+     * 먼저 웹으로 열어 워커를 등록해 두고(= 옛 버전이 남긴 상태),
+     * 그다음 앱인 척하고 다시 열어 지워지는지 봅니다.
+     */
+    {
+      const ctx = await browser.newContext();
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await np.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 })
+        .catch(() => null);
+      const before = await np.evaluate(async () => ({
+        regs: (await navigator.serviceWorker.getRegistrations()).length,
+        caches: (await caches.keys()).length,
+      }));
+      // 여기가 0 이면 아래 검사가 헛돕니다. 지울 것이 있어야 지웠는지 볼 수 있습니다.
+      check('앱 정리 준비: 웹으로 열면 워커와 캐시가 남음',
+        before.regs > 0 && before.caches > 0, JSON.stringify(before));
+
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      await np.reload({ waitUntil: 'networkidle' });
+      // 정리 코드가 화면을 한 번 다시 불러옵니다. 그것까지 끝나기를 기다립니다.
+      await np.waitForTimeout(1800);
+      await np.waitForSelector('body[data-ready="true"]', { timeout: 15000 });
+      const after = await np.evaluate(async () => ({
+        regs: (await navigator.serviceWorker.getRegistrations()).length,
+        caches: (await caches.keys()).length,
+      }));
+      check('앱: 남아 있던 서비스 워커와 캐시를 지움',
+        after.regs === 0 && after.caches === 0, JSON.stringify(after));
+      await ctx.close();
+    }
+
+    /*
+     * 앱에서 백업을 글로도 꺼낼 수 있어야 합니다.
+     *
+     * 안드로이드 WebView 는 DownloadListener 없이 blob: 내려받기를 처리하지 않는데,
+     * Capacitor 에도 이 프로젝트에도 그것이 없습니다. 그래서 앱에서 '백업 내려받기' 를 눌러도
+     * 파일이 안 나올 수 있습니다. 백업을 못 꺼내면 앱을 다시 깔 때 데이터를 통째로 잃습니다.
+     * (복원 쪽 input[type=file] 은 Capacitor 가 처리하므로 문제가 없습니다)
+     */
+    {
+      const ctx = await browser.newContext({ acceptDownloads: true });
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await goTab(np, 'todo');
+      await np.waitForTimeout(400);
+      await np.fill('#todo-input', '백업 대체경로 검사');
+      await np.$eval('#todo-form button[type="submit"]', (n) => n.click());
+      await np.waitForTimeout(300);
+      await goTab(np, 'settings');
+      await np.waitForTimeout(500);
+      check('앱: 평소에는 백업 글 칸이 숨어 있음',
+        (await np.$eval('#backup-out', (n) => n.hidden)) === true);
+      await np.$eval('#set-export', (n) => n.click());
+      await np.waitForTimeout(600);
+      const shown = await np.$eval('#backup-out', (n) => n.hidden) === false;
+      const text = await np.$eval('#backup-text', (n) => n.value);
+      check('앱: 백업을 누르면 글로 꺼낼 칸이 열림', shown === true);
+      check('앱: 그 칸에 실제 데이터가 들어 있음', text.includes('백업 대체경로 검사'),
+        `${text.length}자`);
+      // 복원이 읽을 수 있는 형식이어야 의미가 있습니다.
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch { parsed = null; }
+      check('앱: 그 글이 복원에 그대로 쓸 수 있는 JSON 임',
+        !!parsed && typeof parsed === 'object' && !Array.isArray(parsed));
+      await ctx.close();
+    }
+
+    /* 웹에서는 이 칸이 뜨면 안 됩니다. 내려받기가 정상 동작하는데 군더더기가 붙습니다. */
+    {
+      const ctx = await browser.newContext({ acceptDownloads: true });
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await goTab(np, 'settings');
+      await np.waitForTimeout(500);
+      await np.$eval('#set-export', (n) => n.click());
+      await np.waitForTimeout(600);
+      check('웹: 백업 글 칸은 뜨지 않음 (앱에서만 필요합니다)',
+        (await np.$eval('#backup-out', (n) => n.hidden)) === true);
+      await ctx.close();
+    }
+
     const same = await nativeCheck(SHA_OLD, '같은 커밋');
     check('앱: 릴리스가 같은 커밋이면 최신이라고 답함', same.got === 'latest', `상태: ${same.got}`);
     check('앱: 자동 설치가 안 된다는 안내가 항상 보임',
@@ -2856,7 +2952,213 @@ export function isStamped() { return true; }`,
     check('전화기 폭: 화면 끝으로 끌면 패널이 따라 스크롤함', scrolled > 20, `${scrolled}px 내려감`);
     check('전화기 폭: 한 줄로 쌓인 상태에서도 순서가 바뀜',
       after.join(',') === 'quote.mine,quote.today', `${before.join(',')} -> ${after.join(',')}`);
+
+    /* ---------- 꾹 눌러 편집 켜기 ----------
+     *
+     * 메뉴의 '화면 편집' 버튼은 탭 아홉 개 밑이라 좁은 화면에서 잘 보이지 않습니다.
+     * 손으로 쓰는 사람은 홈 화면 아이콘처럼 '꾹 누르기'를 먼저 시도합니다.
+     * 켜지는 경우만이 아니라, 켜지면 안 되는 경우(짧은 탭 · 스크롤 · 자판)도 같이 봅니다.
+     */
+    await phone.$eval('#arr-done', (n) => n.click());
+    await phone.waitForTimeout(300);
+    await goTab(phone, 'today');
+    await phone.waitForTimeout(600);
+
+    const holding = () => phone.evaluate(() => document.body.dataset.arranging === 'on');
+    const phoneWidgets = () => phone.evaluate(() => (
+      [...document.querySelectorAll('#today-widgets > [data-widget]')].map((n) => n.dataset.widget)));
+    /** 손가락으로 누르고 ms 만큼 있다가 뗍니다. move 를 주면 누른 채 그만큼 밉니다. */
+    const pressHold = async (sel, ms, move = 0) => {
+      const r = await phone.evaluate((sl) => {
+        const b = document.querySelector(sl).getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + Math.min(b.height / 2, 28)) };
+      }, sel);
+      await phone.mouse.move(r.x, r.y);
+      await phone.mouse.down();
+      if (move) { await phone.waitForTimeout(80); await phone.mouse.move(r.x, r.y + move, { steps: 4 }); }
+      await phone.waitForTimeout(ms);
+      await phone.mouse.up();
+      await phone.waitForTimeout(300);
+      return r;
+    };
+
+    await pressHold('#today-widgets > [data-widget]', 120);
+    check('꾹 누르기: 짧게 누르면 편집이 켜지지 않음', (await holding()) === false);
+
+    await pressHold('#today-widgets > [data-widget]', 700, 60);
+    check('꾹 누르기: 누른 채 밀면(스크롤) 편집이 켜지지 않음', (await holding()) === false);
+
+    await pressHold('#today-widgets > [data-widget]', 700);
+    check('꾹 누르기: 오래 누르면 편집이 켜짐', (await holding()) === true);
+    check('꾹 누르기: 위젯이 버튼이지만 탭이 넘어가지 않음',
+      (await phone.evaluate(() => document.querySelector('.tab[data-tab="today"]').getAttribute('aria-selected'))) === 'true');
+    await phone.$eval('#arr-done', (n) => n.click());
+    await phone.waitForTimeout(300);
+
+    await goTab(phone, 'calc');
+    await phone.waitForTimeout(500);
+    await phone.evaluate(() => { document.querySelector('#calc-expr').value = ''; });
+    await pressHold('.key[data-ins="7"]', 700);
+    check('꾹 누르기: 계산기 자판을 길게 눌러도 편집이 켜지지 않음', (await holding()) === false);
+    check('꾹 누르기: 길게 눌러도 숫자는 정상 입력됨',
+      (await phone.$eval('#calc-expr', (n) => n.value)).includes('7'));
+
+    await goTab(phone, 'today');
+    await phone.waitForTimeout(600);
+    const wBefore2 = await phoneWidgets();
+    if (wBefore2.length >= 2) {
+      const start = await phone.evaluate(() => {
+        const b = document.querySelector('#today-widgets > [data-widget]').getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + 20) };
+      });
+      await phone.mouse.move(start.x, start.y);
+      await phone.mouse.down();
+      await phone.waitForTimeout(700);                  // 여기서 편집이 켜지고 그대로 잡힙니다
+      check('꾹 누르기: 손을 떼지 않고 바로 잡힘',
+        (await phone.evaluate(() => !!document.querySelector('[data-arr-drag="on"]'))) === true);
+
+      /*
+       * 잡고 있는 동안 '오늘' 탭이 다시 그려지게 만듭니다.
+       *
+       * today.js 는 replaceChildren 으로 위젯을 통째로 갈아치우는데, 날씨가 도착하거나
+       * 할 일이 바뀌거나 언어가 바뀌기만 해도 그 일이 일어납니다. 막지 않으면 잡고 있던
+       * 카드가 DOM 에서 사라져 드래그가 조용히 끊깁니다. 언어 전환이 같은 경로라 이걸 씁니다.
+       * (편집 중인 '오늘' 패널 밖의 버튼이라 편집 모드의 클릭 차단에 걸리지 않습니다)
+       */
+      await phone.evaluate(() => { window.__held = document.querySelector('#today-widgets > [data-widget]'); });
+      await phone.$eval('#lang-switch .lang-btn[data-lang="en"]', (n) => n.click());
+      await phone.waitForTimeout(500);
+      check('꾹 누르기: 끄는 도중에 화면이 갱신돼도 잡고 있던 카드가 살아 있음',
+        (await phone.evaluate(() => document.contains(window.__held))) === true);
+
+      const drop = await phone.evaluate(() => {
+        const b = document.querySelectorAll('#today-widgets > [data-widget]')[1].getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.bottom - 12) };
+      });
+      await phone.mouse.move(drop.x, Math.min(drop.y, 820), { steps: 14 });
+      await phone.waitForTimeout(250);
+      await phone.mouse.up();
+      await phone.waitForTimeout(600);
+      const wAfter2 = await phoneWidgets();
+      check('꾹 누르기: 손을 떼지 않고 끌어서 순서가 바뀜',
+        wAfter2.join(',') !== wBefore2.join(','), `${wBefore2.join(',')} -> ${wAfter2.join(',')}`);
+      await phone.$eval('#lang-switch .lang-btn[data-lang="ko"]', (n) => n.click());
+      await phone.waitForTimeout(300);
+      await phone.$eval('#arr-done', (n) => n.click());
+      await phone.waitForTimeout(400);
+      check('꾹 누르기: 편집을 끄고 다시 그려도 순서가 유지됨',
+        (await phoneWidgets()).join(',') === wAfter2.join(','));
+    } else {
+      check('꾹 누르기: 위젯이 둘 이상이어야 끌기 검사 가능', false, `위젯 ${wBefore2.length}개`);
+    }
+
+    // 메뉴에 꾹 누르기 안내가 있는지 (버튼이 안 보이는 사람이 방법을 알 유일한 길입니다)
+    await phone.$eval('#menu-open', (n) => n.click());
+    await phone.waitForTimeout(400);
+    const noteText = await phone.$eval('.sidebar-note', (n) => n.textContent.trim());
+    check('메뉴에 꾹 누르기 안내가 있음', noteText.length > 0, noteText);
+    await phone.$eval('#menu-close', (n) => n.click());
+    await phone.waitForTimeout(200);
+
     await phone.close();
+  }
+
+  /* ---------- 진짜 손가락으로 끌기 ----------
+   *
+   * 위의 검사들은 마우스로 흉내 낸 것입니다. 마우스에는 touch-action 이 없어서
+   * '끌려다 화면이 스크롤되는' 문제가 드러나지 않습니다.
+   * 손잡이에는 touch-action: none 이 걸려 있지만 꾹 눌러 잡을 때는 누른 곳이 카드 본체라,
+   * touchmove 를 취소해 주지 않으면 브라우저가 스크롤로 가로채 드래그가 통째로 죽습니다.
+   * (실제로 그 코드를 빼 보면 카드가 손가락을 아예 따라오지 않습니다)
+   * 그래서 CDP 로 진짜 터치 이벤트를 쏴서 확인합니다.
+   */
+  {
+    const ctx = await browser.newContext({
+      viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2,
+    });
+    await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+    }));
+    const tp = await ctx.newPage();
+    await tp.goto(BASE, { waitUntil: 'networkidle' });
+    await tp.waitForSelector('body[data-ready="true"]');
+    await goTab(tp, 'today');
+    await tp.waitForTimeout(600);
+
+    const cdp = await ctx.newCDPSession(tp);
+    const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 12, radiusY: 12, force: 1, id: 1 }],
+    });
+    const tOrder = () => tp.evaluate(() => (
+      [...document.querySelectorAll('#today-widgets > [data-widget]')].map((n) => n.dataset.widget)));
+    const tScroll = () => tp.evaluate(() => Math.round(document.querySelector('#panel-today').scrollTop));
+
+    // 내용이 짧으면 스크롤이 생기지 않아 '스크롤되는지' 보는 검사가 헛돕니다. 길이를 만듭니다.
+    await tp.evaluate(() => {
+      const pad = document.createElement('div');
+      pad.style.height = '1200px';
+      document.querySelector('#panel-today').append(pad);
+    });
+    await tp.waitForTimeout(200);
+    const room = await tp.evaluate(() => {
+      const el = document.querySelector('#panel-today');
+      return el.scrollHeight - el.clientHeight;
+    });
+    check('터치 검사 전제: 오늘 탭이 스크롤될 만큼 김', room > 200, `${room}px 여유`);
+
+    const tBefore = await tOrder();
+    if (tBefore.length >= 2) {
+      const from = await tp.evaluate(() => {
+        const b = document.querySelector('#today-widgets > [data-widget]').getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + 20) };
+      });
+      await touch('touchStart', from.x, from.y);
+      await tp.waitForTimeout(700);
+      check('터치: 꾹 누르면 편집이 켜짐',
+        (await tp.evaluate(() => document.body.dataset.arranging === 'on')) === true);
+      check('터치: 손을 떼지 않고 바로 잡힘',
+        (await tp.evaluate(() => !!document.querySelector('[data-arr-drag="on"]'))) === true);
+
+      const s0 = await tScroll();
+      const to = await tp.evaluate(() => {
+        const b = document.querySelectorAll('#today-widgets > [data-widget]')[1].getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.bottom - 12) };
+      });
+      for (let i = 1; i <= 12; i += 1) {
+        await touch('touchMove', Math.round(from.x + (to.x - from.x) * i / 12),
+          Math.round(from.y + (to.y - from.y) * i / 12));
+        await tp.waitForTimeout(25);
+      }
+      await tp.waitForTimeout(150);
+      const moved = await tp.evaluate(() => document.querySelector('[data-arr-drag="on"]')?.style.transform || '');
+      const s1 = await tScroll();
+      check('터치: 끄는 동안 카드가 손가락을 따라옴', moved.includes('translate'), moved || '(안 움직임)');
+      check('터치: 끄는 동안 화면이 같이 스크롤되지 않음', Math.abs(s1 - s0) < 20, `${s0} -> ${s1}`);
+      await touch('touchEnd', to.x, to.y);
+      await tp.waitForTimeout(700);
+      const tAfter = await tOrder();
+      check('터치: 끌어서 순서가 바뀜', tAfter.join(',') !== tBefore.join(','),
+        `${tBefore.join(',')} -> ${tAfter.join(',')}`);
+      await tp.$eval('#arr-done', (n) => n.click());
+      await tp.waitForTimeout(400);
+    } else {
+      check('터치: 위젯이 둘 이상이어야 끌기 검사 가능', false, `위젯 ${tBefore.length}개`);
+    }
+
+    // 편집이 꺼져 있을 때는 손가락으로 평소처럼 화면이 굴러가야 합니다.
+    await tp.evaluate(() => { document.querySelector('#panel-today').scrollTop = 0; });
+    const p0 = await tScroll();
+    await touch('touchStart', 195, 620);
+    for (let i = 1; i <= 10; i += 1) { await touch('touchMove', 195, 620 - i * 25); await tp.waitForTimeout(20); }
+    await touch('touchEnd', 195, 370);
+    await tp.waitForTimeout(500);
+    const p1 = await tScroll();
+    check('터치: 편집이 꺼져 있으면 화면이 정상적으로 굴러감', p1 > p0 + 20, `${p0} -> ${p1}`);
+    check('터치: 굴리는 것만으로는 편집이 켜지지 않음',
+      (await tp.evaluate(() => document.body.dataset.arranging === 'on')) === false);
+    await tp.close();
+    await ctx.close();
   }
 
   // 뒷 검사에 영향을 주지 않도록 전부 되돌립니다.
