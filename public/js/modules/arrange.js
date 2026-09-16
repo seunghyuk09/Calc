@@ -31,9 +31,33 @@ let drag = null;
 /** 자동 스크롤 타이머 id. 카드를 화면 끝으로 끌면 패널이 따라 스크롤합니다. */
 let autoScrollRaf = 0;
 
+/** 꾹 누르고 있는 중인 정보. null 이면 누르고 있지 않습니다. */
+let hold = null;
+
 /** 지금 편집 중인 탭 이름. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
 export function arrangingTab() {
   return current;
+}
+
+/*
+ * 편집이 켜지고 꺼질 때 알려 줍니다.
+ *
+ * '오늘' 탭 위젯은 today.js 가 replaceChildren 으로 통째로 다시 그립니다.
+ * 날씨가 도착하거나 할 일이 하나 바뀌기만 해도 그 일이 일어나는데,
+ * 그러면 손가락으로 잡고 있던 카드가 DOM 에서 사라져 드래그가 그 자리에서 끊깁니다.
+ * 그래서 편집 중에는 다시 그리지 말고, 끝난 뒤에 한 번 그리도록 신호를 보냅니다.
+ */
+const arrangeListeners = new Set();
+
+export function onArrangeChange(fn) {
+  arrangeListeners.add(fn);
+  return () => arrangeListeners.delete(fn);
+}
+
+function notifyArrange() {
+  arrangeListeners.forEach((fn) => {
+    try { fn(current); } catch (err) { console.error('[arrange] 알림 실패', err); }
+  });
 }
 
 const panelOf = (tab) => document.querySelector(`#panel-${tab}`);
@@ -216,11 +240,13 @@ export function startArrange(tab) {
   decorate();
   // 편집을 시작하자마자 '완료'로 초점을 보내 두면 키보드로 빠져나올 길이 분명해집니다.
   try { $('#arr-done')?.focus({ preventScroll: true }); } catch { /* 초점 실패는 넘어갑니다 */ }
+  notifyArrange();
   return true;
 }
 
 /** 편집 모드 종료. 도구줄을 걷고 표시를 지웁니다. */
 export function stopArrange() {
+  cancelHold();
   if (!current) return;
   endDrag(true);
   const box = boxOf(current);
@@ -237,6 +263,7 @@ export function stopArrange() {
   if (dock) dock.hidden = true;
   current = null;
   pendingFocus = null;
+  notifyArrange();
 }
 
 /* ---------- 순서 저장 ---------- */
@@ -255,6 +282,107 @@ function commit(box) {
 }
 
 /* ---------- 손가락으로 끌기 ---------- */
+
+/* ---------- 꾹 눌러 편집 켜기 ----------
+ *
+ * 편집은 원래 메뉴(•••)의 '화면 편집' 버튼으로만 켤 수 있었습니다.
+ * 탭이 아홉 개라 좁은 화면에서는 그 버튼이 목록 아래로 밀려 보이지 않고,
+ * 손으로 쓰는 사람은 홈 화면 아이콘처럼 '꾹 누르기'를 먼저 시도합니다.
+ * 그래서 카드나 위젯을 꾹 누르면 편집이 켜지고, 손을 떼지 않고 그대로 끌 수 있게 했습니다.
+ */
+
+/** 몇 ms 눌러야 편집이 켜지는지. 안드로이드 홈 화면과 비슷하게 잡았습니다. */
+const HOLD_MS = 500;
+/** 이만큼(px) 넘게 움직이면 누른 것이 아니라 스크롤로 봅니다. */
+const HOLD_MOVE = 10;
+
+/**
+ * 지금 누른 자리가 '꾹 눌러 편집'을 켜도 되는 자리인지 봅니다.
+ * @returns {{item: Element, tab: string}|null}
+ */
+function holdTargetOf(e) {
+  if (current || drag) return null;               // 이미 편집 중이면 손잡이가 따로 있습니다
+  const item = e.target.closest?.('[data-card], [data-widget]');
+  if (!item) return null;
+  const tab = item.closest('.panel')?.id?.replace(/^panel-/, '');
+  if (!tab) return null;
+  const box = boxOf(tab);
+  // 그 탭에서 실제로 옮길 수 있는 것이어야 합니다. ('오늘' 탭은 위젯만 옮깁니다)
+  if (!box || item.parentElement !== box.host) return null;
+  /*
+   * 카드 안의 입력칸과 버튼은 제 일을 해야 합니다. 계산기 숫자를 길게 눌렀다고
+   * 편집이 켜지면 곤란합니다. 다만 '오늘' 탭 위젯은 그 자체가 <button> 이라,
+   * 자기 자신인 경우에는 막지 않습니다.
+   */
+  const inner = e.target.closest('input, textarea, select, button, a, canvas, [contenteditable]');
+  if (inner && inner !== item) return null;
+  /*
+   * 노드가 아니라 id 를 들고 있습니다.
+   * 누르고 있는 0.5초 사이에 today.js 가 위젯을 다시 그리면 이 노드는 버려집니다.
+   * 그때 죽은 노드를 잡으면 편집만 켜지고 끌리지는 않습니다. 실제로 그랬습니다.
+   */
+  const id = idOf(item);
+  return id ? { id, tab } : null;
+}
+
+/** id 로 지금 화면에 있는 항목을 다시 찾습니다. 다시 그려졌어도 같은 id 는 그대로입니다. */
+function findItem(box, id) {
+  return itemsOf(box).find((node) => idOf(node) === id) || null;
+}
+
+function cancelHold() {
+  if (!hold) return;
+  clearTimeout(hold.timer);
+  hold = null;
+}
+
+/** 꾹 누르기가 끝까지 갔을 때. 편집을 켜고, 누르고 있던 그 항목을 바로 잡아 줍니다. */
+function holdFired(info) {
+  hold = null;
+  if (!startArrange(info.tab)) return;
+  // 길게 눌러 글자가 선택되는 경우가 있어 지워 줍니다.
+  try { window.getSelection()?.removeAllRanges(); } catch { /* 선택이 없으면 그만입니다 */ }
+  try { navigator.vibrate?.(24); } catch { /* 진동이 없는 기기도 있습니다 */ }
+
+  const box = boxOf(info.tab);
+  if (!box) return;
+  const item = findItem(box, info.id);
+  if (!item) return;                              // 그 사이에 없어진 카드라면 편집만 켜고 맙니다
+  try { item.setPointerCapture(info.pointerId); } catch { /* 캡처가 안 돼도 이동은 됩니다 */ }
+  /*
+   * 손을 뗐다가 다시 손잡이를 찾아 잡게 하면 두 번 일입니다.
+   * 누르고 있는 그 손가락을 그대로 드래그로 넘깁니다.
+   * 기준점은 '지금 손가락 위치'라야 카드가 튀지 않습니다.
+   */
+  drag = {
+    box, card: item, grab: item, pointerId: info.pointerId,
+    startX: info.x, startY: info.y, moved: false,
+  };
+  item.dataset.arrDrag = 'on';
+  announce(t('arr.held'));
+}
+
+function startHold(e) {
+  cancelHold();
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const found = holdTargetOf(e);
+  if (!found) return;
+  const info = { ...found, x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+  info.timer = setTimeout(() => holdFired(info), HOLD_MS);
+  hold = info;
+}
+
+/** 누르고 있는 동안의 움직임. 조금 움직이는 것은 봐주고, 많이 움직이면 스크롤로 봅니다. */
+function moveHold(e) {
+  if (!hold || e.pointerId !== hold.pointerId) return;
+  if (Math.abs(e.clientX - hold.x) > HOLD_MOVE || Math.abs(e.clientY - hold.y) > HOLD_MOVE) {
+    cancelHold();
+    return;
+  }
+  // 손가락이 조금 밀렸으면 기준점을 따라 옮깁니다. 그래야 잡는 순간 카드가 튀지 않습니다.
+  hold.x = e.clientX;
+  hold.y = e.clientY;
+}
 
 /** 패널 위/아래 끝에서 이만큼 안쪽에 오면 따라 스크롤합니다. */
 const EDGE = 72;
@@ -276,7 +404,9 @@ function autoScroll(panel, clientY) {
 }
 
 function onPointerDown(e) {
-  if (!current || drag) return;
+  // 편집이 꺼져 있을 때만 '꾹 누르기'를 셉니다. 켜져 있으면 손잡이로 잡습니다.
+  if (!current) { startHold(e); return; }
+  if (drag) return;
   const grab = e.target.closest?.('.arr-grab');
   if (!grab) return;
   const box = boxOf(current);
@@ -294,6 +424,7 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
+  if (hold) moveHold(e);
   if (!drag || e.pointerId !== drag.pointerId) return;
   e.preventDefault();
   const dx = e.clientX - drag.startX;
@@ -355,6 +486,7 @@ function endDrag(silent = false) {
 }
 
 function onPointerUp(e) {
+  cancelHold();
   if (!drag || e.pointerId !== drag.pointerId) return;
   endDrag();
 }
@@ -395,9 +527,34 @@ export function initArrange() {
   // 잡아 채는 단계여야 아래쪽(위젯 컨테이너)의 위임 처리보다 먼저 막을 수 있습니다.
   document.addEventListener('click', onClickCapture, true);
 
+  /*
+   * 손가락으로 끄는 동안 화면이 같이 스크롤되지 않게 막습니다.
+   *
+   * 손잡이(.arr-grab)에는 touch-action: none 이 걸려 있지만, 꾹 눌러서 잡는 경우에는
+   * 누른 곳이 카드 본체입니다. 카드에 touch-action: none 을 걸면 편집 중에 화면을
+   * 아예 못 굴리게 되므로 걸 수 없습니다. 대신 끄는 동안에만 touchmove 를 취소합니다.
+   * (0.5초 동안 움직이지 않아야 잡히므로, 이 시점에는 스크롤이 시작되지 않았습니다)
+   * preventDefault 가 먹으려면 passive 가 아니어야 합니다.
+   */
+  document.addEventListener('touchmove', (e) => {
+    if (drag && e.cancelable) e.preventDefault();
+  }, { passive: false });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && current) { e.preventDefault(); stopArrange(); }
   });
+
+  /*
+   * 길게 누르면 브라우저가 글자 선택이나 상황 메뉴를 띄우려 합니다.
+   * 편집을 켜는 동작과 겹치므로, 옮길 수 있는 항목 위에서는 막습니다.
+   */
+  document.addEventListener('contextmenu', (e) => {
+    if (!hold && !current) return;
+    if (e.target.closest?.('[data-arr-item], [data-card], [data-widget]')) e.preventDefault();
+  });
+
+  // 화면을 스크롤하면 누르고 있던 것으로 치지 않습니다.
+  document.addEventListener('scroll', cancelHold, { capture: true, passive: true });
 
   /*
    * 설정이 바뀌면 today.js 가 위젯을, appearance.js 가 카드 크기를 다시 적용합니다.

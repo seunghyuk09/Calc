@@ -20,6 +20,8 @@ const RELEASE_API = 'https://api.github.com/repos/seunghyuk09/Calc/releases/tags
 const APK_URL = 'https://github.com/seunghyuk09/Calc/releases/download/nightly/dailykit-debug.apk';
 
 const LAST_CHECK_KEY = 'update.lastCheck';
+/* 앱에서 남은 워커를 지우고 한 번 새로고침했다는 표시. 무한 새로고침을 막습니다. */
+const PURGED_KEY = 'daily-kit:sw-purged';
 /*
  * 자동 확인 간격.
  * GitHub API 는 로그인 없이 시간당 60회까지라 앱을 열 때마다 두드리면 안 됩니다.
@@ -65,7 +67,46 @@ function setState(next, text = '') {
 
 /* ---------- 웹: 서비스 워커 ---------- */
 
+/*
+ * 앱 안에 남은 서비스 워커를 지웁니다.
+ *
+ * 앱에서는 워커를 쓰지 않는데, 업데이트 기능이 생기기 전 버전이 등록해 둔 워커가
+ * 아직 남아 있는 기기가 있습니다. 그 워커는 캐시 우선이라 APK 를 새로 깔아도
+ * 옛 화면을 계속 내놓습니다.
+ *
+ * sw.js 안에도 스스로를 지우는 코드가 있지만, 그것은 브라우저가 워커를 갱신해 줄 때만
+ * 돕니다. 앱은 register() 를 부르지 않으니 갱신이 언제 도는지는 브라우저 마음입니다.
+ * (실제로 재현해 보니 sw.js 를 다시 받아 가지 않아 영영 옛 화면인 경우가 있었습니다)
+ * 그래서 화면 쪽에서 직접 지웁니다. 이쪽은 브라우저 사정을 타지 않습니다.
+ *
+ * 한계: 이 코드는 '새 파일이 실행될 때' 도는 것이라, 이미 옛 워커가 화면 파일까지
+ * 캐시에서 내놓고 있는 기기는 이 코드 자체가 실행되지 않습니다. 그런 기기는
+ * 앱을 지웠다 다시 까는 수밖에 없습니다.
+ */
+async function purgeNativeWorkers() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    if (!regs.length) return;
+    await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k).catch(() => false)));
+    /*
+     * 지금 화면은 아직 옛 워커가 내준 파일로 떠 있을 수 있습니다.
+     * 등록을 지웠으니 다시 불러오면 APK 안의 파일이 그대로 쓰입니다.
+     * 한 번만 돕니다. 세션 표시를 남겨 두어 무한 새로고침을 막습니다.
+     */
+    if (!navigator.serviceWorker.controller) return;
+    if (window.sessionStorage?.getItem(PURGED_KEY)) return;
+    window.sessionStorage?.setItem(PURGED_KEY, '1');
+    window.location.reload();
+  } catch (err) {
+    console.warn('[sw] 앱에 남은 워커 정리 실패', err);
+  }
+}
+
 export function registerServiceWorker() {
+  if (updateMode() === 'native') { purgeNativeWorkers(); return; }
   if (updateMode() !== 'web') return;
   window.addEventListener('load', async () => {
     try {
