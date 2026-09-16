@@ -372,8 +372,130 @@ function itemRow(item, shownRows) {
   );
 }
 
+/* ---------- 시간대별 보기 ----------
+ *
+ * '일간을 고르면 시간대별로 일정을 고를 수 있으면 좋겠다' 는 요청에 따른 화면입니다.
+ * 할 일에 시각을 붙일 수만 있고 하루를 시간 단위로 보는 화면이 없어, 몇 시가 비었는지
+ * 알 수 없었습니다. 여기서는 하루를 시간 줄로 늘어놓고, 빈 시간을 누르면 그 시각으로
+ * 바로 넣습니다. (달력 앱의 '일' 보기와 같은 꼴입니다)
+ */
+
+const DAY_VIEW_KEY = 'todo.dayView';
+/** 'list' 또는 'hours'. 일간에서만 씁니다. */
+let dayView = load(DAY_VIEW_KEY, 'list') === 'hours' ? 'hours' : 'list';
+/** 이른 시간(0~5시)과 늦은 시간(23시)까지 전부 펼쳤는지. */
+let hoursAll = false;
+
+/** 기본으로 보여 줄 시간 범위. 할 일이 있는 시각은 범위 밖이어도 끌어와 보여 줍니다. */
+const DAY_START = 6;
+const DAY_END = 22;
+
+/** 그 시각(정시)에 속한 할 일들. 07:00~07:59 가 7시 줄입니다. */
+function rowsAtHour(rows, hour) {
+  return rows.filter((x) => {
+    const m = minutesOf(x);
+    return m >= 0 && Math.floor(m / 60) === hour;
+  });
+}
+
+/** 화면에 그릴 시간 목록. 접었을 때도 할 일이 있는 시간은 빠지지 않습니다. */
+function hoursToShow(timed) {
+  const used = new Set(timed.map((x) => Math.floor(minutesOf(x) / 60)));
+  const out = [];
+  for (let h = 0; h < 24; h += 1) {
+    if (hoursAll || used.has(h) || (h >= DAY_START && h <= DAY_END)) out.push(h);
+  }
+  return out;
+}
+
+/** 오늘을 보고 있다면 지금이 몇 시인지. 아니면 null. */
+function nowHourIfToday() {
+  if (scope !== 'day') return null;
+  const now = new Date();
+  return period === dayKeyOf(now) ? now.getHours() : null;
+}
+
+function hourRow(hour, rows, shown, nowHour) {
+  const time = `${pad(hour)}:00`;
+  const body = el('div', { class: 'todo-hour-body' });
+
+  if (rows.length) {
+    rows.forEach((item) => body.append(itemRow(item, shown)));
+  } else {
+    /*
+     * 빈 시간은 '그 시각으로 추가' 버튼이 됩니다.
+     * 시각을 손으로 찍어 넣게 하면 시간대 보기를 만든 의미가 없습니다.
+     */
+    body.append(el('button', {
+      class: 'todo-hour-add', type: 'button',
+      dataset: { addAt: time },
+      'aria-label': t('todo.hours.addAt', time),
+      onclick: () => {
+        const box = $('#todo-time');
+        if (box) box.value = time;
+        const input = $('#todo-input');
+        input?.focus();
+        input?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      },
+    }, '+'));
+  }
+
+  return el('div', {
+    class: `todo-hour${hour === nowHour ? ' is-now' : ''}`,
+    dataset: { hour: String(hour) },
+  },
+  el('div', { class: 'todo-hour-time' }, time),
+  body);
+}
+
+function renderHours() {
+  const host = $('#todo-hours');
+  if (!host) return;
+  const rows = sortDayRows(applyFilter(items.filter(inPeriod)));
+  const allDay = rows.filter((x) => !isTimed(x));
+  const timed = rows.filter(isTimed);
+  const nowHour = nowHourIfToday();
+  const parts = [];
+
+  // 종일은 시간 줄 위에 따로 둡니다. 시각이 없으니 어느 줄에도 넣을 수 없습니다.
+  const allDayBody = el('div', { class: 'todo-hour-body' });
+  if (allDay.length) allDay.forEach((item) => allDayBody.append(itemRow(item, rows)));
+  else allDayBody.append(el('span', { class: 'todo-hour-none' }, '—'));
+  parts.push(el('div', { class: 'todo-hour is-allday' },
+    el('div', { class: 'todo-hour-time' }, t('todo.hours.allDay')),
+    allDayBody));
+
+  hoursToShow(timed).forEach((h) => {
+    parts.push(hourRow(h, rowsAtHour(timed, h), rows, nowHour));
+  });
+
+  parts.push(el('button', {
+    class: 'btn btn-sm btn-ghost todo-hours-more', type: 'button', id: 'todo-hours-more',
+    onclick: () => { hoursAll = !hoursAll; renderHours(); },
+  }, t(hoursAll ? 'todo.hours.showLess' : 'todo.hours.showAll')));
+
+  host.replaceChildren(...parts);
+}
+
+/** 일간이 아니면 목록만 씁니다. 주/월/연에는 하루 안의 시각이라는 게 없습니다. */
+function syncDayView() {
+  const tabs = $('#todo-dayviews');
+  const list = $('#todo-list');
+  const hours = $('#todo-hours');
+  const onDay = scope === 'day';
+  if (tabs) tabs.hidden = !onDay;
+  const useHours = onDay && dayView === 'hours';
+  if (list) list.hidden = useHours;
+  if (hours) hours.hidden = !useHours;
+  $('#todo-view-list')?.setAttribute('aria-selected', String(!useHours));
+  $('#todo-view-hours')?.setAttribute('aria-selected', String(useHours));
+  return useHours;
+}
+
 function render() {
   renderHeader();
+  // 시간대 보기를 쓰는 중이면 그쪽을 그리고 끝냅니다.
+  if (syncDayView()) { renderHours(); return; }
   const list = $('#todo-list');
   list.replaceChildren();
 
@@ -799,8 +921,28 @@ export function initTodo() {
       at: Date.now(), doneAt: null,
     });
     input.value = '';
-    // 시각은 남겨 둡니다. 같은 시간대에 여러 개를 넣는 일이 흔합니다.
+    /*
+     * 시각도 비웁니다.
+     *
+     * 예전에는 '같은 시간대에 여러 개를 넣는 일이 흔하다'는 이유로 남겨 두었는데,
+     * 글자를 치는 동안 시각 칸을 보지 않으므로 다음 할 일이 앞의 시각을 조용히
+     * 물려받았습니다. ('시각 없어야 할 일' 이 09:30 으로 들어갔습니다)
+     * 같은 시각에 여러 개를 넣는 일은 이제 시간대 보기에서 그 시간을 누르면 되므로,
+     * 뜻하지 않은 시각이 붙는 쪽을 막는 편이 낫습니다.
+     */
+    if (timeInput) timeInput.value = '';
     persist();
+    render();
+  });
+
+  $('#todo-view-list')?.addEventListener('click', () => {
+    dayView = 'list';
+    save(DAY_VIEW_KEY, dayView);
+    render();
+  });
+  $('#todo-view-hours')?.addEventListener('click', () => {
+    dayView = 'hours';
+    save(DAY_VIEW_KEY, dayView);
     render();
   });
 

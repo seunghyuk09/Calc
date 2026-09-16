@@ -11,7 +11,7 @@
  *  none   : 단일 파일(file://)이나 서비스 워커를 올리지 않은 미리보기. 확인할 방법이 없습니다.
  */
 import { $, el, toast } from '../lib/dom.js';
-import { t } from '../lib/i18n.js';
+import { t, onLangChange } from '../lib/i18n.js';
 import { load, save } from '../lib/store.js';
 import { onTabChange } from '../lib/nav.js';
 import { BUILD, shortVersion, isStamped } from '../lib/version.js';
@@ -40,10 +40,36 @@ let state = 'idle';     // idle | checking | latest | ready | error | none
 let detail = '';        // 상태 밑에 붙는 설명
 let downloadUrl = '';   // native 에서 새 버전이 있을 때의 내려받기 주소
 
-/** 안드로이드/ iOS 앱 안에서 도는지. Capacitor 가 전역을 심어 줍니다. */
+/**
+ * 주소만 보고 '앱 안'인지 가립니다.
+ *
+ * Capacitor 는 안드로이드에서 https://localhost, iOS 에서 capacitor://localhost 로 띄웁니다.
+ * 둘 다 포트가 없습니다. 개발 서버(127.0.0.1:8099)와 배포된 웹(github.io)은 걸리지 않습니다.
+ *
+ * sw.js 가 쓰는 판정과 같은 규칙입니다. 두 파일이 서로 다른 기준으로 '앱인가'를 판단하면
+ * 한쪽만 앱이라고 여기는 순간이 생기고, 그때 업데이트 경로가 통째로 어긋납니다.
+ *
+ * @param {{protocol?: string, hostname?: string, port?: string}} loc
+ */
+export function isNativeUrl(loc) {
+  if (!loc) return false;
+  if (loc.port) return false;                 // 개발 서버에는 포트가 있습니다
+  if (loc.protocol === 'capacitor:') return true;
+  return loc.protocol === 'https:' && loc.hostname === 'localhost';
+}
+
+/**
+ * 안드로이드 / iOS 앱 안에서 도는지.
+ *
+ * Capacitor 가 전역을 심어 주지만, 그것만 믿으면 전역이 없거나 늦게 들어오는 순간에
+ * '웹'으로 잘못 보고 앱 안에서 서비스 워커를 등록해 버립니다. 주소로도 한 번 더 봅니다.
+ */
 export function isNative() {
   try {
-    return window.Capacitor?.isNativePlatform?.() === true;
+    if (window.Capacitor?.isNativePlatform?.() === true) return true;
+  } catch { /* 전역이 없을 수 있습니다. 아래 주소 판정으로 넘어갑니다 */ }
+  try {
+    return isNativeUrl(window.location);
   } catch {
     return false;
   }
@@ -302,8 +328,25 @@ function render() {
   );
 }
 
+/**
+ * 메뉴 아래에 지금 도는 빌드를 적습니다.
+ *
+ * 새 APK 를 덮어썼는데 화면이 그대로일 때, 그것이 '설치가 안 된 것' 인지
+ * '설치는 됐는데 화면이 안 바뀐 것' 인지 가릴 방법이 있어야 합니다.
+ * 이 줄의 값이 바뀌면 설치는 된 것입니다.
+ */
+function renderBuildLine() {
+  const line = $('#sidebar-build');
+  if (!line) return;
+  const where = { native: t('upd.where.app'), web: t('upd.where.web'), none: t('upd.where.file') }[updateMode()];
+  line.textContent = `${shortVersion()} · ${where}`;
+  line.title = BUILD.builtAt || '';
+}
+
 export function initUpdate() {
   render();
+  renderBuildLine();
+  onLangChange(renderBuildLine);
   // 설정 탭을 열 때마다 (간격 제한 안에서) 다시 확인합니다.
   onTabChange((tab) => { if (tab === 'settings') autoCheck(); });
   setTimeout(() => { autoCheck(); }, AUTO_DELAY_MS);

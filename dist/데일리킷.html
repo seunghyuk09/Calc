@@ -1368,6 +1368,76 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .todo-time.is-empty { background: none; border-color: transparent; color: var(--text-faint); opacity: .55; }
 .todo-time.is-empty:hover { opacity: 1; border-color: var(--border); }
 .todo-item.done .todo-time { opacity: .5; }
+/* ---------- 하루 보기: 목록 / 시간대 ----------
+ *
+ * '일간을 고르면 시간대별로 고를 수 있으면 좋겠다' 는 요청에 따른 화면입니다.
+ * 하루를 시간 줄로 늘어놓아 몇 시가 비었는지 바로 보이게 하고,
+ * 빈 시간을 누르면 그 시각이 입력칸에 채워집니다.
+ */
+.todo-dayviews {
+  display: flex; gap: 6px;
+  margin: 10px 0 4px;
+}
+.todo-dayview {
+  flex: 1 1 0; min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text-dim);
+  font: inherit; font-size: .87em; font-weight: 600;
+  cursor: pointer;
+}
+.todo-dayview[aria-selected="true"] {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-text);
+}
+
+.todo-hours { margin-top: 6px; }
+
+/* 한 시간 줄. 왼쪽이 시각, 오른쪽이 그 시간의 할 일입니다. */
+.todo-hour {
+  display: flex; align-items: stretch; gap: 10px;
+  border-top: 1px solid var(--border);
+  min-height: 44px;
+}
+.todo-hour:first-child { border-top: 0; }
+.todo-hour-time {
+  flex: none; width: 3.6em;
+  padding-top: 10px;
+  font-family: var(--mono); font-size: .78em;
+  color: var(--text-faint); font-variant-numeric: tabular-nums;
+}
+.todo-hour-body {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column;
+  padding: 2px 0;
+}
+/* 시간 줄 안의 할 일은 목록에서보다 얇게 둡니다. 줄이 스물넷이라 여백이 쌓입니다. */
+.todo-hour-body .todo-item { border: 0; padding: 4px 0; }
+
+/* 종일 줄은 시간 줄과 구분되게 살짝 칠합니다. */
+.todo-hour.is-allday { background: var(--surface-2); border-radius: var(--radius-sm); }
+.todo-hour.is-allday .todo-hour-time { color: var(--text-dim); font-family: inherit; font-weight: 600; }
+.todo-hour-none { padding: 11px 0; color: var(--text-faint); font-size: .8em; }
+
+/* 지금 시각 줄. 오늘을 보고 있을 때만 붙습니다. */
+.todo-hour.is-now { border-top-color: var(--danger); }
+.todo-hour.is-now .todo-hour-time { color: var(--danger); font-weight: 700; }
+
+/* 빈 시간을 누르면 그 시각으로 넣습니다. 평소에는 눈에 띄지 않게 둡니다. */
+.todo-hour-add {
+  align-self: stretch;
+  min-height: 36px;
+  border: 1px dashed transparent; border-radius: var(--radius-sm);
+  background: none; color: var(--text-faint);
+  font: inherit; font-size: 1.1em; line-height: 1;
+  cursor: pointer;
+  opacity: .35;
+  transition: opacity .12s, border-color .12s;
+}
+.todo-hour-add:hover,
+.todo-hour-add:focus-visible { opacity: 1; border-color: var(--accent); color: var(--accent); }
+
+.todo-hours-more { margin-top: 10px; width: 100%; }
+
 /* 그 자리에서 고칠 때 얹는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
 .todo-time-edit { flex: none; width: auto; min-width: 7.6em; min-height: 30px; padding: 2px 6px; font-size: .87em; }
 /*
@@ -1707,6 +1777,16 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
   word-break: break-all;
 }
 
+/* 메뉴 맨 아래의 빌드 표시. 눈에 걸리지 않게 두되, 찾으면 바로 읽히게 합니다. */
+.sidebar-build {
+  margin: auto 0 0;
+  padding: 10px 10px 0;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 /* 버튼 바로 밑에 붙는 한 줄 안내. 버튼처럼 보이면 안 되므로 작고 흐리게 둡니다. */
 .sidebar-note {
   margin: 2px 0 0;
@@ -1942,6 +2022,12 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
     <!-- 이 버튼은 탭 아홉 개 밑이라 좁은 화면에서 잘 안 보입니다.
          손으로 쓰는 사람이 먼저 시도하는 '꾹 누르기'도 된다는 것을 여기서 알려 둡니다. -->
     <p class="sidebar-note" data-i18n="arr.hintTouch">카드를 꾹 눌러도 켜집니다.</p>
+    <!--
+      지금 어떤 빌드가 도는지.
+      설정 탭 맨 아래에도 있지만 거기까지 내려가야 알 수 있어서, 새로 깔고 나서
+      '반영이 됐나' 를 확인할 길이 사실상 없었습니다. 메뉴를 열면 바로 보이게 둡니다.
+    -->
+    <p class="sidebar-build" id="sidebar-build" aria-live="polite"></p>
   </aside>
 
   <main class="app-main" id="main">
@@ -2141,7 +2227,22 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
           <span class="card-sub" id="todo-count"></span>
         </div>
 
+        <!--
+          일간에서만 뜨는 보기 전환.
+          '시간대' 는 하루를 시간 단위로 늘어놓아, 몇 시에 무엇이 있는지 한눈에 보고
+          빈 시간을 눌러 그 시각으로 바로 넣는 화면입니다. (달력 앱의 '일' 보기와 같은 꼴)
+          주/월/연 계획에는 하루 안의 시각이라는 게 없으므로 이 줄은 숨습니다.
+        -->
+        <div class="todo-dayviews" id="todo-dayviews" role="tablist"
+             data-i18n-aria="todo.aria.dayView" aria-label="하루 보기 방식" hidden>
+          <button class="todo-dayview" id="todo-view-list" type="button" role="tab"
+                  aria-selected="true" data-i18n="todo.view.list">목록</button>
+          <button class="todo-dayview" id="todo-view-hours" type="button" role="tab"
+                  aria-selected="false" data-i18n="todo.view.hours">시간대</button>
+        </div>
+
         <ul class="todo-list" id="todo-list" lang="ko"></ul>
+        <div class="todo-hours" id="todo-hours" lang="ko" hidden></div>
       </div>
     </section>
 
@@ -2704,6 +2805,18 @@ const DICT = {
     'cz.card.weather.now': '현재 날씨', 'cz.card.weather.week': '주간 예보',
     'cz.card.todo.plan': '계획표',
     // ---- 화면 편집 (카드를 끌어 옮기기) ----
+    'upd.where.app': '앱',
+    'upd.where.web': '웹',
+    'upd.where.file': '파일',
+    'todo.view.list': '목록',
+    'todo.view.hours': '시간대',
+    'todo.aria.dayView': '하루 보기 방식',
+    'todo.hours.allDay': '종일',
+    'todo.hours.addAt': (time) => `${time} 에 추가`,
+    'todo.hours.empty': '이 시간은 비어 있습니다',
+    'todo.hours.showAll': '이른 시간 · 늦은 시간도 보기',
+    'todo.hours.showLess': '낮 시간만 보기',
+    'todo.hours.now': '지금',
     'arr.open': '화면 편집',
     'arr.done': '완료',
     'arr.hint': '카드를 끌어 옮기고, 크기를 고르세요.',
@@ -2909,6 +3022,18 @@ const DICT = {
     'cz.card.weather.now': 'Current weather', 'cz.card.weather.week': 'Weekly forecast',
     'cz.card.todo.plan': 'Planner',
     // ---- Arrange mode (drag cards around) ----
+    'upd.where.app': 'App',
+    'upd.where.web': 'Web',
+    'upd.where.file': 'File',
+    'todo.view.list': 'List',
+    'todo.view.hours': 'By hour',
+    'todo.aria.dayView': 'Day view mode',
+    'todo.hours.allDay': 'All day',
+    'todo.hours.addAt': (time) => `Add at ${time}`,
+    'todo.hours.empty': 'Nothing at this hour',
+    'todo.hours.showAll': 'Show early and late hours',
+    'todo.hours.showLess': 'Daytime hours only',
+    'todo.hours.now': 'Now',
     'arr.open': 'Arrange screen',
     'arr.done': 'Done',
     'arr.hint': 'Drag cards to reorder, and pick a size.',
@@ -4213,8 +4338,130 @@ function itemRow(item, shownRows) {
   );
 }
 
+/* ---------- 시간대별 보기 ----------
+ *
+ * '일간을 고르면 시간대별로 일정을 고를 수 있으면 좋겠다' 는 요청에 따른 화면입니다.
+ * 할 일에 시각을 붙일 수만 있고 하루를 시간 단위로 보는 화면이 없어, 몇 시가 비었는지
+ * 알 수 없었습니다. 여기서는 하루를 시간 줄로 늘어놓고, 빈 시간을 누르면 그 시각으로
+ * 바로 넣습니다. (달력 앱의 '일' 보기와 같은 꼴입니다)
+ */
+
+const DAY_VIEW_KEY = 'todo.dayView';
+/** 'list' 또는 'hours'. 일간에서만 씁니다. */
+let dayView = load(DAY_VIEW_KEY, 'list') === 'hours' ? 'hours' : 'list';
+/** 이른 시간(0~5시)과 늦은 시간(23시)까지 전부 펼쳤는지. */
+let hoursAll = false;
+
+/** 기본으로 보여 줄 시간 범위. 할 일이 있는 시각은 범위 밖이어도 끌어와 보여 줍니다. */
+const DAY_START = 6;
+const DAY_END = 22;
+
+/** 그 시각(정시)에 속한 할 일들. 07:00~07:59 가 7시 줄입니다. */
+function rowsAtHour(rows, hour) {
+  return rows.filter((x) => {
+    const m = minutesOf(x);
+    return m >= 0 && Math.floor(m / 60) === hour;
+  });
+}
+
+/** 화면에 그릴 시간 목록. 접었을 때도 할 일이 있는 시간은 빠지지 않습니다. */
+function hoursToShow(timed) {
+  const used = new Set(timed.map((x) => Math.floor(minutesOf(x) / 60)));
+  const out = [];
+  for (let h = 0; h < 24; h += 1) {
+    if (hoursAll || used.has(h) || (h >= DAY_START && h <= DAY_END)) out.push(h);
+  }
+  return out;
+}
+
+/** 오늘을 보고 있다면 지금이 몇 시인지. 아니면 null. */
+function nowHourIfToday() {
+  if (scope !== 'day') return null;
+  const now = new Date();
+  return period === dayKeyOf(now) ? now.getHours() : null;
+}
+
+function hourRow(hour, rows, shown, nowHour) {
+  const time = `${pad(hour)}:00`;
+  const body = el('div', { class: 'todo-hour-body' });
+
+  if (rows.length) {
+    rows.forEach((item) => body.append(itemRow(item, shown)));
+  } else {
+    /*
+     * 빈 시간은 '그 시각으로 추가' 버튼이 됩니다.
+     * 시각을 손으로 찍어 넣게 하면 시간대 보기를 만든 의미가 없습니다.
+     */
+    body.append(el('button', {
+      class: 'todo-hour-add', type: 'button',
+      dataset: { addAt: time },
+      'aria-label': t('todo.hours.addAt', time),
+      onclick: () => {
+        const box = $('#todo-time');
+        if (box) box.value = time;
+        const input = $('#todo-input');
+        input?.focus();
+        input?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      },
+    }, '+'));
+  }
+
+  return el('div', {
+    class: `todo-hour${hour === nowHour ? ' is-now' : ''}`,
+    dataset: { hour: String(hour) },
+  },
+  el('div', { class: 'todo-hour-time' }, time),
+  body);
+}
+
+function renderHours() {
+  const host = $('#todo-hours');
+  if (!host) return;
+  const rows = sortDayRows(applyFilter(items.filter(inPeriod)));
+  const allDay = rows.filter((x) => !isTimed(x));
+  const timed = rows.filter(isTimed);
+  const nowHour = nowHourIfToday();
+  const parts = [];
+
+  // 종일은 시간 줄 위에 따로 둡니다. 시각이 없으니 어느 줄에도 넣을 수 없습니다.
+  const allDayBody = el('div', { class: 'todo-hour-body' });
+  if (allDay.length) allDay.forEach((item) => allDayBody.append(itemRow(item, rows)));
+  else allDayBody.append(el('span', { class: 'todo-hour-none' }, '—'));
+  parts.push(el('div', { class: 'todo-hour is-allday' },
+    el('div', { class: 'todo-hour-time' }, t('todo.hours.allDay')),
+    allDayBody));
+
+  hoursToShow(timed).forEach((h) => {
+    parts.push(hourRow(h, rowsAtHour(timed, h), rows, nowHour));
+  });
+
+  parts.push(el('button', {
+    class: 'btn btn-sm btn-ghost todo-hours-more', type: 'button', id: 'todo-hours-more',
+    onclick: () => { hoursAll = !hoursAll; renderHours(); },
+  }, t(hoursAll ? 'todo.hours.showLess' : 'todo.hours.showAll')));
+
+  host.replaceChildren(...parts);
+}
+
+/** 일간이 아니면 목록만 씁니다. 주/월/연에는 하루 안의 시각이라는 게 없습니다. */
+function syncDayView() {
+  const tabs = $('#todo-dayviews');
+  const list = $('#todo-list');
+  const hours = $('#todo-hours');
+  const onDay = scope === 'day';
+  if (tabs) tabs.hidden = !onDay;
+  const useHours = onDay && dayView === 'hours';
+  if (list) list.hidden = useHours;
+  if (hours) hours.hidden = !useHours;
+  $('#todo-view-list')?.setAttribute('aria-selected', String(!useHours));
+  $('#todo-view-hours')?.setAttribute('aria-selected', String(useHours));
+  return useHours;
+}
+
 function render() {
   renderHeader();
+  // 시간대 보기를 쓰는 중이면 그쪽을 그리고 끝냅니다.
+  if (syncDayView()) { renderHours(); return; }
   const list = $('#todo-list');
   list.replaceChildren();
 
@@ -4640,8 +4887,28 @@ function initTodo() {
       at: Date.now(), doneAt: null,
     });
     input.value = '';
-    // 시각은 남겨 둡니다. 같은 시간대에 여러 개를 넣는 일이 흔합니다.
+    /*
+     * 시각도 비웁니다.
+     *
+     * 예전에는 '같은 시간대에 여러 개를 넣는 일이 흔하다'는 이유로 남겨 두었는데,
+     * 글자를 치는 동안 시각 칸을 보지 않으므로 다음 할 일이 앞의 시각을 조용히
+     * 물려받았습니다. ('시각 없어야 할 일' 이 09:30 으로 들어갔습니다)
+     * 같은 시각에 여러 개를 넣는 일은 이제 시간대 보기에서 그 시간을 누르면 되므로,
+     * 뜻하지 않은 시각이 붙는 쪽을 막는 편이 낫습니다.
+     */
+    if (timeInput) timeInput.value = '';
     persist();
+    render();
+  });
+
+  $('#todo-view-list')?.addEventListener('click', () => {
+    dayView = 'list';
+    save(DAY_VIEW_KEY, dayView);
+    render();
+  });
+  $('#todo-view-hours')?.addEventListener('click', () => {
+    dayView = 'hours';
+    save(DAY_VIEW_KEY, dayView);
     render();
   });
 
@@ -8428,7 +8695,7 @@ function isStamped() {
 /* ===== js/modules/update.js ===== */
 const __m_js_modules_update_js = (function () {
   const { $, el, toast } = __m_js_lib_dom_js;
-  const { t } = __m_js_lib_i18n_js;
+  const { t, onLangChange } = __m_js_lib_i18n_js;
   const { load, save } = __m_js_lib_store_js;
   const { onTabChange } = __m_js_lib_nav_js;
   const { BUILD, shortVersion, isStamped } = __m_js_lib_version_js;
@@ -8473,10 +8740,36 @@ let state = 'idle';     // idle | checking | latest | ready | error | none
 let detail = '';        // 상태 밑에 붙는 설명
 let downloadUrl = '';   // native 에서 새 버전이 있을 때의 내려받기 주소
 
-/** 안드로이드/ iOS 앱 안에서 도는지. Capacitor 가 전역을 심어 줍니다. */
+/**
+ * 주소만 보고 '앱 안'인지 가립니다.
+ *
+ * Capacitor 는 안드로이드에서 https://localhost, iOS 에서 capacitor://localhost 로 띄웁니다.
+ * 둘 다 포트가 없습니다. 개발 서버(127.0.0.1:8099)와 배포된 웹(github.io)은 걸리지 않습니다.
+ *
+ * sw.js 가 쓰는 판정과 같은 규칙입니다. 두 파일이 서로 다른 기준으로 '앱인가'를 판단하면
+ * 한쪽만 앱이라고 여기는 순간이 생기고, 그때 업데이트 경로가 통째로 어긋납니다.
+ *
+ * @param {{protocol?: string, hostname?: string, port?: string}} loc
+ */
+function isNativeUrl(loc) {
+  if (!loc) return false;
+  if (loc.port) return false;                 // 개발 서버에는 포트가 있습니다
+  if (loc.protocol === 'capacitor:') return true;
+  return loc.protocol === 'https:' && loc.hostname === 'localhost';
+}
+
+/**
+ * 안드로이드 / iOS 앱 안에서 도는지.
+ *
+ * Capacitor 가 전역을 심어 주지만, 그것만 믿으면 전역이 없거나 늦게 들어오는 순간에
+ * '웹'으로 잘못 보고 앱 안에서 서비스 워커를 등록해 버립니다. 주소로도 한 번 더 봅니다.
+ */
 function isNative() {
   try {
-    return window.Capacitor?.isNativePlatform?.() === true;
+    if (window.Capacitor?.isNativePlatform?.() === true) return true;
+  } catch { /* 전역이 없을 수 있습니다. 아래 주소 판정으로 넘어갑니다 */ }
+  try {
+    return isNativeUrl(window.location);
   } catch {
     return false;
   }
@@ -8735,13 +9028,30 @@ function render() {
   );
 }
 
+/**
+ * 메뉴 아래에 지금 도는 빌드를 적습니다.
+ *
+ * 새 APK 를 덮어썼는데 화면이 그대로일 때, 그것이 '설치가 안 된 것' 인지
+ * '설치는 됐는데 화면이 안 바뀐 것' 인지 가릴 방법이 있어야 합니다.
+ * 이 줄의 값이 바뀌면 설치는 된 것입니다.
+ */
+function renderBuildLine() {
+  const line = $('#sidebar-build');
+  if (!line) return;
+  const where = { native: t('upd.where.app'), web: t('upd.where.web'), none: t('upd.where.file') }[updateMode()];
+  line.textContent = `${shortVersion()} · ${where}`;
+  line.title = BUILD.builtAt || '';
+}
+
 function initUpdate() {
   render();
+  renderBuildLine();
+  onLangChange(renderBuildLine);
   // 설정 탭을 열 때마다 (간격 제한 안에서) 다시 확인합니다.
   onTabChange((tab) => { if (tab === 'settings') autoCheck(); });
   setTimeout(() => { autoCheck(); }, AUTO_DELAY_MS);
 }
-  return { isNative, updateMode, registerServiceWorker, checkForUpdate, autoCheck, initUpdate };
+  return { isNativeUrl, isNative, updateMode, registerServiceWorker, checkForUpdate, autoCheck, initUpdate };
 })();
 
 /* ===== js/modules/settings.js ===== */

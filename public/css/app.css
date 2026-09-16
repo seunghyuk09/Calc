@@ -1359,6 +1359,76 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .todo-time.is-empty { background: none; border-color: transparent; color: var(--text-faint); opacity: .55; }
 .todo-time.is-empty:hover { opacity: 1; border-color: var(--border); }
 .todo-item.done .todo-time { opacity: .5; }
+/* ---------- 하루 보기: 목록 / 시간대 ----------
+ *
+ * '일간을 고르면 시간대별로 고를 수 있으면 좋겠다' 는 요청에 따른 화면입니다.
+ * 하루를 시간 줄로 늘어놓아 몇 시가 비었는지 바로 보이게 하고,
+ * 빈 시간을 누르면 그 시각이 입력칸에 채워집니다.
+ */
+.todo-dayviews {
+  display: flex; gap: 6px;
+  margin: 10px 0 4px;
+}
+.todo-dayview {
+  flex: 1 1 0; min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text-dim);
+  font: inherit; font-size: .87em; font-weight: 600;
+  cursor: pointer;
+}
+.todo-dayview[aria-selected="true"] {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-text);
+}
+
+.todo-hours { margin-top: 6px; }
+
+/* 한 시간 줄. 왼쪽이 시각, 오른쪽이 그 시간의 할 일입니다. */
+.todo-hour {
+  display: flex; align-items: stretch; gap: 10px;
+  border-top: 1px solid var(--border);
+  min-height: 44px;
+}
+.todo-hour:first-child { border-top: 0; }
+.todo-hour-time {
+  flex: none; width: 3.6em;
+  padding-top: 10px;
+  font-family: var(--mono); font-size: .78em;
+  color: var(--text-faint); font-variant-numeric: tabular-nums;
+}
+.todo-hour-body {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column;
+  padding: 2px 0;
+}
+/* 시간 줄 안의 할 일은 목록에서보다 얇게 둡니다. 줄이 스물넷이라 여백이 쌓입니다. */
+.todo-hour-body .todo-item { border: 0; padding: 4px 0; }
+
+/* 종일 줄은 시간 줄과 구분되게 살짝 칠합니다. */
+.todo-hour.is-allday { background: var(--surface-2); border-radius: var(--radius-sm); }
+.todo-hour.is-allday .todo-hour-time { color: var(--text-dim); font-family: inherit; font-weight: 600; }
+.todo-hour-none { padding: 11px 0; color: var(--text-faint); font-size: .8em; }
+
+/* 지금 시각 줄. 오늘을 보고 있을 때만 붙습니다. */
+.todo-hour.is-now { border-top-color: var(--danger); }
+.todo-hour.is-now .todo-hour-time { color: var(--danger); font-weight: 700; }
+
+/* 빈 시간을 누르면 그 시각으로 넣습니다. 평소에는 눈에 띄지 않게 둡니다. */
+.todo-hour-add {
+  align-self: stretch;
+  min-height: 36px;
+  border: 1px dashed transparent; border-radius: var(--radius-sm);
+  background: none; color: var(--text-faint);
+  font: inherit; font-size: 1.1em; line-height: 1;
+  cursor: pointer;
+  opacity: .35;
+  transition: opacity .12s, border-color .12s;
+}
+.todo-hour-add:hover,
+.todo-hour-add:focus-visible { opacity: 1; border-color: var(--accent); color: var(--accent); }
+
+.todo-hours-more { margin-top: 10px; width: 100%; }
+
 /* 그 자리에서 고칠 때 얹는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
 .todo-time-edit { flex: none; width: auto; min-width: 7.6em; min-height: 30px; padding: 2px 6px; font-size: .87em; }
 /*
@@ -1696,6 +1766,16 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
   /* 백업은 길어서 줄바꿈 없이 두면 가로로 한없이 늘어납니다. */
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* 메뉴 맨 아래의 빌드 표시. 눈에 걸리지 않게 두되, 찾으면 바로 읽히게 합니다. */
+.sidebar-build {
+  margin: auto 0 0;
+  padding: 10px 10px 0;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
 /* 버튼 바로 밑에 붙는 한 줄 안내. 버튼처럼 보이면 안 되므로 작고 흐리게 둡니다. */
