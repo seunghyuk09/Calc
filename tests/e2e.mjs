@@ -1976,6 +1976,91 @@ export function isStamped() { return true; }`,
   check('그 자리에서 정한 시각이 반영되고 자리도 옮겨감',
     afterEdit[0].startsWith('06:15') && afterEdit[0].includes('종일'), afterEdit.join('  '));
 
+  /* ---------- 시간대별 보기 ----------
+   *
+   * '일간을 고르면 시간대별로 일정을 고를 수 있으면 좋겠다' 는 요청에 따른 화면입니다.
+   * 할 일에 시각을 붙일 수만 있고 하루를 시간 단위로 보는 화면이 없어,
+   * 몇 시가 비었는지 알 수도, 빈 시간을 눌러 넣을 수도 없었습니다.
+   */
+  check('일간에서 보기 전환(목록/시간대)이 보임',
+    (await page.evaluate(() => !document.querySelector('#todo-dayviews').hidden)) === true);
+
+  await page.click('#todo-view-hours');
+  await page.waitForTimeout(400);
+  check('시간대 보기로 바뀌면 목록은 숨음',
+    (await page.evaluate(() => document.querySelector('#todo-list').hidden
+      && !document.querySelector('#todo-hours').hidden)) === true);
+
+  const hourRows = () => page.evaluate(() => [...document.querySelectorAll('.todo-hour')].map((h) => ({
+    t: h.querySelector('.todo-hour-time').textContent.trim(),
+    n: h.querySelectorAll('.todo-item').length,
+  })));
+  const rows1 = await hourRows();
+  check('종일 줄이 맨 위에 있고 시각 없는 항목이 거기 들어감',
+    rows1[0] && /종일|All day/.test(rows1[0].t) && rows1[0].n >= 1,
+    rows1[0] ? `${rows1[0].t}(${rows1[0].n})` : '(줄 없음)');
+  check('07:00 항목이 7시 줄에 놓임',
+    rows1.some((h) => h.t === '07:00' && h.n >= 1));
+  check('18:30 항목은 18시 줄에 놓임 (분은 시 줄에 묶입니다)',
+    rows1.some((h) => h.t === '18:00' && h.n >= 1));
+
+  // 빈 시간을 누르면 그 시각으로 넣을 수 있어야 합니다. 시각을 손으로 찍게 하면 의미가 없습니다.
+  await page.evaluate(() => document.querySelector('.todo-hour[data-hour="15"] .todo-hour-add')?.click());
+  await page.waitForTimeout(300);
+  check('빈 시간을 누르면 그 시각이 입력칸에 채워짐',
+    (await page.$eval('#todo-time', (n) => n.value)) === '15:00');
+  await page.fill('#todo-input', '시각검사 오후');
+  await page.click('#todo-form button[type="submit"]');
+  await page.waitForTimeout(400);
+  check('그 시각으로 실제 추가됨',
+    (await page.evaluate(() => document.querySelectorAll('.todo-hour[data-hour="15"] .todo-item').length)) === 1);
+
+  /*
+   * 추가한 뒤 시각 칸은 비워져야 합니다.
+   * 예전에는 남겨 두어, 글자만 치고 넣은 다음 할 일이 앞의 시각을 조용히 물려받았습니다.
+   */
+  check('추가한 뒤 시각 칸이 비워짐',
+    (await page.$eval('#todo-time', (n) => n.value)) === '');
+  await page.fill('#todo-input', '시각검사 종일이어야');
+  await page.click('#todo-form button[type="submit"]');
+  await page.waitForTimeout(400);
+  check('시각 없이 넣은 할 일이 앞의 시각을 물려받지 않음',
+    (await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+      return !raw.find((x) => x.text === '시각검사 종일이어야')?.time;
+    })) === true);
+
+  // 체크가 시간대 보기에서도 저장돼야 합니다. 보기만 바뀌고 동작이 죽으면 안 됩니다.
+  await page.evaluate(() => document.querySelector('.todo-hour[data-hour="7"] .todo-item input[type="checkbox"]')?.click());
+  await page.waitForTimeout(400);
+  check('시간대 보기에서도 체크가 저장됨',
+    (await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+      return raw.find((x) => x.text === '시각검사 아침')?.done === true;
+    })) === true);
+
+  const before = (await hourRows()).length;
+  await page.click('#todo-hours-more');
+  await page.waitForTimeout(400);
+  const after = (await hourRows()).length;
+  check('이른·늦은 시간까지 펼칠 수 있음', after > before, `${before}줄 -> ${after}줄`);
+  await page.click('#todo-hours-more');
+  await page.waitForTimeout(300);
+
+  // 주/월/연에는 하루 안의 시각이라는 게 없으므로 전환이 숨어야 합니다.
+  await page.click('.scope-tab[data-scope="week"]');
+  await page.waitForTimeout(400);
+  check('주간에서는 보기 전환이 숨고 목록으로 돌아감',
+    (await page.evaluate(() => document.querySelector('#todo-dayviews').hidden
+      && document.querySelector('#todo-hours').hidden
+      && !document.querySelector('#todo-list').hidden)) === true);
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.waitForTimeout(400);
+  check('일간으로 돌아오면 고른 보기가 기억됨',
+    (await page.evaluate(() => !document.querySelector('#todo-hours').hidden)) === true);
+  await page.click('#todo-view-list');
+  await page.waitForTimeout(300);
+
   // 정리: 시각 검사용 항목을 지웁니다.
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');

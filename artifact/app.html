@@ -260,7 +260,22 @@
           <span class="card-sub" id="todo-count"></span>
         </div>
 
+        <!--
+          일간에서만 뜨는 보기 전환.
+          '시간대' 는 하루를 시간 단위로 늘어놓아, 몇 시에 무엇이 있는지 한눈에 보고
+          빈 시간을 눌러 그 시각으로 바로 넣는 화면입니다. (달력 앱의 '일' 보기와 같은 꼴)
+          주/월/연 계획에는 하루 안의 시각이라는 게 없으므로 이 줄은 숨습니다.
+        -->
+        <div class="todo-dayviews" id="todo-dayviews" role="tablist"
+             data-i18n-aria="todo.aria.dayView" aria-label="하루 보기 방식" hidden>
+          <button class="todo-dayview" id="todo-view-list" type="button" role="tab"
+                  aria-selected="true" data-i18n="todo.view.list">목록</button>
+          <button class="todo-dayview" id="todo-view-hours" type="button" role="tab"
+                  aria-selected="false" data-i18n="todo.view.hours">시간대</button>
+        </div>
+
         <ul class="todo-list" id="todo-list" lang="ko"></ul>
+        <div class="todo-hours" id="todo-hours" lang="ko" hidden></div>
       </div>
     </section>
 
