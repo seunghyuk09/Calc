@@ -101,6 +101,11 @@ const DICT = {
     'todo.aria.category': '활동 분류',
     'todo.aria.more': '더보기',
     'todo.week.goals': '이번 주 목표',
+    // ---- 시각 ----
+    'todo.time.label': '시각 (비우면 종일)',
+    'todo.time.allDay': '종일',
+    'todo.time.clear': '시각 지우기',
+    'todo.time.set': (text) => `${text} 시각 정하기`,
     // ---- 분류 편집 ----
     'cat.edit': '분류 편집',
     'cat.hint': '이모지는 달력 칸에 그대로 나타납니다. 기본 분류는 지우는 대신 숨길 수 있습니다.',
@@ -136,6 +141,14 @@ const DICT = {
     'cal.pick.prevYears': '이전 12년', 'cal.pick.nextYears': '다음 12년',
     'cal.pick.toYears': '연도 목록 열기',
     'cal.pick.monthName': (m) => `${m}월`,
+    // ---- 보기 전환: 달력 격자 / 일정 목록 ----
+    'cal.view.grid': '달력',
+    'cal.view.agenda': '일정',
+    'cal.view.label': '보기 방식',
+    'cal.agenda.empty': '앞으로 두 달 안에 등록된 일이 없습니다.',
+    'cal.agenda.today': '오늘',
+    'cal.agenda.allDay': '종일',
+    'cal.agenda.range': (n) => `앞으로 ${n}일`,
     'cz.card.todo.cal': '달력',
     'cz.card.time.clock': '시계', 'cz.card.time.timer': '타이머·알람',
     'cz.card.memo.draw': '낙서판', 'cz.card.memo.note': '간단 메모',
@@ -294,6 +307,11 @@ const DICT = {
     'todo.aria.category': 'Activity category',
     'todo.aria.more': 'More',
     'todo.week.goals': 'Goals for this week',
+    // ---- Time of day ----
+    'todo.time.label': 'Time (leave empty for all day)',
+    'todo.time.allDay': 'All day',
+    'todo.time.clear': 'Clear the time',
+    'todo.time.set': (text) => `Set a time for ${text}`,
     // ---- Category editing ----
     'cat.edit': 'Edit categories',
     'cat.hint': 'The emoji is what shows up on the calendar. Built-in categories can be hidden instead of deleted.',
@@ -330,6 +348,14 @@ const DICT = {
     'cal.pick.toYears': 'Open the year list',
     'cal.pick.monthName': (m) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1],
+    // ---- View switch: month grid / schedule list ----
+    'cal.view.grid': 'Month',
+    'cal.view.agenda': 'Schedule',
+    'cal.view.label': 'View',
+    'cal.agenda.empty': 'Nothing scheduled in the next two months.',
+    'cal.agenda.today': 'Today',
+    'cal.agenda.allDay': 'All day',
+    'cal.agenda.range': (n) => `Next ${n} days`,
     'cz.card.todo.cal': 'Calendar',
     'cz.card.time.clock': 'Clock', 'cz.card.time.timer': 'Timer & alarm',
     'cz.card.memo.draw': 'Scratchpad', 'cz.card.memo.note': 'Quick notes',

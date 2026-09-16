@@ -185,6 +185,19 @@
           </div>
           <div class="cal-pick-grid" id="cal-pick-grid" role="group"></div>
         </div>
+
+        <!--
+          보기 전환: 달력 격자 / 일정 목록.
+          Google 캘린더의 '일정(Schedule)' 보기처럼, 격자를 버리고 날짜별로 묶은
+          시간순 목록으로 봅니다. 좁은 화면에서는 이쪽이 읽기 쉽습니다.
+        -->
+        <div class="cal-views" id="cal-views" role="tablist" data-i18n-aria="cal.view.label">
+          <button class="cal-view-tab" id="cal-view-grid" type="button" role="tab"
+                  aria-selected="true" data-i18n="cal.view.grid">달력</button>
+          <button class="cal-view-tab" id="cal-view-agenda" type="button" role="tab"
+                  aria-selected="false" data-i18n="cal.view.agenda">일정</button>
+        </div>
+        <div class="cal-agenda" id="cal-agenda" hidden></div>
         <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
              aria-label="월 달력"></div>
       </div>
@@ -230,6 +243,10 @@
           <div class="row">
             <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
                    data-i18n-placeholder="todo.input.placeholder">
+            <!-- 시각은 일간에서만 씁니다. 주/월/연 계획은 하루 안의 시각이라는 게 없습니다.
+                 비워 두면 '종일' 로 들어가 예전과 똑같이 동작합니다. -->
+            <input class="field todo-time-input" id="todo-time" type="time" step="300"
+                   data-i18n-aria="todo.time.label" hidden>
             <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
           </div>
         </form>

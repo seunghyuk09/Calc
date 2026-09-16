@@ -15,9 +15,9 @@
 import { $, el } from '../lib/dom.js';
 import { t, getLang, onLangChange } from '../lib/i18n.js';
 import { load, save } from '../lib/store.js';
-import { emojiOf } from '../lib/categories.js';
-import { keyOf, dateOf, weekRange, weekParts } from '../lib/period.js';
-import { getItems, onTodoChange, onViewChange, getView, openDate } from './todo.js';
+import { emojiOf, labelOf } from '../lib/categories.js';
+import { keyOf, dateOf, weekRange, weekParts, label } from '../lib/period.js';
+import { getItems, onTodoChange, onViewChange, getView, openDate, normalizeTime, sortDayRows } from './todo.js';
 
 const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
 const FOLD_KEY = 'cal.folded';
@@ -52,6 +52,17 @@ let pickYearPage = 0;       // 연도 격자가 보고 있는 12년 묶음 (0 �
 
 /** 연도 격자 한 판에 놓는 개수. 4열 x 3줄입니다. */
 const YEARS_PER_PAGE = 12;
+
+/*
+ * 보기 방식. 'grid' 는 한 달 격자, 'agenda' 는 날짜별로 묶은 시간순 목록입니다.
+ * Google 캘린더의 '일정(Schedule)' 보기가 후자입니다. 격자를 버리고 앞으로 올 일을
+ * 시간순 목록으로 늘어놓아, 좁은 화면에서 읽기 쉽습니다.
+ */
+const VIEW_KEY = 'cal.view';
+let calView = load(VIEW_KEY, 'grid') === 'agenda' ? 'agenda' : 'grid';
+
+/** 일정 목록이 앞으로 며칠까지 훑을지. 두 달이면 '다음에 뭐 있더라' 에 충분합니다. */
+const AGENDA_DAYS = 62;
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -147,6 +158,8 @@ function inView(date, view) {
 function render() {
   const grid = $('#cal-grid');
   if (!grid) return;
+  // 일정 목록일 때는 격자를 그릴 필요가 없습니다. 안 보이는 것을 그리는 건 낭비입니다.
+  if (calView === 'agenda') { renderAgenda(); return; }
 
   const lang = getLang();
   const view = getView();
@@ -229,6 +242,97 @@ function render() {
   });
 
   grid.replaceChildren(...cells);
+}
+
+/* ---------- 일정(Schedule) 보기 ----------
+ *
+ * Google 캘린더의 '일정' 보기와 같은 꼴입니다.
+ * 격자를 버리고, 오늘부터 앞으로 올 일을 날짜별로 묶어 시간순으로 늘어놓습니다.
+ * 한 줄에 시각 · 분류 이모지 · 글이 들어가고, 오늘 줄에는 표가 붙습니다.
+ *
+ * 일간 계획만 놓습니다. 주/월/연 계획은 특정 하루에 속하지 않아서,
+ * 날짜별 목록에 올리면 어느 날인지 거짓으로 알려주게 됩니다. (달력 격자와 같은 이유입니다)
+ */
+
+/** 오늘부터 AGENDA_DAYS 일 안에서, 일이 있는 날만 날짜순으로 묶습니다. */
+export function agendaDays(items = getItems(), from = new Date(), span = AGENDA_DAYS) {
+  const byDay = groupByDay(items);
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const out = [];
+  for (let i = 0; i < span; i += 1) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const key = dayKey(d);
+    const rows = byDay.get(key);
+    if (!rows || !rows.length) continue;
+    out.push({ key, date: d, rows: sortDayRows(rows) });
+  }
+  return out;
+}
+
+function renderAgenda() {
+  const host = $('#cal-agenda');
+  if (!host) return;
+  const lang = getLang();
+  const todayKey = keyOf('day');
+  const days = agendaDays();
+
+  if (!days.length) {
+    host.replaceChildren(el('p', { class: 'cal-agenda-empty' }, t('cal.agenda.empty')));
+    return;
+  }
+
+  const blocks = days.map((day) => {
+    const head = el('div', { class: `cal-agenda-head${day.key === todayKey ? ' is-today' : ''}` },
+      el('span', { class: 'cal-agenda-date' }, label('day', day.key, lang)),
+      day.key === todayKey ? el('span', { class: 'cal-agenda-mark' }, t('cal.agenda.today')) : '');
+
+    const rows = day.rows.map((item) => {
+      const time = normalizeTime(item.time);
+      return el('button', {
+        class: `cal-agenda-row${item.done ? ' is-done' : ''}`,
+        type: 'button',
+        dataset: { agendaId: item.id, agendaDay: day.key },
+        // 누르면 계획표가 그 날짜로 옮겨 가고 그 항목을 잠깐 강조합니다.
+        onclick: () => openDate(day.key, item.id),
+      },
+      el('span', { class: `cal-agenda-time${time ? '' : ' is-allday'}` },
+        time || t('cal.agenda.allDay')),
+      el('span', { class: 'cal-agenda-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+      el('span', { class: 'cal-agenda-text' }, item.text));
+    });
+
+    return el('div', { class: 'cal-agenda-day' }, head, ...rows);
+  });
+
+  host.replaceChildren(...blocks);
+}
+
+/** 보기 전환을 화면에 반영합니다. 격자와 목록은 한 번에 하나만 보입니다. */
+function applyView() {
+  const grid = $('#cal-grid');
+  const agenda = $('#cal-agenda');
+  const isAgenda = calView === 'agenda';
+  if (grid) grid.hidden = isAgenda;
+  if (agenda) agenda.hidden = !isAgenda;
+  $('#cal-view-grid')?.setAttribute('aria-selected', String(!isAgenda));
+  $('#cal-view-agenda')?.setAttribute('aria-selected', String(isAgenda));
+  // 일정 목록에서는 달을 오가는 ‹ › 와 요일 머리글이 의미가 없습니다.
+  $('.cal-nav')?.toggleAttribute('hidden', isAgenda);
+  $('#cal-pick')?.toggleAttribute('hidden', isAgenda || !pickOpen);
+}
+
+function setView(next) {
+  calView = next === 'agenda' ? 'agenda' : 'grid';
+  save(VIEW_KEY, calView);
+  if (calView === 'agenda') closePick();
+  applyView();
+  render();
+}
+
+/** 지금 보기 방식. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+export function calendarView() {
+  return calView;
 }
 
 /* ---------- 년·월 고르기 판 ---------- */
@@ -381,6 +485,11 @@ export function initCalendar() {
     save(FOLD_KEY, folded);
     render();
   });
+
+  // --- 보기 전환 ---
+  $('#cal-view-grid')?.addEventListener('click', () => setView('grid'));
+  $('#cal-view-agenda')?.addEventListener('click', () => setView('agenda'));
+  applyView();
 
   // --- 년·월 고르기 판 ---
   $('#cal-pick-open')?.addEventListener('click', () => {
