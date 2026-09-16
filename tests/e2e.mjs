@@ -3146,6 +3146,64 @@ export function isStamped() { return true; }`,
       check('터치: 위젯이 둘 이상이어야 끌기 검사 가능', false, `위젯 ${tBefore.length}개`);
     }
 
+    /*
+     * 꾹 누르고 있는 0.5초 '사이에' 화면이 다시 그려지는 경우.
+     *
+     * 편집 모드일 때만 다시 그리기를 막으면 늦습니다. 누르고 있는 동안에는 아직
+     * 편집이 아니라, 그 사이에 위젯이 갈리면 눌린 노드가 DOM 에서 빠집니다.
+     * 그 순간 브라우저가 pointercancel 을 쏘고, 한 번 취소된 손가락으로는
+     * 그 뒤에 무엇을 해도 끌 수 없습니다.
+     * 실제로 앱을 열자마자 날씨 응답이 도착/실패하는 시점이 여기에 자주 걸렸습니다.
+     * 여기서는 같은 경로(언어 전환 -> renderAll)로 그 타이밍을 만들어 봅니다.
+     */
+    const midBefore = await tOrder();
+    if (midBefore.length >= 2) {
+      const mid = await tp.evaluate(() => {
+        const b = document.querySelector('#today-widgets > [data-widget]').getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + 20) };
+      });
+      await tp.evaluate(() => {
+        window.__gone = [];
+        new MutationObserver((ms) => ms.forEach((m) => {
+          if (m.removedNodes.length) window.__gone.push(m.removedNodes.length);
+        })).observe(document.querySelector('#today-widgets'), { childList: true });
+      });
+      await touch('touchStart', mid.x, mid.y);
+      await tp.waitForTimeout(200);                   // 아직 편집이 켜지기 전
+      await tp.$eval('#lang-switch .lang-btn[data-lang="en"]', (n) => n.click());
+      await tp.waitForTimeout(150);
+      check('꾹 누르는 도중 화면 갱신: 눌린 위젯이 DOM 에 살아 있음',
+        (await tp.evaluate(() => window.__gone.length)) === 0,
+        `제거 ${await tp.evaluate(() => window.__gone.join(','))}`);
+      await tp.waitForTimeout(500);                   // 여기서 편집이 켜집니다
+      check('꾹 누르는 도중 화면 갱신: 그래도 편집이 켜지고 잡힘',
+        (await tp.evaluate(() => !!document.querySelector('[data-arr-drag="on"]'))) === true);
+      const midTo = await tp.evaluate(() => {
+        const b = document.querySelectorAll('#today-widgets > [data-widget]')[1].getBoundingClientRect();
+        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.bottom - 12) };
+      });
+      for (let i = 1; i <= 12; i += 1) {
+        await touch('touchMove', Math.round(mid.x + (midTo.x - mid.x) * i / 12),
+          Math.round(mid.y + (midTo.y - mid.y) * i / 12));
+        await tp.waitForTimeout(25);
+      }
+      const midMoved = await tp.evaluate(() => document.querySelector('[data-arr-drag="on"]')?.style.transform || '');
+      check('꾹 누르는 도중 화면 갱신: 그래도 카드가 손가락을 따라옴',
+        midMoved.includes('translate'), midMoved || '(안 움직임)');
+      await touch('touchEnd', midTo.x, midTo.y);
+      await tp.waitForTimeout(600);
+      check('꾹 누르는 도중 화면 갱신: 순서가 바뀜',
+        (await tOrder()).join(',') !== midBefore.join(','),
+        `${midBefore.join(',')} -> ${(await tOrder()).join(',')}`);
+      await tp.$eval('#arr-done', (n) => n.click());
+      await tp.waitForTimeout(500);
+      // 미뤄 둔 그리기가 처리되지 않으면 화면이 빈 채로 남습니다.
+      check('꾹 누르는 도중 화면 갱신: 손을 뗀 뒤 위젯이 그대로 있음',
+        (await tOrder()).length === midBefore.length, `${(await tOrder()).length}개`);
+      await tp.$eval('#lang-switch .lang-btn[data-lang="ko"]', (n) => n.click());
+      await tp.waitForTimeout(300);
+    }
+
     // 편집이 꺼져 있을 때는 손가락으로 평소처럼 화면이 굴러가야 합니다.
     await tp.evaluate(() => { document.querySelector('#panel-today').scrollTop = 0; });
     const p0 = await tScroll();

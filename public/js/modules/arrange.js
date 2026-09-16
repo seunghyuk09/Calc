@@ -39,6 +39,18 @@ export function arrangingTab() {
   return current;
 }
 
+/**
+ * 지금 손가락이 카드에 걸려 있는지. 편집 중 · 꾹 누르는 중 · 끄는 중을 모두 포함합니다.
+ *
+ * 편집 모드만 보면 늦습니다. 꾹 누르고 있는 0.5초 사이에 화면이 다시 그려지면
+ * 눌려 있던 노드가 DOM 에서 빠지고, 그 순간 브라우저가 pointercancel 을 쏩니다.
+ * 한 번 취소되면 그 뒤에 무엇을 해도 그 손가락으로는 끌 수 없습니다.
+ * (날씨 응답이 도착하거나 실패하는 시점이 하필 여기에 자주 걸렸습니다)
+ */
+export function arrangeBusy() {
+  return !!(current || drag || hold);
+}
+
 /*
  * 편집이 켜지고 꺼질 때 알려 줍니다.
  *
@@ -334,6 +346,8 @@ function cancelHold() {
   if (!hold) return;
   clearTimeout(hold.timer);
   hold = null;
+  // 누르다 만 동안 미뤄 둔 그리기가 있으면 지금 처리하라고 알려 줍니다.
+  notifyArrange();
 }
 
 /** 꾹 누르기가 끝까지 갔을 때. 편집을 켜고, 누르고 있던 그 항목을 바로 잡아 줍니다. */
