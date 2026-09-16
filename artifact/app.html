@@ -490,15 +490,21 @@
     </section>
 
   </main>
-</div>
 
-<!--
-  화면 편집 중에만 뜨는 막대.
-  편집 모드에서 빠져나갈 길이 화면에 늘 보여야 합니다. 안 그러면 갇힌 느낌이 듭니다.
--->
-<div class="arr-dock" id="arr-dock" role="toolbar" aria-label="화면 편집" hidden>
-  <span class="arr-dock-hint" id="arr-hint" data-i18n="arr.hint">카드를 끌어 옮기고, 크기를 고르세요.</span>
-  <button class="btn btn-sm btn-primary" id="arr-done" type="button" data-i18n="arr.done">완료</button>
+  <!--
+    화면 편집 중에만 뜨는 막대.
+    편집 모드에서 빠져나갈 길이 화면에 늘 보여야 합니다. 안 그러면 갇힌 느낌이 듭니다.
+
+    .app 안에 둡니다. 예전에는 body 바로 밑에서 position: fixed 로 띄웠는데,
+    안드로이드 WebView 처럼 '보이는 화면'과 '배치 기준 화면'이 다른 환경에서는
+    fixed 의 기준이 화면보다 훨씬 커져 막대가 화면 아래로 한참 밀려났습니다.
+    (실제로 재현됨: 화면 높이 844px 인데 막대가 3311px 위치에 놓였습니다)
+    .app 은 딱 보이는 만큼의 높이라, 그 안에 붙이면 어떤 환경에서도 화면 안에 있습니다.
+  -->
+  <div class="arr-dock" id="arr-dock" role="toolbar" aria-label="화면 편집" hidden>
+    <span class="arr-dock-hint" id="arr-hint" data-i18n="arr.hint">카드를 끌어 옮기고, 크기를 고르세요.</span>
+    <button class="btn btn-sm btn-primary" id="arr-done" type="button" data-i18n="arr.done">완료</button>
+  </div>
 </div>
 <span class="sr-only" id="arr-live" aria-live="polite" role="status"></span>
 

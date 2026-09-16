@@ -162,8 +162,11 @@ function toolbar(node, box, index, total) {
   row.querySelector('[data-arr-move="up"]').addEventListener('click', (e) => { e.stopPropagation(); move(-1); });
   row.querySelector('[data-arr-move="down"]').addEventListener('click', (e) => { e.stopPropagation(); move(1); });
 
-  // 위젯은 크기 설정이 없습니다. ('오늘' 탭 카드들은 한 묶음으로 같이 움직입니다)
-  if (box.kind === 'card') {
+  /*
+   * 크기·폭 고르기. 위젯에도 답니다.
+   * 예전에는 카드에만 달아서, '오늘' 탭에서는 크기를 바꿀 방법이 아예 없었습니다.
+   */
+  {
     const pref = cardPref(id);
     row.append(
       el('div', { class: 'arr-opts', role: 'group', 'aria-label': t('arr.aria.size') },
@@ -418,20 +421,32 @@ function autoScroll(panel, clientY) {
 }
 
 function onPointerDown(e) {
-  // 편집이 꺼져 있을 때만 '꾹 누르기'를 셉니다. 켜져 있으면 손잡이로 잡습니다.
+  // 편집이 꺼져 있을 때만 '꾹 누르기'를 셉니다. 켜져 있으면 바로 잡습니다.
   if (!current) { startHold(e); return; }
   if (drag) return;
-  const grab = e.target.closest?.('.arr-grab');
-  if (!grab) return;
   const box = boxOf(current);
   if (!box) return;
-  const card = grab.closest('[data-arr-item]');
+
+  /*
+   * 편집 중에는 카드 아무 데나 잡아도 끌립니다.
+   *
+   * 예전에는 손잡이(⠿)만 잡을 수 있었습니다. 손가락으로는 그 작은 칸을 정확히
+   * 누르기 어려워 '드래그가 안 된다'는 말을 들었습니다. 홈 화면 아이콘 정렬처럼,
+   * 편집 중이면 카드 어디를 잡든 끌리는 것이 자연스럽습니다.
+   *
+   * 도구줄의 ▲▼ 와 크기 버튼은 눌려야 하므로 제외합니다.
+   * 손잡이는 '누르는 버튼'이 아니라 '잡는 곳'이라 여기서 받습니다.
+   */
+  const card = e.target.closest?.('[data-arr-item]');
   if (!card || card.parentElement !== box.host) return;
+  const onBar = e.target.closest('.arr-bar');
+  if (onBar && !e.target.closest('.arr-grab')) return;
 
   e.preventDefault();
-  try { grab.setPointerCapture(e.pointerId); } catch { /* 캡처 실패해도 이동은 됩니다 */ }
+  // 잡은 자리가 사라져도 이벤트가 이어지도록 카드 자신에게 포인터를 묶습니다.
+  try { card.setPointerCapture(e.pointerId); } catch { /* 캡처 실패해도 이동은 됩니다 */ }
   drag = {
-    box, card, grab, pointerId: e.pointerId,
+    box, card, grab: card, pointerId: e.pointerId,
     startX: e.clientX, startY: e.clientY, moved: false,
   };
   card.dataset.arrDrag = 'on';
