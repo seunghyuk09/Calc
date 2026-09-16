@@ -129,6 +129,56 @@ function migrateWeekBase(list) {
   return out;
 }
 
+/* ---------- 하루 안의 시각 ----------
+ *
+ * 일간 계획에만 붙습니다. 주/월/연 계획은 하루 안의 시각이라는 게 없습니다.
+ * 비어 있으면 '종일' 입니다. Google 캘린더와 Todoist 모두 종일 항목을 맨 위에 놓고,
+ * 시각이 있는 것을 그 아래 시간순으로 놓습니다. 같은 차례를 씁니다.
+ *
+ * 저장 형식은 'HH:MM' 24시간제입니다. <input type="time"> 이 주는 값과 같아
+ * 변환 없이 그대로 오갑니다.
+ */
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** 쓸 수 있는 시각이면 'HH:MM' 으로, 아니면 null 로 돌려줍니다. */
+export function normalizeTime(raw) {
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!text) return null;
+  if (TIME_RE.test(text)) return text;
+  // '9:5' 처럼 자리를 덜 채운 값도 받아 줍니다. 손으로 고칠 수 있는 입력칸이 있습니다.
+  const m = /^(\d{1,2}):(\d{1,2})$/.exec(text);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return `${pad(h)}:${pad(min)}`;
+}
+
+/** 정렬용 분 단위 값. 시각이 없으면 -1 이라 종일이 언제나 맨 위입니다. */
+export function minutesOf(item) {
+  const time = normalizeTime(item?.time);
+  if (!time) return -1;
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+}
+
+/** 시각만 있는 항목인지. 종일과 나누는 기준입니다. */
+const isTimed = (item) => item?.scope === 'day' && normalizeTime(item?.time) !== null;
+
+/**
+ * 하루치를 화면에 놓을 차례로 정렬합니다.
+ * 종일이 먼저, 그다음 시각순. 같은 시각이면 만든 차례를 지킵니다.
+ */
+export function sortDayRows(rows) {
+  return rows
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => {
+      const d = minutesOf(a.item) - minutesOf(b.item);
+      return d !== 0 ? d : a.i - b.i;
+    })
+    .map((x) => x.item);
+}
+
 /* ---------- 기간 계산 ---------- */
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -160,6 +210,21 @@ function applyFilter(rows) {
  * @returns {{key: string|null, title: string|null, rows: object[]}[]}
  */
 function groups() {
+  if (scope === 'day') {
+    /*
+     * 일간은 시간순으로 놓습니다.
+     * 종일이 먼저, 그 아래 시각이 있는 것이 이른 시각부터입니다.
+     * (Google 캘린더와 Todoist 의 하루 보기와 같은 차례입니다)
+     */
+    const rows = sortDayRows(applyFilter(items.filter(inPeriod)));
+    const allDay = rows.filter((x) => !isTimed(x));
+    const timed = rows.filter(isTimed);
+    if (!timed.length) return [{ key: null, title: null, rows }];
+    const out = [];
+    if (allDay.length) out.push({ key: null, title: t('todo.time.allDay'), rows: allDay });
+    out.push({ key: null, title: null, rows: timed });
+    return out;
+  }
   if (scope !== 'week') {
     return [{ key: null, title: null, rows: applyFilter(items.filter(inPeriod)) }];
   }
@@ -173,7 +238,8 @@ function groups() {
   daysOfWeek(period).forEach((key) => {
     const rows = applyFilter(items.filter((x) => x.scope === 'day' && x.period === key));
     if (!rows.length) return;
-    out.push({ key, title: label('day', key, lang), rows });
+    // 하루 안에서는 여기서도 시간순입니다. 일간에서 본 차례와 달라지면 헷갈립니다.
+    out.push({ key, title: label('day', key, lang), rows: sortDayRows(rows) });
   });
   return out;
 }
@@ -186,6 +252,51 @@ function periodRows() {
     (x.scope === 'week' && x.period === period)
     || (x.scope === 'day' && days.has(x.period))
   ));
+}
+
+/**
+ * 항목의 시각을 고칩니다.
+ *
+ * 시각 칸을 눌러 그 자리에서 고칩니다. 비우고 저장하면 종일로 돌아갑니다.
+ * <input type="time"> 을 잠깐 얹어 씁니다. 기기마다 제 시각 고르개가 뜨므로
+ * 직접 만든 고르개보다 손에 익습니다.
+ */
+function editTime(item) {
+  const cell = document.querySelector(`[data-time-for="${CSS.escape(item.id)}"]`);
+  if (!cell || cell.dataset.editing === 'on') return;
+
+  const input = el('input', {
+    type: 'time', step: '300',
+    class: 'field todo-time-edit',
+    value: normalizeTime(item.time) || '',
+    'aria-label': t('todo.time.set', item.text),
+  });
+
+  let closed = false;
+  const close = (save) => {
+    if (closed) return;
+    closed = true;
+    if (!save) { input.replaceWith(cell); return; }
+    const next = normalizeTime(input.value);
+    const target = items.find((x) => x.id === item.id);
+    if (target) {
+      // 비우면 종일로 돌아갑니다. 키 자체를 지워야 저장값이 깔끔합니다.
+      if (next) target.time = next; else delete target.time;
+      persist();
+      render();
+      return;
+    }
+    input.replaceWith(cell);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); close(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+  });
+  input.addEventListener('blur', () => close(true));
+
+  cell.replaceWith(input);
+  input.focus();
 }
 
 /* ---------- 그리기 ---------- */
@@ -220,14 +331,35 @@ function itemRow(item, shownRows) {
     renderKeepingFocus({ id: item.id, kind: 'check' });
   });
 
+  /*
+   * 시각 칸.
+   * 일간 항목에만 나옵니다. 누르면 그 자리에서 시각을 고치거나 지울 수 있습니다.
+   * 종일 항목에는 빈 자리를 두지 않습니다. 목록 대부분이 종일인데 빈 칸을 늘어 두면
+   * 글자가 밀려 읽기 나빠집니다.
+   */
+  const time = normalizeTime(item.time);
+  const timeCell = item.scope === 'day'
+    ? el('button', {
+      class: `todo-time${time ? '' : ' is-empty'}`,
+      type: 'button',
+      'aria-label': time ? `${item.text} — ${time}` : t('todo.time.set', item.text),
+      title: time ? t('todo.time.clear') : t('todo.time.set', item.text),
+      dataset: { timeFor: item.id },
+      onclick: () => editTime(item),
+    }, time || '＋')
+    : '';
+
   return el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
     checkbox,
+    timeCell,
     el('span', { class: 'todo-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
     el('span', { class: 'todo-text' }, item.text),
     el('button', {
       class: 'btn btn-sm btn-ghost',
       title: t('todo.aria.delete'),
       'aria-label': t('todo.aria.delete'),
+      // 줄 안의 버튼이 늘었습니다. '몇 번째 버튼'으로 집으면 칸이 하나 늘 때마다 어긋납니다.
+      dataset: { del: item.id },
       onclick: () => {
         // 삭제 후에는 다음 항목의 삭제 버튼으로, 없으면 입력창으로 포커스를 넘깁니다.
         const idx = shownRows.findIndex((x) => x.id === item.id);
@@ -283,7 +415,17 @@ function renderKeepingFocus(hint) {
   target?.focus();
 }
 
+/** 시각 칸은 일간에서만 보입니다. 주/월/연에는 하루 안의 시각이라는 게 없습니다. */
+function syncTimeInput() {
+  const box = $('#todo-time');
+  if (!box) return;
+  const show = scope === 'day';
+  box.hidden = !show;
+  if (!show) box.value = '';
+}
+
 function syncScopeTabs() {
+  syncTimeInput();
   $$('.scope-tab').forEach((b) => {
     b.setAttribute('aria-selected', String(b.dataset.scope === scope));
   });
@@ -349,6 +491,41 @@ function applyPanelLang() {
  * 특정 항목이 보이도록 단위/기간/필터를 맞추고 잠깐 강조합니다.
  * '오늘' 탭에서 할 일을 눌렀을 때 그 항목이 어디 있는지 바로 알 수 있게 합니다.
  */
+/**
+ * 항목 하나의 완료 여부를 바꿉니다.
+ *
+ * '오늘' 탭의 요약에서도 바로 체크할 수 있어야 합니다. 체크하려고 계획표까지
+ * 건너가야 하면 요약을 보는 의미가 없습니다.
+ * @returns {boolean} 그 항목을 찾아 바꿨으면 true
+ */
+export function setDone(id, done) {
+  const target = items.find((item) => item.id === id);
+  if (!target) return false;
+  const next = done === undefined ? !target.done : done === true;
+  if (target.done === next) return true;
+  target.done = next;
+  target.doneAt = next ? Date.now() : null;
+  persist();
+  render();
+  return true;
+}
+
+/**
+ * 항목의 글을 고칩니다.
+ * 빈 글로는 바꾸지 않습니다. 지우고 싶으면 삭제를 써야 합니다.
+ * @returns {boolean} 실제로 바뀌었으면 true
+ */
+export function renameItem(id, text) {
+  const next = typeof text === 'string' ? text.trim() : '';
+  if (!next) return false;
+  const target = items.find((item) => item.id === id);
+  if (!target || target.text === next) return false;
+  target.text = next;
+  persist();
+  render();
+  return true;
+}
+
 export function revealItem(id) {
   const target = items.find((item) => item.id === id);
   if (!target) return false;
@@ -612,12 +789,17 @@ export function initTodo() {
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
+    // 시각은 일간에서만 의미가 있습니다. 비어 있으면 종일입니다.
+    const timeInput = $('#todo-time');
+    const time = scope === 'day' ? normalizeTime(timeInput?.value) : null;
     items.unshift({
       id: uid(), text, done: false, scope, period,
       category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
+      ...(time ? { time } : {}),
       at: Date.now(), doneAt: null,
     });
     input.value = '';
+    // 시각은 남겨 둡니다. 같은 시간대에 여러 개를 넣는 일이 흔합니다.
     persist();
     render();
   });

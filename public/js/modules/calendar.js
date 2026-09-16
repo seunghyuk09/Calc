@@ -15,9 +15,9 @@
 import { $, el } from '../lib/dom.js';
 import { t, getLang, onLangChange } from '../lib/i18n.js';
 import { load, save } from '../lib/store.js';
-import { emojiOf } from '../lib/categories.js';
-import { keyOf, dateOf, weekRange, weekParts } from '../lib/period.js';
-import { getItems, onTodoChange, onViewChange, getView, openDate } from './todo.js';
+import { emojiOf, labelOf } from '../lib/categories.js';
+import { keyOf, dateOf, weekRange, weekParts, label } from '../lib/period.js';
+import { getItems, onTodoChange, onViewChange, getView, openDate, normalizeTime, sortDayRows } from './todo.js';
 
 const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
 const FOLD_KEY = 'cal.folded';
@@ -37,6 +37,32 @@ let cursor = new Date();
  * 지금 주 한 줄만 남기면 목록이 그만큼 넓어집니다. 고른 상태는 기억합니다.
  */
 let folded = load(FOLD_KEY, false) === true;
+
+/*
+ * 년·월 고르기 판.
+ *
+ * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+ * 달 이름을 누르면 판이 열리고, 판에서 연도를 누르면 연도 격자로 바뀝니다.
+ * (Material 날짜 선택기의 흐름입니다. 달 격자 <-> 연도 격자)
+ */
+let pickOpen = false;
+let pickMode = 'month';     // 'month' | 'year'
+let pickYear = new Date().getFullYear();   // 판이 보고 있는 해
+let pickYearPage = 0;       // 연도 격자가 보고 있는 12년 묶음 (0 이면 pickYear 가 든 묶음)
+
+/** 연도 격자 한 판에 놓는 개수. 4열 x 3줄입니다. */
+const YEARS_PER_PAGE = 12;
+
+/*
+ * 보기 방식. 'grid' 는 한 달 격자, 'agenda' 는 날짜별로 묶은 시간순 목록입니다.
+ * Google 캘린더의 '일정(Schedule)' 보기가 후자입니다. 격자를 버리고 앞으로 올 일을
+ * 시간순 목록으로 늘어놓아, 좁은 화면에서 읽기 쉽습니다.
+ */
+const VIEW_KEY = 'cal.view';
+let calView = load(VIEW_KEY, 'grid') === 'agenda' ? 'agenda' : 'grid';
+
+/** 일정 목록이 앞으로 며칠까지 훑을지. 두 달이면 '다음에 뭐 있더라' 에 충분합니다. */
+const AGENDA_DAYS = 62;
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -132,6 +158,8 @@ function inView(date, view) {
 function render() {
   const grid = $('#cal-grid');
   if (!grid) return;
+  // 일정 목록일 때는 격자를 그릴 필요가 없습니다. 안 보이는 것을 그리는 건 낭비입니다.
+  if (calView === 'agenda') { renderAgenda(); return; }
 
   const lang = getLang();
   const view = getView();
@@ -142,11 +170,11 @@ function render() {
 
   const foldBtn = $('#cal-fold');
   if (foldBtn) {
-    // 글자는 안쪽 span 에만 씁니다. 버튼 전체를 덮어쓰면 달 이름까지 날아갑니다.
     const mark = $('#cal-fold-mark');
     if (mark) mark.textContent = folded ? '⌄' : '⌃';
     foldBtn.setAttribute('aria-expanded', String(!folded));
     foldBtn.title = t(folded ? 'cal.unfold' : 'cal.fold');
+    foldBtn.setAttribute('aria-label', t(folded ? 'cal.unfold' : 'cal.fold'));
   }
 
   // 접었으면 커서가 든 주 한 줄만, 펼쳤으면 커서가 든 달 전체를 그립니다.
@@ -216,6 +244,212 @@ function render() {
   grid.replaceChildren(...cells);
 }
 
+/* ---------- 일정(Schedule) 보기 ----------
+ *
+ * Google 캘린더의 '일정' 보기와 같은 꼴입니다.
+ * 격자를 버리고, 오늘부터 앞으로 올 일을 날짜별로 묶어 시간순으로 늘어놓습니다.
+ * 한 줄에 시각 · 분류 이모지 · 글이 들어가고, 오늘 줄에는 표가 붙습니다.
+ *
+ * 일간 계획만 놓습니다. 주/월/연 계획은 특정 하루에 속하지 않아서,
+ * 날짜별 목록에 올리면 어느 날인지 거짓으로 알려주게 됩니다. (달력 격자와 같은 이유입니다)
+ */
+
+/** 오늘부터 AGENDA_DAYS 일 안에서, 일이 있는 날만 날짜순으로 묶습니다. */
+export function agendaDays(items = getItems(), from = new Date(), span = AGENDA_DAYS) {
+  const byDay = groupByDay(items);
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const out = [];
+  for (let i = 0; i < span; i += 1) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const key = dayKey(d);
+    const rows = byDay.get(key);
+    if (!rows || !rows.length) continue;
+    out.push({ key, date: d, rows: sortDayRows(rows) });
+  }
+  return out;
+}
+
+function renderAgenda() {
+  const host = $('#cal-agenda');
+  if (!host) return;
+  const lang = getLang();
+  const todayKey = keyOf('day');
+  const days = agendaDays();
+
+  if (!days.length) {
+    host.replaceChildren(el('p', { class: 'cal-agenda-empty' }, t('cal.agenda.empty')));
+    return;
+  }
+
+  const blocks = days.map((day) => {
+    const head = el('div', { class: `cal-agenda-head${day.key === todayKey ? ' is-today' : ''}` },
+      el('span', { class: 'cal-agenda-date' }, label('day', day.key, lang)),
+      day.key === todayKey ? el('span', { class: 'cal-agenda-mark' }, t('cal.agenda.today')) : '');
+
+    const rows = day.rows.map((item) => {
+      const time = normalizeTime(item.time);
+      return el('button', {
+        class: `cal-agenda-row${item.done ? ' is-done' : ''}`,
+        type: 'button',
+        dataset: { agendaId: item.id, agendaDay: day.key },
+        // 누르면 계획표가 그 날짜로 옮겨 가고 그 항목을 잠깐 강조합니다.
+        onclick: () => openDate(day.key, item.id),
+      },
+      el('span', { class: `cal-agenda-time${time ? '' : ' is-allday'}` },
+        time || t('cal.agenda.allDay')),
+      el('span', { class: 'cal-agenda-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+      el('span', { class: 'cal-agenda-text' }, item.text));
+    });
+
+    return el('div', { class: 'cal-agenda-day' }, head, ...rows);
+  });
+
+  host.replaceChildren(...blocks);
+}
+
+/** 보기 전환을 화면에 반영합니다. 격자와 목록은 한 번에 하나만 보입니다. */
+function applyView() {
+  const grid = $('#cal-grid');
+  const agenda = $('#cal-agenda');
+  const isAgenda = calView === 'agenda';
+  if (grid) grid.hidden = isAgenda;
+  if (agenda) agenda.hidden = !isAgenda;
+  $('#cal-view-grid')?.setAttribute('aria-selected', String(!isAgenda));
+  $('#cal-view-agenda')?.setAttribute('aria-selected', String(isAgenda));
+  // 일정 목록에서는 달을 오가는 ‹ › 와 요일 머리글이 의미가 없습니다.
+  $('.cal-nav')?.toggleAttribute('hidden', isAgenda);
+  $('#cal-pick')?.toggleAttribute('hidden', isAgenda || !pickOpen);
+}
+
+function setView(next) {
+  calView = next === 'agenda' ? 'agenda' : 'grid';
+  save(VIEW_KEY, calView);
+  if (calView === 'agenda') closePick();
+  applyView();
+  render();
+}
+
+/** 지금 보기 방식. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+export function calendarView() {
+  return calView;
+}
+
+/* ---------- 년·월 고르기 판 ---------- */
+
+/**
+ * 연도 격자가 보여 줄 12년의 첫 해.
+ *
+ * 12로 나눠떨어지는 자리에 맞추면 2026년에 '2016 – 2027' 이 나옵니다. 읽기 이상합니다.
+ * 보고 있는 해가 가운데쯤 오도록 잡습니다. (2026 -> 2021 – 2032)
+ */
+function yearPageStart() {
+  return pickYear - 5 + pickYearPage * YEARS_PER_PAGE;
+}
+
+/** 판을 지금 상태대로 다시 그립니다. */
+function renderPick() {
+  const panel = $('#cal-pick');
+  const grid = $('#cal-pick-grid');
+  const title = $('#cal-pick-title');
+  const opener = $('#cal-pick-open');
+  if (!panel || !grid || !title) return;
+
+  panel.hidden = !pickOpen;
+  opener?.setAttribute('aria-expanded', String(pickOpen));
+  if (!pickOpen) { grid.replaceChildren(); return; }
+
+  const lang = getLang();
+  const now = new Date();
+  const cells = [];
+
+  if (pickMode === 'month') {
+    title.textContent = String(pickYear);
+    title.title = t('cal.pick.toYears');
+    title.setAttribute('aria-label', t('cal.pick.month', pickYear));
+    $('#cal-pick-prev')?.setAttribute('aria-label', t('cal.pick.prevYear'));
+    $('#cal-pick-next')?.setAttribute('aria-label', t('cal.pick.nextYear'));
+    grid.setAttribute('aria-label', t('cal.pick.month', pickYear));
+
+    for (let m = 1; m <= 12; m += 1) {
+      const onNow = pickYear === now.getFullYear() && m === now.getMonth() + 1;
+      const onCursor = pickYear === cursor.getFullYear() && m === cursor.getMonth() + 1;
+      const cell = el('button', {
+        class: `cal-pick-cell${onCursor ? ' is-on' : ''}${onNow ? ' is-now' : ''}`,
+        type: 'button',
+        dataset: { pickMonth: String(m) },
+        'aria-pressed': String(onCursor),
+      }, t('cal.pick.monthName', m));
+      cell.addEventListener('click', () => {
+        // 고른 달의 1일로 옮깁니다. 접혀 있으면 그 주가, 펼쳐져 있으면 그 달이 보입니다.
+        cursor = new Date(pickYear, m - 1, 1);
+        closePick();
+        render();
+      });
+      cells.push(cell);
+    }
+  } else {
+    const start = yearPageStart();
+    title.textContent = `${start} – ${start + YEARS_PER_PAGE - 1}`;
+    title.title = t('cal.pick.year');
+    title.setAttribute('aria-label', t('cal.pick.year'));
+    $('#cal-pick-prev')?.setAttribute('aria-label', t('cal.pick.prevYears'));
+    $('#cal-pick-next')?.setAttribute('aria-label', t('cal.pick.nextYears'));
+    grid.setAttribute('aria-label', t('cal.pick.year'));
+
+    for (let i = 0; i < YEARS_PER_PAGE; i += 1) {
+      const y = start + i;
+      const cell = el('button', {
+        class: `cal-pick-cell${y === cursor.getFullYear() ? ' is-on' : ''}${y === now.getFullYear() ? ' is-now' : ''}`,
+        type: 'button',
+        dataset: { pickYear: String(y) },
+        'aria-pressed': String(y === cursor.getFullYear()),
+      }, String(y));
+      cell.addEventListener('click', () => {
+        // 해를 고르면 달 격자로 돌아갑니다. 아직 어느 달인지 안 골랐습니다.
+        pickYear = y;
+        pickYearPage = 0;
+        pickMode = 'month';
+        renderPick();
+        $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+      });
+      cells.push(cell);
+    }
+  }
+  grid.replaceChildren(...cells);
+  // 언어가 바뀌면 판 안의 글자도 따라가야 합니다. lang 은 위에서 읽어 둔 값으로 충분합니다.
+  void lang;
+}
+
+function openPick() {
+  pickOpen = true;
+  pickMode = 'month';
+  pickYear = cursor.getFullYear();
+  pickYearPage = 0;
+  renderPick();
+  // 판을 열면 첫 칸으로 초점을 보내야 키보드로 바로 고를 수 있습니다.
+  $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+}
+
+function closePick({ restoreFocus = false } = {}) {
+  if (!pickOpen) return;
+  pickOpen = false;
+  renderPick();
+  if (restoreFocus) $('#cal-pick-open')?.focus();
+}
+
+/** 판의 ‹ › . 달 격자면 한 해씩, 연도 격자면 12년씩 움직입니다. */
+function movePick(delta) {
+  if (pickMode === 'month') pickYear += delta;
+  else pickYearPage += delta;
+  renderPick();
+}
+
+/** 판이 열려 있는지. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+export function isPickOpen() {
+  return pickOpen;
+}
+
 /** 접혀 있으면 한 주씩, 펼쳐져 있으면 한 달씩 움직입니다. */
 function move(delta) {
   const next = new Date(cursor);
@@ -231,6 +465,8 @@ function followView(view) {
     // 주간은 일요일이, 월간은 1일이 대표 날짜입니다. (period.js 의 dateOf 규칙)
     cursor = dateOf(view.scope, view.period);
   } catch { /* 저장값이 손상된 경우 보고 있던 자리를 그대로 둡니다 */ }
+  // 달력이 딴 달로 옮겨 갔는데 고르기 판이 옛 해를 보고 있으면 어긋나 보입니다.
+  closePick();
   render();
 }
 
@@ -250,9 +486,37 @@ export function initCalendar() {
     render();
   });
 
+  // --- 보기 전환 ---
+  $('#cal-view-grid')?.addEventListener('click', () => setView('grid'));
+  $('#cal-view-agenda')?.addEventListener('click', () => setView('agenda'));
+  applyView();
+
+  // --- 년·월 고르기 판 ---
+  $('#cal-pick-open')?.addEventListener('click', () => {
+    if (pickOpen) closePick({ restoreFocus: true }); else openPick();
+  });
+  $('#cal-pick-prev')?.addEventListener('click', () => movePick(-1));
+  $('#cal-pick-next')?.addEventListener('click', () => movePick(1));
+  $('#cal-pick-title')?.addEventListener('click', () => {
+    // 달 격자에서 연도를 누르면 연도 격자로, 연도 격자에서 누르면 되돌아옵니다.
+    pickMode = pickMode === 'month' ? 'year' : 'month';
+    pickYearPage = 0;
+    renderPick();
+    $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+  });
+  // 판 밖을 누르거나 Esc 를 누르면 닫습니다. 열어 둔 채 다른 곳을 만지면 헷갈립니다.
+  document.addEventListener('pointerdown', (e) => {
+    if (!pickOpen) return;
+    if (e.target.closest?.('#cal-pick, #cal-pick-open')) return;
+    closePick();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pickOpen) { e.preventDefault(); closePick({ restoreFocus: true }); }
+  });
+
   onTodoChange(() => render());
   onViewChange(followView);
-  onLangChange(() => render());
+  onLangChange(() => { render(); renderPick(); });
 
   followView(getView());
 }

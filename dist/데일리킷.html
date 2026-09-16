@@ -803,25 +803,40 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 }
 .today-rot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/*
+ * 한 줄에 체크칸 · 분류 이모지 · 글 · 고치기가 들어갑니다.
+ * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+ */
 .today-rot-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; min-height: 46px; padding: 8px 10px;
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 46px; padding: 6px 8px;
   background: transparent; border: 0; border-radius: var(--radius-sm);
-  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
   scroll-snap-align: start;
+  /* 계획 단위는 왼쪽 띠로 구분합니다. 점을 따로 두면 체크칸과 붙어 지저분합니다. */
+  border-left: 3px solid var(--accent-fill);
 }
+.today-rot-item.scope-week { border-left-color: var(--success); }
+.today-rot-item.scope-month { border-left-color: var(--warn); }
+.today-rot-item.scope-year { border-left-color: var(--text-faint); }
 .today-rot-item:hover { background: var(--surface-2); }
-.today-rot-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.today-rot-item:focus-within { background: var(--surface-2); }
+
+/* 손가락으로 누를 수 있는 크기를 지킵니다. 기본 체크박스는 너무 작습니다. */
+.today-rot-check { flex: none; width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+.today-rot-cat { flex: none; font-size: 15px; line-height: 1; }
+
 .today-rot-text {
   flex: 1 1 auto; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 14px;
+  background: none; border: 0; padding: 4px 0;
+  font-family: inherit; color: inherit; text-align: left; cursor: pointer;
 }
-/* 계획 단위를 색 점 하나로 구분합니다. 글자를 더 넣으면 할 일 자체가 안 보입니다. */
-.today-rot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent-fill); }
-.today-rot-dot.scope-week { background: var(--success); }
-.today-rot-dot.scope-month { background: var(--warn); }
-.today-rot-dot.scope-year { background: var(--text-faint); }
+.today-rot-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.today-rot-edit { flex: none; width: 30px; height: 30px; font-size: 13px; }
+/* 그 자리에서 고칠 때 쓰는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
+.today-rot-input { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 4px 8px; font-size: 14px; }
 
 .today-rot-empty {
   display: flex; align-items: center; justify-content: center;
@@ -1312,6 +1327,30 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .todo-cat-select { flex: 0 0 auto; width: 128px; }
 .todo-cat { flex: none; font-size: 15px; line-height: 1.4; }
 
+/* ---------- 하루 안의 시각 ----------
+ * 일간 항목에만 붙습니다. 종일이면 '＋' 만 흐리게 두어, 누르면 정할 수 있다는 것만 알립니다.
+ * 폭을 고정해야 시각이 있는 줄과 없는 줄의 글자 시작점이 맞습니다.
+ */
+.todo-time {
+  flex: none; width: 46px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 24px; margin-top: 1px; padding: 2px 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text-dim);
+  font: inherit; font-size: 12px; font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.todo-time:hover { border-color: var(--accent); color: var(--text); }
+.todo-time:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 시각이 없는 줄은 눈에 띄면 안 됩니다. 대부분의 줄이 여기 해당합니다. */
+.todo-time.is-empty { background: none; border-color: transparent; color: var(--text-faint); opacity: .55; }
+.todo-time.is-empty:hover { opacity: 1; border-color: var(--border); }
+.todo-item.done .todo-time { opacity: .5; }
+/* 그 자리에서 고칠 때 얹는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
+.todo-time-edit { flex: none; width: 108px; min-height: 30px; padding: 2px 6px; font-size: 13px; }
+/* 입력줄의 시각 칸. 글 입력칸을 너무 빼앗지 않게 좁게 둡니다. */
+.todo-time-input { flex: 0 0 auto; width: 104px; }
+
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -1400,9 +1439,18 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 .cal-card { padding-bottom: 10px; }
 .cal-nav { margin-top: 0; }
 
-/* 달 이름 자체가 접기 버튼입니다. 버튼을 따로 두면 이 줄이 영어에서 카드 폭을 넘깁니다. */
+/*
+ * 달 이름은 년·월 고르기 판을 여는 자리입니다.
+ *
+ * 이 줄에는 ‹ › 접기 '이번 달' 까지 다섯 개가 들어갑니다.
+ * 320px 영어('This month')에서는 한 줄에 다 들어가지 않아, 달 이름이 통째로 잘리고
+ * ▾ 만 남았습니다. 어느 달인지 안 보이면 달력의 의미가 없습니다.
+ * 그래서 이름에 최소 폭을 주고 줄을 접을 수 있게 했습니다. 모자라면 '이번 달'이 다음 줄로 갑니다.
+ */
+.cal-nav { flex-wrap: wrap; }
 .cal-label {
   display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1 1 auto; min-width: 104px;
   min-height: 36px; padding: 4px 8px;
   border: 1px solid transparent; border-radius: var(--radius-sm);
   background: none; color: inherit; font: inherit;
@@ -1413,6 +1461,48 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 .cal-label:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cal-label > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-fold-mark { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
+/* 접기는 이제 제 버튼을 씁니다. 달 이름 자리는 년·월 고르기 판을 여는 데 썼습니다. */
+.cal-fold-btn { flex: none; width: 32px; height: 32px; font-size: 12px; }
+
+/* ---------- 년·월 고르기 판 ----------
+ * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+ * 달 이름을 누르면 여기가 열리고, 연도를 누르면 달 격자가 연도 격자로 바뀝니다.
+ */
+.cal-pick {
+  margin: 8px 0 2px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.cal-pick-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.cal-pick-title {
+  flex: 1;
+  min-height: 32px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+.cal-pick-title:hover { background: var(--surface); border-color: var(--border); }
+.cal-pick-title:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.cal-pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cal-pick-cell {
+  min-height: 38px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.cal-pick-cell:hover { border-color: var(--accent); }
+.cal-pick-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 오늘이 든 달/해는 글자만 강조합니다. 고른 칸과 헷갈리면 안 됩니다. */
+.cal-pick-cell.is-now { color: var(--accent); font-weight: 700; }
+.cal-pick-cell.is-on {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700;
+}
 
 @media (max-width: 759px) {
   #panel-todo {
@@ -1663,6 +1753,68 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
   .arr-name { flex: 1 1 100%; margin-right: 0; order: -1; }
 }
 
+/* ---------- 보기 전환: 달력 격자 / 일정 목록 ----------
+ * Google 캘린더의 '일정(Schedule)' 보기와 같은 꼴입니다.
+ * 격자를 버리고 앞으로 올 일을 날짜별로 묶어 시간순으로 늘어놓습니다.
+ */
+.cal-views { display: flex; gap: 4px; margin: 8px 0 2px; }
+.cal-view-tab {
+  flex: 1;
+  min-height: 32px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text-dim);
+  font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.cal-view-tab:hover { border-color: var(--accent); }
+.cal-view-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cal-view-tab[aria-selected="true"] {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+
+.cal-agenda { max-height: 360px; overflow-y: auto; margin-top: 6px; scrollbar-width: thin; }
+.cal-agenda-empty { font-size: 13px; color: var(--text-faint); text-align: center; padding: 20px 8px; margin: 0; }
+.cal-agenda-day + .cal-agenda-day { margin-top: 10px; }
+
+/* 날짜 머리글은 붙여 두어, 길게 훑어도 지금 어느 날을 보는지 알 수 있습니다. */
+.cal-agenda-head {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 2px; margin-bottom: 2px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; color: var(--text-dim);
+}
+.cal-agenda-head.is-today { color: var(--accent); }
+/* 오늘이 어디인지 표가 있어야 합니다. Google 캘린더의 일정 보기도 지금 자리를 표시합니다. */
+.cal-agenda-mark {
+  flex: none; padding: 1px 7px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+}
+.cal-agenda-date { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cal-agenda-row {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 38px; padding: 5px 4px;
+  border: 0; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.cal-agenda-row:hover { background: var(--surface-2); }
+.cal-agenda-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-agenda-row.is-done .cal-agenda-text { text-decoration: line-through; color: var(--text-faint); }
+.cal-agenda-time {
+  flex: none; width: 48px;
+  font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-dim);
+}
+/* 종일은 시각 자리에 글자로 둡니다. 빈 칸으로 두면 무엇인지 알 수 없습니다. */
+.cal-agenda-time.is-allday { font-size: 11px; color: var(--text-faint); }
+.cal-agenda-cat { flex: none; font-size: 14px; line-height: 1; }
+.cal-agenda-text {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px;
+}
+
 </style>
 </head>
 <body>
@@ -1807,14 +1959,48 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
           <!-- 달 이름을 누르면 접혔다 펴집니다.
                한 달치는 좁은 화면의 절반을 쓰므로, 하루치 목록을 손볼 때는 한 주만 남깁니다.
                접기 버튼을 따로 두면 영어에서 이 줄이 카드 폭을 넘겼습니다. -->
-          <button class="period-label cal-label" id="cal-fold" type="button"
-                  aria-expanded="true" aria-controls="cal-grid">
+          <!-- 달 이름을 누르면 년·월 고르기 판이 열립니다. 한 해 뒤로 가려고 ‹ 를 열두 번 누를 수는 없습니다. -->
+          <button class="period-label cal-label" id="cal-pick-open" type="button"
+                  data-i18n-aria="cal.pick.open" aria-expanded="false" aria-controls="cal-pick">
             <span id="cal-label" aria-live="polite" aria-atomic="true">—</span>
-            <span class="cal-fold-mark" id="cal-fold-mark" aria-hidden="true">⌃</span>
+            <span class="cal-fold-mark" aria-hidden="true">▾</span>
           </button>
           <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
+          <!-- 접기는 따로 뺐습니다. 달 이름이 이제 고르기 판을 여는 자리라 겸할 수 없습니다. -->
+          <button class="icon-btn cal-fold-btn" id="cal-fold" type="button"
+                  aria-expanded="true" aria-controls="cal-grid">
+            <span id="cal-fold-mark" aria-hidden="true">⌃</span>
+          </button>
           <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
         </div>
+
+        <!--
+          년·월 고르기 판.
+          달 이름을 누르면 열립니다. 달 격자에서 연도를 누르면 연도 격자로 바뀝니다.
+          (Material 날짜 선택기와 같은 흐름입니다)
+        -->
+        <div class="cal-pick" id="cal-pick" hidden>
+          <div class="cal-pick-nav">
+            <button class="icon-btn" id="cal-pick-prev" type="button">‹</button>
+            <button class="cal-pick-title" id="cal-pick-title" type="button"
+                    aria-live="polite" aria-atomic="true">—</button>
+            <button class="icon-btn" id="cal-pick-next" type="button">›</button>
+          </div>
+          <div class="cal-pick-grid" id="cal-pick-grid" role="group"></div>
+        </div>
+
+        <!--
+          보기 전환: 달력 격자 / 일정 목록.
+          Google 캘린더의 '일정(Schedule)' 보기처럼, 격자를 버리고 날짜별로 묶은
+          시간순 목록으로 봅니다. 좁은 화면에서는 이쪽이 읽기 쉽습니다.
+        -->
+        <div class="cal-views" id="cal-views" role="tablist" data-i18n-aria="cal.view.label">
+          <button class="cal-view-tab" id="cal-view-grid" type="button" role="tab"
+                  aria-selected="true" data-i18n="cal.view.grid">달력</button>
+          <button class="cal-view-tab" id="cal-view-agenda" type="button" role="tab"
+                  aria-selected="false" data-i18n="cal.view.agenda">일정</button>
+        </div>
+        <div class="cal-agenda" id="cal-agenda" hidden></div>
         <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
              aria-label="월 달력"></div>
       </div>
@@ -1860,6 +2046,10 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
           <div class="row">
             <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
                    data-i18n-placeholder="todo.input.placeholder">
+            <!-- 시각은 일간에서만 씁니다. 주/월/연 계획은 하루 안의 시각이라는 게 없습니다.
+                 비워 두면 '종일' 로 들어가 예전과 똑같이 동작합니다. -->
+            <input class="field todo-time-input" id="todo-time" type="time" step="300"
+                   data-i18n-aria="todo.time.label" hidden>
             <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
           </div>
         </form>
@@ -2367,6 +2557,10 @@ const DICT = {
     'today.rotate.play': '순환 시작',
     'today.aria.rotation': '미완료 할 일 순환',
     'today.aria.position': (i, n) => `${n}개 중 ${i}번째`,
+    'today.todo.check': (text) => `${text} 완료로 표시`,
+    'today.todo.edit': (text) => `${text} 고치기`,
+    'today.todo.editHint': '고치고 Enter, 취소는 Esc',
+    'today.todo.open': (text) => `${text} — 계획표에서 보기`,
     // ---- 탭 이름 (커스터마이즈 목록에서 씁니다) ----
     'tab.today': '오늘', 'tab.calc': '계산기', 'tab.weather': '날씨', 'tab.todo': 'TO DO',
     'tab.time': '시계·타이머', 'tab.memo': '메모·낙서', 'tab.quote': '글귀',
@@ -2437,6 +2631,11 @@ const DICT = {
     'todo.aria.category': '활동 분류',
     'todo.aria.more': '더보기',
     'todo.week.goals': '이번 주 목표',
+    // ---- 시각 ----
+    'todo.time.label': '시각 (비우면 종일)',
+    'todo.time.allDay': '종일',
+    'todo.time.clear': '시각 지우기',
+    'todo.time.set': (text) => `${text} 시각 정하기`,
     // ---- 분류 편집 ----
     'cat.edit': '분류 편집',
     'cat.hint': '이모지는 달력 칸에 그대로 나타납니다. 기본 분류는 지우는 대신 숨길 수 있습니다.',
@@ -2463,6 +2662,23 @@ const DICT = {
     'cal.aria.grid': '월 달력',
     'cal.wd.sun': '일', 'cal.wd.mon': '월', 'cal.wd.tue': '화', 'cal.wd.wed': '수',
     'cal.wd.thu': '목', 'cal.wd.fri': '금', 'cal.wd.sat': '토',
+    // ---- 년·월 고르기 ----
+    'cal.pick.open': '년·월 고르기',
+    'cal.pick.close': '닫기',
+    'cal.pick.month': (y) => `${y}년 · 달 고르기`,
+    'cal.pick.year': '연도 고르기',
+    'cal.pick.prevYear': '이전 해', 'cal.pick.nextYear': '다음 해',
+    'cal.pick.prevYears': '이전 12년', 'cal.pick.nextYears': '다음 12년',
+    'cal.pick.toYears': '연도 목록 열기',
+    'cal.pick.monthName': (m) => `${m}월`,
+    // ---- 보기 전환: 달력 격자 / 일정 목록 ----
+    'cal.view.grid': '달력',
+    'cal.view.agenda': '일정',
+    'cal.view.label': '보기 방식',
+    'cal.agenda.empty': '앞으로 두 달 안에 등록된 일이 없습니다.',
+    'cal.agenda.today': '오늘',
+    'cal.agenda.allDay': '종일',
+    'cal.agenda.range': (n) => `앞으로 ${n}일`,
     'cz.card.todo.cal': '달력',
     'cz.card.time.clock': '시계', 'cz.card.time.timer': '타이머·알람',
     'cz.card.memo.draw': '낙서판', 'cz.card.memo.note': '간단 메모',
@@ -2547,6 +2763,10 @@ const DICT = {
     'today.rotate.play': 'Start rotation',
     'today.aria.rotation': 'Unfinished task carousel',
     'today.aria.position': (i, n) => `Item ${i} of ${n}`,
+    'today.todo.check': (text) => `Mark ${text} done`,
+    'today.todo.edit': (text) => `Edit ${text}`,
+    'today.todo.editHint': 'Enter to save, Esc to cancel',
+    'today.todo.open': (text) => `${text} — open in the planner`,
     // ---- Tab names ----
     'tab.today': 'Today', 'tab.calc': 'Calculator', 'tab.weather': 'Weather', 'tab.todo': 'TO DO',
     'tab.time': 'Clock & timer', 'tab.memo': 'Notes', 'tab.quote': 'Quotes',
@@ -2617,6 +2837,11 @@ const DICT = {
     'todo.aria.category': 'Activity category',
     'todo.aria.more': 'More',
     'todo.week.goals': 'Goals for this week',
+    // ---- Time of day ----
+    'todo.time.label': 'Time (leave empty for all day)',
+    'todo.time.allDay': 'All day',
+    'todo.time.clear': 'Clear the time',
+    'todo.time.set': (text) => `Set a time for ${text}`,
     // ---- Category editing ----
     'cat.edit': 'Edit categories',
     'cat.hint': 'The emoji is what shows up on the calendar. Built-in categories can be hidden instead of deleted.',
@@ -2643,6 +2868,24 @@ const DICT = {
     'cal.aria.grid': 'Month calendar',
     'cal.wd.sun': 'Sun', 'cal.wd.mon': 'Mon', 'cal.wd.tue': 'Tue', 'cal.wd.wed': 'Wed',
     'cal.wd.thu': 'Thu', 'cal.wd.fri': 'Fri', 'cal.wd.sat': 'Sat',
+    // ---- Year / month picker ----
+    'cal.pick.open': 'Pick year and month',
+    'cal.pick.close': 'Close',
+    'cal.pick.month': (y) => `${y} · pick a month`,
+    'cal.pick.year': 'Pick a year',
+    'cal.pick.prevYear': 'Previous year', 'cal.pick.nextYear': 'Next year',
+    'cal.pick.prevYears': 'Previous 12 years', 'cal.pick.nextYears': 'Next 12 years',
+    'cal.pick.toYears': 'Open the year list',
+    'cal.pick.monthName': (m) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1],
+    // ---- View switch: month grid / schedule list ----
+    'cal.view.grid': 'Month',
+    'cal.view.agenda': 'Schedule',
+    'cal.view.label': 'View',
+    'cal.agenda.empty': 'Nothing scheduled in the next two months.',
+    'cal.agenda.today': 'Today',
+    'cal.agenda.allDay': 'All day',
+    'cal.agenda.range': (n) => `Next ${n} days`,
     'cz.card.todo.cal': 'Calendar',
     'cz.card.time.clock': 'Clock', 'cz.card.time.timer': 'Timer & alarm',
     'cz.card.memo.draw': 'Scratchpad', 'cz.card.memo.note': 'Quick notes',
@@ -3638,6 +3881,56 @@ function migrateWeekBase(list) {
   return out;
 }
 
+/* ---------- 하루 안의 시각 ----------
+ *
+ * 일간 계획에만 붙습니다. 주/월/연 계획은 하루 안의 시각이라는 게 없습니다.
+ * 비어 있으면 '종일' 입니다. Google 캘린더와 Todoist 모두 종일 항목을 맨 위에 놓고,
+ * 시각이 있는 것을 그 아래 시간순으로 놓습니다. 같은 차례를 씁니다.
+ *
+ * 저장 형식은 'HH:MM' 24시간제입니다. <input type="time"> 이 주는 값과 같아
+ * 변환 없이 그대로 오갑니다.
+ */
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** 쓸 수 있는 시각이면 'HH:MM' 으로, 아니면 null 로 돌려줍니다. */
+function normalizeTime(raw) {
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!text) return null;
+  if (TIME_RE.test(text)) return text;
+  // '9:5' 처럼 자리를 덜 채운 값도 받아 줍니다. 손으로 고칠 수 있는 입력칸이 있습니다.
+  const m = /^(\d{1,2}):(\d{1,2})$/.exec(text);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return `${pad(h)}:${pad(min)}`;
+}
+
+/** 정렬용 분 단위 값. 시각이 없으면 -1 이라 종일이 언제나 맨 위입니다. */
+function minutesOf(item) {
+  const time = normalizeTime(item?.time);
+  if (!time) return -1;
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+}
+
+/** 시각만 있는 항목인지. 종일과 나누는 기준입니다. */
+const isTimed = (item) => item?.scope === 'day' && normalizeTime(item?.time) !== null;
+
+/**
+ * 하루치를 화면에 놓을 차례로 정렬합니다.
+ * 종일이 먼저, 그다음 시각순. 같은 시각이면 만든 차례를 지킵니다.
+ */
+function sortDayRows(rows) {
+  return rows
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => {
+      const d = minutesOf(a.item) - minutesOf(b.item);
+      return d !== 0 ? d : a.i - b.i;
+    })
+    .map((x) => x.item);
+}
+
 /* ---------- 기간 계산 ---------- */
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -3669,6 +3962,21 @@ function applyFilter(rows) {
  * @returns {{key: string|null, title: string|null, rows: object[]}[]}
  */
 function groups() {
+  if (scope === 'day') {
+    /*
+     * 일간은 시간순으로 놓습니다.
+     * 종일이 먼저, 그 아래 시각이 있는 것이 이른 시각부터입니다.
+     * (Google 캘린더와 Todoist 의 하루 보기와 같은 차례입니다)
+     */
+    const rows = sortDayRows(applyFilter(items.filter(inPeriod)));
+    const allDay = rows.filter((x) => !isTimed(x));
+    const timed = rows.filter(isTimed);
+    if (!timed.length) return [{ key: null, title: null, rows }];
+    const out = [];
+    if (allDay.length) out.push({ key: null, title: t('todo.time.allDay'), rows: allDay });
+    out.push({ key: null, title: null, rows: timed });
+    return out;
+  }
   if (scope !== 'week') {
     return [{ key: null, title: null, rows: applyFilter(items.filter(inPeriod)) }];
   }
@@ -3682,7 +3990,8 @@ function groups() {
   daysOfWeek(period).forEach((key) => {
     const rows = applyFilter(items.filter((x) => x.scope === 'day' && x.period === key));
     if (!rows.length) return;
-    out.push({ key, title: label('day', key, lang), rows });
+    // 하루 안에서는 여기서도 시간순입니다. 일간에서 본 차례와 달라지면 헷갈립니다.
+    out.push({ key, title: label('day', key, lang), rows: sortDayRows(rows) });
   });
   return out;
 }
@@ -3695,6 +4004,51 @@ function periodRows() {
     (x.scope === 'week' && x.period === period)
     || (x.scope === 'day' && days.has(x.period))
   ));
+}
+
+/**
+ * 항목의 시각을 고칩니다.
+ *
+ * 시각 칸을 눌러 그 자리에서 고칩니다. 비우고 저장하면 종일로 돌아갑니다.
+ * <input type="time"> 을 잠깐 얹어 씁니다. 기기마다 제 시각 고르개가 뜨므로
+ * 직접 만든 고르개보다 손에 익습니다.
+ */
+function editTime(item) {
+  const cell = document.querySelector(`[data-time-for="${CSS.escape(item.id)}"]`);
+  if (!cell || cell.dataset.editing === 'on') return;
+
+  const input = el('input', {
+    type: 'time', step: '300',
+    class: 'field todo-time-edit',
+    value: normalizeTime(item.time) || '',
+    'aria-label': t('todo.time.set', item.text),
+  });
+
+  let closed = false;
+  const close = (save) => {
+    if (closed) return;
+    closed = true;
+    if (!save) { input.replaceWith(cell); return; }
+    const next = normalizeTime(input.value);
+    const target = items.find((x) => x.id === item.id);
+    if (target) {
+      // 비우면 종일로 돌아갑니다. 키 자체를 지워야 저장값이 깔끔합니다.
+      if (next) target.time = next; else delete target.time;
+      persist();
+      render();
+      return;
+    }
+    input.replaceWith(cell);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); close(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+  });
+  input.addEventListener('blur', () => close(true));
+
+  cell.replaceWith(input);
+  input.focus();
 }
 
 /* ---------- 그리기 ---------- */
@@ -3729,14 +4083,35 @@ function itemRow(item, shownRows) {
     renderKeepingFocus({ id: item.id, kind: 'check' });
   });
 
+  /*
+   * 시각 칸.
+   * 일간 항목에만 나옵니다. 누르면 그 자리에서 시각을 고치거나 지울 수 있습니다.
+   * 종일 항목에는 빈 자리를 두지 않습니다. 목록 대부분이 종일인데 빈 칸을 늘어 두면
+   * 글자가 밀려 읽기 나빠집니다.
+   */
+  const time = normalizeTime(item.time);
+  const timeCell = item.scope === 'day'
+    ? el('button', {
+      class: `todo-time${time ? '' : ' is-empty'}`,
+      type: 'button',
+      'aria-label': time ? `${item.text} — ${time}` : t('todo.time.set', item.text),
+      title: time ? t('todo.time.clear') : t('todo.time.set', item.text),
+      dataset: { timeFor: item.id },
+      onclick: () => editTime(item),
+    }, time || '＋')
+    : '';
+
   return el('li', { class: `todo-item${item.done ? ' done' : ''}`, dataset: { id: item.id } },
     checkbox,
+    timeCell,
     el('span', { class: 'todo-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
     el('span', { class: 'todo-text' }, item.text),
     el('button', {
       class: 'btn btn-sm btn-ghost',
       title: t('todo.aria.delete'),
       'aria-label': t('todo.aria.delete'),
+      // 줄 안의 버튼이 늘었습니다. '몇 번째 버튼'으로 집으면 칸이 하나 늘 때마다 어긋납니다.
+      dataset: { del: item.id },
       onclick: () => {
         // 삭제 후에는 다음 항목의 삭제 버튼으로, 없으면 입력창으로 포커스를 넘깁니다.
         const idx = shownRows.findIndex((x) => x.id === item.id);
@@ -3792,7 +4167,17 @@ function renderKeepingFocus(hint) {
   target?.focus();
 }
 
+/** 시각 칸은 일간에서만 보입니다. 주/월/연에는 하루 안의 시각이라는 게 없습니다. */
+function syncTimeInput() {
+  const box = $('#todo-time');
+  if (!box) return;
+  const show = scope === 'day';
+  box.hidden = !show;
+  if (!show) box.value = '';
+}
+
 function syncScopeTabs() {
+  syncTimeInput();
   $$('.scope-tab').forEach((b) => {
     b.setAttribute('aria-selected', String(b.dataset.scope === scope));
   });
@@ -3858,6 +4243,41 @@ function applyPanelLang() {
  * 특정 항목이 보이도록 단위/기간/필터를 맞추고 잠깐 강조합니다.
  * '오늘' 탭에서 할 일을 눌렀을 때 그 항목이 어디 있는지 바로 알 수 있게 합니다.
  */
+/**
+ * 항목 하나의 완료 여부를 바꿉니다.
+ *
+ * '오늘' 탭의 요약에서도 바로 체크할 수 있어야 합니다. 체크하려고 계획표까지
+ * 건너가야 하면 요약을 보는 의미가 없습니다.
+ * @returns {boolean} 그 항목을 찾아 바꿨으면 true
+ */
+function setDone(id, done) {
+  const target = items.find((item) => item.id === id);
+  if (!target) return false;
+  const next = done === undefined ? !target.done : done === true;
+  if (target.done === next) return true;
+  target.done = next;
+  target.doneAt = next ? Date.now() : null;
+  persist();
+  render();
+  return true;
+}
+
+/**
+ * 항목의 글을 고칩니다.
+ * 빈 글로는 바꾸지 않습니다. 지우고 싶으면 삭제를 써야 합니다.
+ * @returns {boolean} 실제로 바뀌었으면 true
+ */
+function renameItem(id, text) {
+  const next = typeof text === 'string' ? text.trim() : '';
+  if (!next) return false;
+  const target = items.find((item) => item.id === id);
+  if (!target || target.text === next) return false;
+  target.text = next;
+  persist();
+  render();
+  return true;
+}
+
 function revealItem(id) {
   const target = items.find((item) => item.id === id);
   if (!target) return false;
@@ -4121,12 +4541,17 @@ function initTodo() {
     const input = $('#todo-input');
     const text = input.value.trim();
     if (!text) return;
+    // 시각은 일간에서만 의미가 있습니다. 비어 있으면 종일입니다.
+    const timeInput = $('#todo-time');
+    const time = scope === 'day' ? normalizeTime(timeInput?.value) : null;
     items.unshift({
       id: uid(), text, done: false, scope, period,
       category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
+      ...(time ? { time } : {}),
       at: Date.now(), doneAt: null,
     });
     input.value = '';
+    // 시각은 남겨 둡니다. 같은 시간대에 여러 개를 넣는 일이 흔합니다.
     persist();
     render();
   });
@@ -4155,7 +4580,7 @@ function initTodo() {
   render();
   notifyView();
 }
-  return { onTodoChange, onViewChange, getItems, getView, daysOfWeek, revealItem, openDate, initTodo };
+  return { onTodoChange, onViewChange, getItems, getView, normalizeTime, minutesOf, sortDayRows, daysOfWeek, setDone, renameItem, revealItem, openDate, initTodo };
 })();
 
 /* ===== js/modules/weather.js ===== */
@@ -4753,7 +5178,8 @@ const __m_js_modules_today_js = (function () {
   const { isCurrent, SCOPES } = __m_js_lib_period_js;
   const { load } = __m_js_lib_store_js;
   const { getPrefs, onPrefsChange } = __m_js_lib_prefs_js;
-  const { getItems, onTodoChange, revealItem } = __m_js_modules_todo_js;
+  const { getItems, onTodoChange, revealItem, setDone, renameItem } = __m_js_modules_todo_js;
+  const { emojiOf, labelOf } = __m_js_lib_categories_js;
   const { getWeather, onWeatherChange, describe } = __m_js_modules_weather_js;
   const { getTimerState } = __m_js_modules_time_js;
   const { goToTab, onTabChange } = __m_js_lib_nav_js;
@@ -4777,6 +5203,7 @@ const __m_js_modules_today_js = (function () {
 
 
 
+
 const ROTATE_MS = 3500;
 const VISIBLE_ROWS = 3; // 상자 안에 한 번에 보이는 할 일 개수
 const TICK_MS = 1000;   // 시계·타이머 위젯 갱신 주기
@@ -4791,7 +5218,17 @@ let rotateTimer = null;
 let clockTimer = null;
 let rotateIndex = 0;
 let paused = false;      // 사용자가 버튼으로 멈춘 상태
-let hovering = false;    // 손/포인터가 올라가 있는 동안
+let hovering = false;    // 손/포인터가 올라가 있거나, 글자를 고치는 중
+
+/**
+ * 순환을 멈출지 여부. 손이 올라가 있거나 글을 고치는 중이면 멈춥니다.
+ * initToday 안에만 두면 글자 고치기에서 부를 수가 없어 모듈 범위로 올렸습니다.
+ */
+function setHover(on) {
+  if (hovering === on) return;
+  hovering = on;
+  syncTimer();
+}
 let tabActive = false;   // '오늘' 탭이 보이는 동안만 타이머를 돌립니다
 let rows = [];           // 현재 보여주는 미완료 항목
 
@@ -4904,6 +5341,91 @@ function weatherBody() {
     el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'));
 }
 
+/**
+ * '오늘 할 일' 한 줄.
+ *
+ * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+ * 요약을 보다가 체크하려고 탭을 옮겨야 하면 요약을 보는 의미가 없습니다.
+ * 이제 한 줄에 체크칸 · 분류 이모지 · 글 · 고치기가 같이 있습니다.
+ *
+ * 글을 누르면 예전처럼 계획표로 갑니다. 고치기는 그 자리에서 글자만 바꿉니다.
+ */
+function todoRow(item, index, total) {
+  const check = el('input', {
+    type: 'checkbox',
+    class: 'today-rot-check',
+    checked: item.done === true,
+    'aria-label': t('today.todo.check', item.text),
+  });
+  // 체크하면 목록에서 빠집니다. 순환 위치가 목록 밖을 가리키지 않게 renderAll 이 다시 맞춥니다.
+  check.addEventListener('change', () => setDone(item.id, check.checked));
+
+  const text = el('button', {
+    class: 'today-rot-text', type: 'button',
+    dataset: { id: item.id },
+    'aria-label': `${t('today.todo.open', item.text)}. ${t('today.aria.position', index + 1, total)}`,
+  }, item.text);
+
+  const edit = el('button', {
+    class: 'today-rot-edit icon-btn', type: 'button',
+    'aria-label': t('today.todo.edit', item.text),
+    title: t('today.todo.edit', item.text),
+  }, '✎');
+
+  const row = el('div', {
+    class: `today-rot-item scope-${item.scope}`,
+    dataset: { id: item.id },
+  },
+  check,
+  el('span', { class: 'today-rot-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+  text,
+  edit);
+
+  edit.addEventListener('click', () => startEdit(row, item));
+  return row;
+}
+
+/**
+ * 그 자리에서 글자 고치기.
+ * Enter 로 저장, Esc 로 취소, 다른 곳을 누르면 저장합니다.
+ * 고치는 동안에는 순환이 돌면 안 됩니다. 글자가 흘러가면 고칠 수가 없습니다.
+ */
+function startEdit(row, item) {
+  if (row.querySelector('.today-rot-input')) return;
+  const textBtn = row.querySelector('.today-rot-text');
+  if (!textBtn) return;
+
+  const input = el('input', {
+    type: 'text',
+    class: 'field today-rot-input',
+    value: item.text,
+    'aria-label': t('today.todo.edit', item.text),
+    title: t('today.todo.editHint'),
+    maxlength: '200',
+  });
+
+  let closed = false;
+  const close = (save) => {
+    if (closed) return;
+    closed = true;
+    setHover(false);
+    // 저장하면 목록이 다시 그려지므로 되돌릴 필요가 없습니다. 취소면 원래 버튼을 되돌립니다.
+    if (save && renameItem(item.id, input.value)) return;
+    input.replaceWith(textBtn);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); close(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+  });
+  input.addEventListener('blur', () => close(true));
+
+  textBtn.replaceWith(input);
+  setHover(true);   // 고치는 동안 순환을 멈춥니다
+  input.focus();
+  input.select();
+}
+
 function todoBody() {
   rows = todayRows();
   const track = el('div', {
@@ -4923,14 +5445,7 @@ function todoBody() {
     return track;
   }
 
-  rows.forEach((item, i) => track.append(el('button', {
-    class: 'today-rot-item',
-    type: 'button',
-    dataset: { id: item.id },
-    'aria-label': `${item.text}. ${t('today.aria.position', i + 1, rows.length)}. ${t('today.todo.hint')}`,
-  },
-  el('span', { class: `today-rot-dot scope-${item.scope}`, 'aria-hidden': 'true' }),
-  el('span', { class: 'today-rot-text' }, item.text))));
+  rows.forEach((item, i) => track.append(todoRow(item, i, rows.length)));
 
   if (rotateIndex > maxRotateIndex(rows.length)) rotateIndex = 0;
   return track;
@@ -5139,12 +5654,18 @@ function initToday() {
 
   // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
   host.addEventListener('click', (e) => {
-    const item = e.target.closest('.today-rot-item');
-    if (item) {
+    /*
+     * 줄에서 '글' 을 눌렀을 때만 계획표로 건너뜁니다.
+     * 줄 전체를 기준으로 잡으면 체크칸이나 고치기를 눌러도 탭이 넘어가 버립니다.
+     */
+    const text = e.target.closest('.today-rot-text');
+    if (text) {
       goToTab('todo');
-      revealItem(item.dataset.id);
+      revealItem(text.dataset.id);
       return;
     }
+    // 체크칸과 고치기는 제 일만 하고 여기서 끝냅니다.
+    if (e.target.closest('.today-rot-check, .today-rot-edit, .today-rot-input')) return;
     if (e.target.closest('#today-rot-toggle')) {
       paused = !paused;
       updateRotateControl();
@@ -5172,7 +5693,6 @@ function initToday() {
    *  버튼을 한 번 누른 뒤 마우스가 그 자리에 남아 순환이 영영 멈춥니다)
    */
   const inRot = (node) => !!(node && node.closest && node.closest('#today-rot'));
-  const setHover = (on) => { if (hovering !== on) { hovering = on; syncTimer(); } };
   host.addEventListener('pointerover', (e) => { if (inRot(e.target)) setHover(true); });
   host.addEventListener('pointerout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
   host.addEventListener('pointerdown', (e) => { if (inRot(e.target)) setHover(true); });
@@ -5729,9 +6249,9 @@ const __m_js_modules_calendar_js = (function () {
   const { $, el } = __m_js_lib_dom_js;
   const { t, getLang, onLangChange } = __m_js_lib_i18n_js;
   const { load, save } = __m_js_lib_store_js;
-  const { emojiOf } = __m_js_lib_categories_js;
-  const { keyOf, dateOf, weekRange, weekParts } = __m_js_lib_period_js;
-  const { getItems, onTodoChange, onViewChange, getView, openDate } = __m_js_modules_todo_js;
+  const { emojiOf, labelOf } = __m_js_lib_categories_js;
+  const { keyOf, dateOf, weekRange, weekParts, label } = __m_js_lib_period_js;
+  const { getItems, onTodoChange, onViewChange, getView, openDate, normalizeTime, sortDayRows } = __m_js_modules_todo_js;
 /**
  * calendar.js — TO DO 탭 맨 위의 월 달력
  *
@@ -5770,6 +6290,32 @@ let cursor = new Date();
  * 지금 주 한 줄만 남기면 목록이 그만큼 넓어집니다. 고른 상태는 기억합니다.
  */
 let folded = load(FOLD_KEY, false) === true;
+
+/*
+ * 년·월 고르기 판.
+ *
+ * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+ * 달 이름을 누르면 판이 열리고, 판에서 연도를 누르면 연도 격자로 바뀝니다.
+ * (Material 날짜 선택기의 흐름입니다. 달 격자 <-> 연도 격자)
+ */
+let pickOpen = false;
+let pickMode = 'month';     // 'month' | 'year'
+let pickYear = new Date().getFullYear();   // 판이 보고 있는 해
+let pickYearPage = 0;       // 연도 격자가 보고 있는 12년 묶음 (0 이면 pickYear 가 든 묶음)
+
+/** 연도 격자 한 판에 놓는 개수. 4열 x 3줄입니다. */
+const YEARS_PER_PAGE = 12;
+
+/*
+ * 보기 방식. 'grid' 는 한 달 격자, 'agenda' 는 날짜별로 묶은 시간순 목록입니다.
+ * Google 캘린더의 '일정(Schedule)' 보기가 후자입니다. 격자를 버리고 앞으로 올 일을
+ * 시간순 목록으로 늘어놓아, 좁은 화면에서 읽기 쉽습니다.
+ */
+const VIEW_KEY = 'cal.view';
+let calView = load(VIEW_KEY, 'grid') === 'agenda' ? 'agenda' : 'grid';
+
+/** 일정 목록이 앞으로 며칠까지 훑을지. 두 달이면 '다음에 뭐 있더라' 에 충분합니다. */
+const AGENDA_DAYS = 62;
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -5865,6 +6411,8 @@ function inView(date, view) {
 function render() {
   const grid = $('#cal-grid');
   if (!grid) return;
+  // 일정 목록일 때는 격자를 그릴 필요가 없습니다. 안 보이는 것을 그리는 건 낭비입니다.
+  if (calView === 'agenda') { renderAgenda(); return; }
 
   const lang = getLang();
   const view = getView();
@@ -5875,11 +6423,11 @@ function render() {
 
   const foldBtn = $('#cal-fold');
   if (foldBtn) {
-    // 글자는 안쪽 span 에만 씁니다. 버튼 전체를 덮어쓰면 달 이름까지 날아갑니다.
     const mark = $('#cal-fold-mark');
     if (mark) mark.textContent = folded ? '⌄' : '⌃';
     foldBtn.setAttribute('aria-expanded', String(!folded));
     foldBtn.title = t(folded ? 'cal.unfold' : 'cal.fold');
+    foldBtn.setAttribute('aria-label', t(folded ? 'cal.unfold' : 'cal.fold'));
   }
 
   // 접었으면 커서가 든 주 한 줄만, 펼쳤으면 커서가 든 달 전체를 그립니다.
@@ -5949,6 +6497,212 @@ function render() {
   grid.replaceChildren(...cells);
 }
 
+/* ---------- 일정(Schedule) 보기 ----------
+ *
+ * Google 캘린더의 '일정' 보기와 같은 꼴입니다.
+ * 격자를 버리고, 오늘부터 앞으로 올 일을 날짜별로 묶어 시간순으로 늘어놓습니다.
+ * 한 줄에 시각 · 분류 이모지 · 글이 들어가고, 오늘 줄에는 표가 붙습니다.
+ *
+ * 일간 계획만 놓습니다. 주/월/연 계획은 특정 하루에 속하지 않아서,
+ * 날짜별 목록에 올리면 어느 날인지 거짓으로 알려주게 됩니다. (달력 격자와 같은 이유입니다)
+ */
+
+/** 오늘부터 AGENDA_DAYS 일 안에서, 일이 있는 날만 날짜순으로 묶습니다. */
+function agendaDays(items = getItems(), from = new Date(), span = AGENDA_DAYS) {
+  const byDay = groupByDay(items);
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const out = [];
+  for (let i = 0; i < span; i += 1) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const key = dayKey(d);
+    const rows = byDay.get(key);
+    if (!rows || !rows.length) continue;
+    out.push({ key, date: d, rows: sortDayRows(rows) });
+  }
+  return out;
+}
+
+function renderAgenda() {
+  const host = $('#cal-agenda');
+  if (!host) return;
+  const lang = getLang();
+  const todayKey = keyOf('day');
+  const days = agendaDays();
+
+  if (!days.length) {
+    host.replaceChildren(el('p', { class: 'cal-agenda-empty' }, t('cal.agenda.empty')));
+    return;
+  }
+
+  const blocks = days.map((day) => {
+    const head = el('div', { class: `cal-agenda-head${day.key === todayKey ? ' is-today' : ''}` },
+      el('span', { class: 'cal-agenda-date' }, label('day', day.key, lang)),
+      day.key === todayKey ? el('span', { class: 'cal-agenda-mark' }, t('cal.agenda.today')) : '');
+
+    const rows = day.rows.map((item) => {
+      const time = normalizeTime(item.time);
+      return el('button', {
+        class: `cal-agenda-row${item.done ? ' is-done' : ''}`,
+        type: 'button',
+        dataset: { agendaId: item.id, agendaDay: day.key },
+        // 누르면 계획표가 그 날짜로 옮겨 가고 그 항목을 잠깐 강조합니다.
+        onclick: () => openDate(day.key, item.id),
+      },
+      el('span', { class: `cal-agenda-time${time ? '' : ' is-allday'}` },
+        time || t('cal.agenda.allDay')),
+      el('span', { class: 'cal-agenda-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+      el('span', { class: 'cal-agenda-text' }, item.text));
+    });
+
+    return el('div', { class: 'cal-agenda-day' }, head, ...rows);
+  });
+
+  host.replaceChildren(...blocks);
+}
+
+/** 보기 전환을 화면에 반영합니다. 격자와 목록은 한 번에 하나만 보입니다. */
+function applyView() {
+  const grid = $('#cal-grid');
+  const agenda = $('#cal-agenda');
+  const isAgenda = calView === 'agenda';
+  if (grid) grid.hidden = isAgenda;
+  if (agenda) agenda.hidden = !isAgenda;
+  $('#cal-view-grid')?.setAttribute('aria-selected', String(!isAgenda));
+  $('#cal-view-agenda')?.setAttribute('aria-selected', String(isAgenda));
+  // 일정 목록에서는 달을 오가는 ‹ › 와 요일 머리글이 의미가 없습니다.
+  $('.cal-nav')?.toggleAttribute('hidden', isAgenda);
+  $('#cal-pick')?.toggleAttribute('hidden', isAgenda || !pickOpen);
+}
+
+function setView(next) {
+  calView = next === 'agenda' ? 'agenda' : 'grid';
+  save(VIEW_KEY, calView);
+  if (calView === 'agenda') closePick();
+  applyView();
+  render();
+}
+
+/** 지금 보기 방식. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+function calendarView() {
+  return calView;
+}
+
+/* ---------- 년·월 고르기 판 ---------- */
+
+/**
+ * 연도 격자가 보여 줄 12년의 첫 해.
+ *
+ * 12로 나눠떨어지는 자리에 맞추면 2026년에 '2016 – 2027' 이 나옵니다. 읽기 이상합니다.
+ * 보고 있는 해가 가운데쯤 오도록 잡습니다. (2026 -> 2021 – 2032)
+ */
+function yearPageStart() {
+  return pickYear - 5 + pickYearPage * YEARS_PER_PAGE;
+}
+
+/** 판을 지금 상태대로 다시 그립니다. */
+function renderPick() {
+  const panel = $('#cal-pick');
+  const grid = $('#cal-pick-grid');
+  const title = $('#cal-pick-title');
+  const opener = $('#cal-pick-open');
+  if (!panel || !grid || !title) return;
+
+  panel.hidden = !pickOpen;
+  opener?.setAttribute('aria-expanded', String(pickOpen));
+  if (!pickOpen) { grid.replaceChildren(); return; }
+
+  const lang = getLang();
+  const now = new Date();
+  const cells = [];
+
+  if (pickMode === 'month') {
+    title.textContent = String(pickYear);
+    title.title = t('cal.pick.toYears');
+    title.setAttribute('aria-label', t('cal.pick.month', pickYear));
+    $('#cal-pick-prev')?.setAttribute('aria-label', t('cal.pick.prevYear'));
+    $('#cal-pick-next')?.setAttribute('aria-label', t('cal.pick.nextYear'));
+    grid.setAttribute('aria-label', t('cal.pick.month', pickYear));
+
+    for (let m = 1; m <= 12; m += 1) {
+      const onNow = pickYear === now.getFullYear() && m === now.getMonth() + 1;
+      const onCursor = pickYear === cursor.getFullYear() && m === cursor.getMonth() + 1;
+      const cell = el('button', {
+        class: `cal-pick-cell${onCursor ? ' is-on' : ''}${onNow ? ' is-now' : ''}`,
+        type: 'button',
+        dataset: { pickMonth: String(m) },
+        'aria-pressed': String(onCursor),
+      }, t('cal.pick.monthName', m));
+      cell.addEventListener('click', () => {
+        // 고른 달의 1일로 옮깁니다. 접혀 있으면 그 주가, 펼쳐져 있으면 그 달이 보입니다.
+        cursor = new Date(pickYear, m - 1, 1);
+        closePick();
+        render();
+      });
+      cells.push(cell);
+    }
+  } else {
+    const start = yearPageStart();
+    title.textContent = `${start} – ${start + YEARS_PER_PAGE - 1}`;
+    title.title = t('cal.pick.year');
+    title.setAttribute('aria-label', t('cal.pick.year'));
+    $('#cal-pick-prev')?.setAttribute('aria-label', t('cal.pick.prevYears'));
+    $('#cal-pick-next')?.setAttribute('aria-label', t('cal.pick.nextYears'));
+    grid.setAttribute('aria-label', t('cal.pick.year'));
+
+    for (let i = 0; i < YEARS_PER_PAGE; i += 1) {
+      const y = start + i;
+      const cell = el('button', {
+        class: `cal-pick-cell${y === cursor.getFullYear() ? ' is-on' : ''}${y === now.getFullYear() ? ' is-now' : ''}`,
+        type: 'button',
+        dataset: { pickYear: String(y) },
+        'aria-pressed': String(y === cursor.getFullYear()),
+      }, String(y));
+      cell.addEventListener('click', () => {
+        // 해를 고르면 달 격자로 돌아갑니다. 아직 어느 달인지 안 골랐습니다.
+        pickYear = y;
+        pickYearPage = 0;
+        pickMode = 'month';
+        renderPick();
+        $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+      });
+      cells.push(cell);
+    }
+  }
+  grid.replaceChildren(...cells);
+  // 언어가 바뀌면 판 안의 글자도 따라가야 합니다. lang 은 위에서 읽어 둔 값으로 충분합니다.
+  void lang;
+}
+
+function openPick() {
+  pickOpen = true;
+  pickMode = 'month';
+  pickYear = cursor.getFullYear();
+  pickYearPage = 0;
+  renderPick();
+  // 판을 열면 첫 칸으로 초점을 보내야 키보드로 바로 고를 수 있습니다.
+  $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+}
+
+function closePick({ restoreFocus = false } = {}) {
+  if (!pickOpen) return;
+  pickOpen = false;
+  renderPick();
+  if (restoreFocus) $('#cal-pick-open')?.focus();
+}
+
+/** 판의 ‹ › . 달 격자면 한 해씩, 연도 격자면 12년씩 움직입니다. */
+function movePick(delta) {
+  if (pickMode === 'month') pickYear += delta;
+  else pickYearPage += delta;
+  renderPick();
+}
+
+/** 판이 열려 있는지. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+function isPickOpen() {
+  return pickOpen;
+}
+
 /** 접혀 있으면 한 주씩, 펼쳐져 있으면 한 달씩 움직입니다. */
 function move(delta) {
   const next = new Date(cursor);
@@ -5964,6 +6718,8 @@ function followView(view) {
     // 주간은 일요일이, 월간은 1일이 대표 날짜입니다. (period.js 의 dateOf 규칙)
     cursor = dateOf(view.scope, view.period);
   } catch { /* 저장값이 손상된 경우 보고 있던 자리를 그대로 둡니다 */ }
+  // 달력이 딴 달로 옮겨 갔는데 고르기 판이 옛 해를 보고 있으면 어긋나 보입니다.
+  closePick();
   render();
 }
 
@@ -5983,9 +6739,37 @@ function initCalendar() {
     render();
   });
 
+  // --- 보기 전환 ---
+  $('#cal-view-grid')?.addEventListener('click', () => setView('grid'));
+  $('#cal-view-agenda')?.addEventListener('click', () => setView('agenda'));
+  applyView();
+
+  // --- 년·월 고르기 판 ---
+  $('#cal-pick-open')?.addEventListener('click', () => {
+    if (pickOpen) closePick({ restoreFocus: true }); else openPick();
+  });
+  $('#cal-pick-prev')?.addEventListener('click', () => movePick(-1));
+  $('#cal-pick-next')?.addEventListener('click', () => movePick(1));
+  $('#cal-pick-title')?.addEventListener('click', () => {
+    // 달 격자에서 연도를 누르면 연도 격자로, 연도 격자에서 누르면 되돌아옵니다.
+    pickMode = pickMode === 'month' ? 'year' : 'month';
+    pickYearPage = 0;
+    renderPick();
+    $('#cal-pick-grid')?.querySelector('.cal-pick-cell.is-on, .cal-pick-cell')?.focus();
+  });
+  // 판 밖을 누르거나 Esc 를 누르면 닫습니다. 열어 둔 채 다른 곳을 만지면 헷갈립니다.
+  document.addEventListener('pointerdown', (e) => {
+    if (!pickOpen) return;
+    if (e.target.closest?.('#cal-pick, #cal-pick-open')) return;
+    closePick();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pickOpen) { e.preventDefault(); closePick({ restoreFocus: true }); }
+  });
+
   onTodoChange(() => render());
   onViewChange(followView);
-  onLangChange(() => render());
+  onLangChange(() => { render(); renderPick(); });
 
   followView(getView());
 }
@@ -6002,7 +6786,7 @@ function shownMonth() {
 
 /** 요일 머리글 순서. 일요일 시작인지 확인할 때 씁니다. */
 const WEEK_START_KEYS = WEEKDAY_KEYS;
-  return { dayKey, weekRow, monthGrid, groupByDay, initCalendar, isFolded, shownMonth, WEEK_START_KEYS };
+  return { dayKey, weekRow, monthGrid, groupByDay, agendaDays, calendarView, isPickOpen, initCalendar, isFolded, shownMonth, WEEK_START_KEYS };
 })();
 
 /* ===== js/modules/memo.js ===== */

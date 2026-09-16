@@ -430,12 +430,12 @@ const main = async () => {
   check('동적 요소 — 영어 체크박스 이름',
     (await page.getAttribute('#todo-list .todo-item input', 'aria-label')) === 'Mark as done');
   check('동적 요소 — 영어 삭제 버튼 이름',
-    (await page.getAttribute('#todo-list .todo-item button', 'aria-label')) === 'Delete');
+    (await page.getAttribute('#todo-list .todo-item [data-del]', 'aria-label')) === 'Delete');
   await setLanguage('ko');
   check('동적 요소 — 한국어 체크박스 이름',
     (await page.getAttribute('#todo-list .todo-item input', 'aria-label')) === '완료 표시');
   check('동적 요소 — 한국어 삭제 버튼 이름',
-    (await page.getAttribute('#todo-list .todo-item button', 'aria-label')) === '삭제');
+    (await page.getAttribute('#todo-list .todo-item [data-del]', 'aria-label')) === '삭제');
   await setLanguage('en');
 
   await page.click('.chip[data-filter="active"]');
@@ -615,9 +615,78 @@ const main = async () => {
     `${beforePause} -> ${afterPause}`);
   await page.click('#today-rot-toggle');   // 다시 켜 둡니다
 
-  // 할 일을 누르면 계획표의 그 항목으로
+  /* ---------- 줄 안에서 바로 체크하고 고치기 ----------
+   *
+   * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+   * 요약을 보다가 체크하려고 탭을 옮겨야 하면 요약을 보는 의미가 없습니다.
+   */
+  const rotRows = () => page.evaluate(() => (
+    [...document.querySelectorAll('#today-rot .today-rot-item')].map((n) => ({
+      id: n.dataset.id,
+      cat: n.querySelector('.today-rot-cat')?.textContent || '',
+      text: n.querySelector('.today-rot-text')?.textContent || '',
+      hasCheck: !!n.querySelector('.today-rot-check'),
+      hasEdit: !!n.querySelector('.today-rot-edit'),
+    }))));
+  const beforeRows = await rotRows();
+  check('오늘 할 일 줄에 분류 이모지가 나옴',
+    beforeRows.length > 0 && beforeRows.every((r) => r.cat.length > 0),
+    beforeRows.map((r) => `${r.cat}${r.text}`).join(' | '));
+  check('오늘 할 일 줄에 체크칸과 고치기가 있음',
+    beforeRows.every((r) => r.hasCheck && r.hasEdit));
+
+  // 체크하면 목록에서 빠지고, 탭은 넘어가지 않아야 합니다.
+  const checkTarget = beforeRows[0];
+  await page.$eval('#today-rot .today-rot-item .today-rot-check', (n) => n.click());
+  await page.waitForTimeout(400);
+  const afterCheck = await rotRows();
+  check('줄에서 바로 체크하면 목록에서 빠짐',
+    afterCheck.length === beforeRows.length - 1
+    && !afterCheck.some((r) => r.id === checkTarget.id),
+    `${beforeRows.length} -> ${afterCheck.length}`);
+  check('체크가 저장까지 반영됨',
+    (await page.evaluate((id) => (JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .find((x) => x.id === id) || {}).done, checkTarget.id)) === true);
+  check('체크해도 탭이 넘어가지 않음',
+    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true');
+
+  // 되돌려 놓습니다. 뒤 검사가 이 항목을 씁니다.
+  await page.evaluate((id) => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    const hit = raw.find((x) => x.id === id);
+    if (hit) { hit.done = false; hit.doneAt = null; }
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(raw));
+  }, checkTarget.id);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.waitForTimeout(400);
+
+  // 그 자리에서 글자 고치기. Enter 로 저장, Esc 로 취소.
+  const editRow = (await rotRows())[0];
+  await page.$eval('#today-rot .today-rot-item .today-rot-edit', (n) => n.click());
+  await page.waitForTimeout(250);
+  check('고치기를 누르면 그 자리에 입력칸이 생김',
+    (await page.locator('#today-rot .today-rot-input').count()) === 1);
+  await page.fill('#today-rot .today-rot-input', '고쳐 쓴 할 일');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(450);
+  check('Enter 로 고친 글이 저장됨',
+    (await rotRows())[0]?.text === '고쳐 쓴 할 일', (await rotRows())[0]?.text);
+  check('고친 글이 계획표 저장값에도 반영됨',
+    (await page.evaluate((id) => (JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .find((x) => x.id === id) || {}).text, editRow.id)) === '고쳐 쓴 할 일');
+
+  await page.$eval('#today-rot .today-rot-item .today-rot-edit', (n) => n.click());
+  await page.waitForTimeout(250);
+  await page.fill('#today-rot .today-rot-input', '버려질 글');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  check('Esc 로 고치기를 취소하면 원래 글이 남음',
+    (await rotRows())[0]?.text === '고쳐 쓴 할 일', (await rotRows())[0]?.text);
+
+  // 할 일의 '글'을 누르면 계획표의 그 항목으로
   const firstTaskText = await page.locator('#today-rot .today-rot-item .today-rot-text').first().textContent();
-  await page.locator('#today-rot .today-rot-item').first().click();
+  await page.locator('#today-rot .today-rot-item .today-rot-text').first().click();
   await page.waitForTimeout(200);
   check('할 일 클릭 -> TO DO 탭으로 이동',
     (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true');
@@ -1177,6 +1246,37 @@ const main = async () => {
     check(`모바일(${w}px) 모든 탭에서 가로 넘침 없음`, over.length === 0,
       over.length ? `넘친 패널: ${over.join(', ')}` : '전부 정상');
   }
+
+  /*
+   * 넘치지 않는다고 멀쩡한 것이 아닙니다.
+   *
+   * 달력 머리줄은 ‹ › 달이름 접기 '이번 달' 다섯 개가 한 줄에 들어갑니다.
+   * 320px 영어('This month')에서 달 이름이 통째로 잘려 ▾ 만 남은 적이 있습니다.
+   * 넘침 검사는 통과합니다. 줄인 것이지 넘친 것이 아니니까요.
+   * 어느 달인지 안 보이면 달력을 쓸 수 없으므로 '글자가 온전한지'를 따로 봅니다.
+   */
+  // 언어 전환은 설정 탭에 있습니다. 바꾸고 TO DO 로 돌아옵니다.
+  const setMobileLang = async (lang) => {
+    await goTab(mobile, 'settings');
+    await mobile.waitForSelector('#lang-switch', { timeout: 5000 });
+    await mobile.click(`.lang-btn[data-lang="${lang}"]`);
+    await mobile.waitForTimeout(150);
+    await goTab(mobile, 'todo');
+    await mobile.waitForTimeout(250);
+  };
+  for (const w of [320, 360, 390]) {
+    for (const lang of ['ko', 'en']) {
+      await mobile.setViewportSize({ width: w, height: 844 });
+      await setMobileLang(lang);
+      const lab = await mobile.evaluate(() => {
+        const n = document.querySelector('#cal-label');
+        return { text: n.textContent, visible: Math.round(n.getBoundingClientRect().width), needed: n.scrollWidth };
+      });
+      check(`달 이름이 온전히 보임 (${w}px ${lang})`, lab.needed - lab.visible <= 1,
+        `"${lab.text}" 보임 ${lab.visible}px / 필요 ${lab.needed}px`);
+    }
+  }
+  await setMobileLang('ko');
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.waitForTimeout(200);
   await mobile.close();
@@ -1709,6 +1809,280 @@ export function isStamped() { return true; }`,
     `${await page.locator('#cal-grid .cal-day').count()} / ${monthCells}`);
   await page.click('#cal-today');
   await page.waitForTimeout(200);
+
+  // ---------- 하루 안의 시각 ----------
+  /*
+   * 일간 계획에만 시각이 붙습니다. 비우면 '종일' 입니다.
+   * 종일이 먼저, 그 아래 시각이 있는 것이 이른 시각부터.
+   * (Google 캘린더와 Todoist 의 하루 보기와 같은 차례입니다)
+   */
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.click('#period-today');
+  await page.waitForTimeout(300);
+  check('일간에서는 시각 칸이 보임',
+    (await page.evaluate(() => !document.querySelector('#todo-time').hidden)) === true);
+  await page.click('.scope-tab[data-scope="week"]');
+  await page.waitForTimeout(250);
+  check('주간에서는 시각 칸이 숨겨짐 (하루 안의 시각이라는 게 없습니다)',
+    (await page.evaluate(() => document.querySelector('#todo-time').hidden)) === true);
+  await page.click('.scope-tab[data-scope="day"]');
+  await page.waitForTimeout(250);
+
+  const addAt = async (text, time) => {
+    await page.fill('#todo-input', text);
+    await page.fill('#todo-time', time);
+    await page.click('#todo-form button[type="submit"]');
+    await page.waitForTimeout(250);
+  };
+  // 일부러 뒤죽박죽 넣습니다. 넣은 차례가 아니라 시간순으로 놓여야 합니다.
+  await addAt('시각검사 저녁', '18:30');
+  await addAt('시각검사 종일', '');
+  await addAt('시각검사 아침', '07:00');
+
+  const timedRows = () => page.evaluate(() => (
+    [...document.querySelectorAll('#todo-list .todo-item')]
+      .map((n) => `${n.querySelector('.todo-time')?.textContent ?? '-'}|${n.querySelector('.todo-text')?.textContent ?? ''}`)
+      .filter((x) => x.includes('시각검사'))));
+  const ordered = await timedRows();
+  check('시각이 있는 항목이 시간순으로 놓임',
+    ordered.length === 3 && ordered[1].startsWith('07:00') && ordered[2].startsWith('18:30'),
+    ordered.join('  '));
+  check('종일 항목이 시각 있는 것보다 먼저 옴',
+    ordered[0].includes('종일') && !/^\d\d:/.test(ordered[0]), ordered[0]);
+  check('종일 묶음 머리글이 붙음',
+    (await page.evaluate(() => [...document.querySelectorAll('#todo-list .todo-group-head')]
+      .some((n) => n.textContent.includes('종일') || n.textContent.includes('All day')))) === true);
+  check('시각이 저장까지 반영됨',
+    (await page.evaluate(() => (JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .find((x) => x.text === '시각검사 아침') || {}).time)) === '07:00');
+  check('종일 항목에는 시각 키가 없음',
+    (await page.evaluate(() => 'time' in (JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .find((x) => x.text === '시각검사 종일') || {}))) === false);
+
+  // 시각 칸을 눌러 그 자리에서 고치기
+  await page.$eval('#todo-list .todo-item .todo-time.is-empty', (n) => n.click());
+  await page.waitForTimeout(250);
+  check('시각 칸을 누르면 그 자리에 시각 입력칸이 생김',
+    (await page.locator('#todo-list .todo-time-edit').count()) === 1);
+  await page.fill('#todo-list .todo-time-edit', '06:15');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(400);
+  const afterEdit = await timedRows();
+  check('그 자리에서 정한 시각이 반영되고 자리도 옮겨감',
+    afterEdit[0].startsWith('06:15') && afterEdit[0].includes('종일'), afterEdit.join('  '));
+
+  // 정리: 시각 검사용 항목을 지웁니다.
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    localStorage.setItem('daily-kit:todo.items',
+      JSON.stringify(raw.filter((x) => !String(x.text).includes('시각검사'))));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'todo');
+  await page.waitForTimeout(400);
+
+  // ---------- 일정(Schedule) 보기 ----------
+  /*
+   * Google 캘린더의 '일정' 보기와 같은 꼴입니다.
+   * 격자를 버리고 앞으로 올 일을 날짜별로 묶어 시간순으로 늘어놓습니다.
+   */
+  check('처음에는 달력 격자를 봄',
+    (await page.getAttribute('#cal-view-grid', 'aria-selected')) === 'true');
+
+  /*
+   * 순서를 볼 수 있게 섞인 자료를 심습니다.
+   * 전부 종일이면 '종일이 먼저' 검사가 깨질 수가 없어 헛돕니다.
+   * 일부러 늦은 시각을 먼저 넣습니다. 넣은 차례가 아니라 시간순으로 놓여야 합니다.
+   */
+  await page.evaluate(() => {
+    const now = new Date();
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    // 주/월 계획도 같이 심습니다. 이것들이 목록에 섞이면 어느 날인지 거짓으로 알려주게 됩니다.
+    const wk = new Date(now); wk.setDate(wk.getDate() - wk.getDay());
+    const week = `${wk.getFullYear()}-W${String(1 + Math.round((wk - new Date(wk.getFullYear(), 0, 1)) / (7 * 864e5))).padStart(2, '0')}`;
+    raw.push(
+      { id: 'ag-late', text: '일정검사 저녁', done: false, scope: 'day', period: key, time: '21:00', category: 'etc', at: 1 },
+      { id: 'ag-early', text: '일정검사 아침', done: false, scope: 'day', period: key, time: '06:30', category: 'etc', at: 2 },
+      { id: 'ag-allday', text: '일정검사 종일', done: false, scope: 'day', period: key, category: 'etc', at: 3 },
+      { id: 'ag-week', text: '일정검사 주간계획', done: false, scope: 'week', period: week, category: 'etc', at: 4 },
+      { id: 'ag-month', text: '일정검사 월간계획', done: false, scope: 'month', period: key.slice(0, 7), category: 'etc', at: 5 },
+    );
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'todo');
+  await page.waitForTimeout(400);
+  await page.click('#cal-view-agenda');
+  await page.waitForTimeout(400);
+  check('일정으로 바꾸면 격자가 숨고 목록이 나옴',
+    (await page.evaluate(() => document.querySelector('#cal-grid').hidden)) === true
+    && (await page.evaluate(() => !document.querySelector('#cal-agenda').hidden)) === true);
+  check('일정 보기에서는 달 이동 줄이 숨겨짐 (달 단위가 의미 없습니다)',
+    (await page.evaluate(() => document.querySelector('.cal-nav').hidden)) === true);
+
+  const agenda = await page.evaluate(() => (
+    [...document.querySelectorAll('#cal-agenda .cal-agenda-day')].map((day) => ({
+      head: day.querySelector('.cal-agenda-date')?.textContent || '',
+      today: !!day.querySelector('.cal-agenda-mark'),
+      rows: [...day.querySelectorAll('.cal-agenda-row')].map((r) => ({
+        time: r.querySelector('.cal-agenda-time')?.textContent || '',
+        cat: r.querySelector('.cal-agenda-cat')?.textContent || '',
+        text: r.querySelector('.cal-agenda-text')?.textContent || '',
+      })),
+    }))));
+  check('일정 목록이 날짜별로 묶임', agenda.length > 0 && agenda.every((d) => d.head && d.rows.length),
+    `${agenda.length}일: ${agenda.map((d) => d.head).slice(0, 3).join(' / ')}`);
+  check('오늘 줄에 표가 붙음 (지금 어디인지 알 수 있어야 합니다)',
+    agenda.filter((d) => d.today).length === 1,
+    `표 ${agenda.filter((d) => d.today).length}개`);
+  check('일정 줄마다 시각과 분류 이모지가 나옴',
+    agenda.every((d) => d.rows.every((r) => r.time && r.cat)),
+    JSON.stringify(agenda[0]?.rows?.[0] || {}));
+  /*
+   * 하루 안의 차례.
+   * 종일이 먼저, 그 아래가 이른 시각부터입니다.
+   * (Google 캘린더와 Todoist 모두 종일을 맨 위에 놓습니다)
+   * 여기는 일간 보기와 달리 묶음 없이 한 줄로 늘어놓으므로, 정렬 자체가 드러납니다.
+   */
+  const agendaOrderOk = agenda.every((d) => {
+    const mins = d.rows.map((r) => (/^(\d\d):(\d\d)$/.test(r.time)
+      ? Number(r.time.slice(0, 2)) * 60 + Number(r.time.slice(3)) : -1));
+    return mins.every((v, i) => i === 0 || mins[i - 1] <= v);
+  });
+  // 섞인 날이 실제로 있어야 이 검사가 의미가 있습니다.
+  const mixedDay = agenda.find((d) => (
+    d.rows.some((r) => /^\d\d:\d\d$/.test(r.time)) && d.rows.some((r) => !/^\d\d:\d\d$/.test(r.time))));
+  check('일정 목록에 종일과 시각이 섞인 날이 있음 (없으면 아래 검사가 헛돕니다)',
+    !!mixedDay, agenda.map((d) => d.rows.map((r) => r.time).join('>')).join(' | '));
+  check('일정 목록도 하루 안에서 종일 먼저, 그다음 시간순',
+    agendaOrderOk,
+    agenda.map((d) => d.rows.map((r) => r.time).join('>')).join(' | '));
+  /*
+   * 주/월 계획은 특정 하루에 속하지 않습니다.
+   * 날짜별 목록에 올리면 '그 날의 일' 인 것처럼 거짓으로 알려주게 됩니다.
+   * (달력 격자가 일간만 표시하는 것과 같은 이유입니다)
+   */
+  const agendaTexts = agenda.flatMap((d) => d.rows.map((r) => r.text));
+  check('심어 둔 주/월 계획이 저장에는 있음 (없으면 아래 검사가 헛돕니다)',
+    (await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+      return raw.some((x) => x.id === 'ag-week') && raw.some((x) => x.id === 'ag-month');
+    })) === true);
+  check('일간 계획은 일정 목록에 나옴',
+    agendaTexts.includes('일정검사 아침') && agendaTexts.includes('일정검사 종일'),
+    agendaTexts.filter((x) => x.includes('일정검사')).join(', '));
+  check('주간/월간 계획은 일정 목록에 섞이지 않음 (어느 날인지 거짓이 됩니다)',
+    !agendaTexts.includes('일정검사 주간계획') && !agendaTexts.includes('일정검사 월간계획'),
+    agendaTexts.filter((x) => x.includes('일정검사')).join(', '));
+
+  // 줄을 누르면 계획표가 그 날짜로 옮겨 가고 그 항목을 강조해야 합니다.
+  const firstAgendaText = agenda[0]?.rows?.[0]?.text;
+  await page.$eval('#cal-agenda .cal-agenda-row', (n) => n.click());
+  await page.waitForTimeout(500);
+  check('일정 줄을 누르면 그 항목이 계획표에서 강조됨',
+    (await page.evaluate(() => document.querySelector('#todo-list .todo-item.is-revealed .todo-text')?.textContent))
+      === firstAgendaText,
+    `기대: ${firstAgendaText}`);
+
+  // 고른 보기는 새로고침해도 남아야 합니다.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'todo');
+  await page.waitForTimeout(500);
+  check('새로고침해도 고른 보기가 남음',
+    (await page.evaluate(() => !document.querySelector('#cal-agenda').hidden)) === true);
+
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    localStorage.setItem('daily-kit:todo.items',
+      JSON.stringify(raw.filter((x) => !String(x.text).includes('일정검사'))));
+  });
+  await page.click('#cal-view-grid');
+  await page.waitForTimeout(350);
+  check('달력으로 되돌리면 격자가 돌아옴',
+    (await page.evaluate(() => !document.querySelector('#cal-grid').hidden)) === true
+    && (await page.locator('#cal-grid .cal-day').count()) > 7);
+
+  // ---------- 년·월 고르기 판 ----------
+  /*
+   * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
+   * 달 이름을 누르면 판이 열리고, 판에서 연도를 누르면 연도 격자로 바뀝니다.
+   */
+  const pickOpen = () => page.evaluate(() => !document.querySelector('#cal-pick').hidden);
+  const pickCells = () => page.evaluate(() => (
+    [...document.querySelectorAll('#cal-pick-grid .cal-pick-cell')].map((n) => n.textContent)));
+
+  check('처음에는 고르기 판이 닫혀 있음', (await pickOpen()) === false);
+  await page.click('#cal-pick-open');
+  await page.waitForTimeout(250);
+  check('달 이름을 누르면 고르기 판이 열림', (await pickOpen()) === true);
+  const months = await pickCells();
+  check('판에 열두 달이 놓임', months.length === 12, `${months.length}칸: ${months.slice(0, 3).join(' ')}…`);
+  check('지금 보고 있는 달이 표시됨',
+    (await page.evaluate(() => document.querySelectorAll('#cal-pick-grid .is-on').length)) === 1);
+
+  // 연도 격자로 바꿔 다른 해를 고릅니다.
+  await page.click('#cal-pick-title');
+  await page.waitForTimeout(250);
+  const years = await pickCells();
+  check('연도를 누르면 연도 격자로 바뀜',
+    years.length === 12 && /^\d{4}$/.test(years[0]), years.slice(0, 3).join(' '));
+  const thisYear = new Date().getFullYear();
+  check('연도 격자가 올해를 품고 있음', years.includes(String(thisYear)),
+    `${years[0]} – ${years[years.length - 1]} (올해 ${thisYear})`);
+
+  // ‹ › 가 12년씩 움직이고 왕복하면 제자리로 와야 합니다.
+  const yearTitle = () => page.textContent('#cal-pick-title');
+  const titleBefore = await yearTitle();
+  await page.click('#cal-pick-prev');
+  await page.waitForTimeout(200);
+  const titleBack = await yearTitle();
+  await page.click('#cal-pick-next');
+  await page.waitForTimeout(200);
+  check('연도 격자를 ‹ › 로 옮겼다 되돌리면 제자리',
+    titleBack !== titleBefore && (await yearTitle()) === titleBefore,
+    `${titleBefore} -> ${titleBack} -> ${await yearTitle()}`);
+
+  // 지난해를 골라 그 해 3월로 갑니다.
+  const wantYear = String(thisYear - 1);
+  await page.$eval('#cal-pick-grid', (grid, y) => {
+    [...grid.querySelectorAll('.cal-pick-cell')].find((n) => n.textContent === y)?.click();
+  }, wantYear);
+  await page.waitForTimeout(250);
+  check('연도를 고르면 달 격자로 돌아옴',
+    (await page.textContent('#cal-pick-title')) === wantYear
+    && (await pickCells()).length === 12 && !/^\d{4}$/.test((await pickCells())[0]),
+    `제목 ${await page.textContent('#cal-pick-title')} / 첫 칸 ${(await pickCells())[0]}`);
+
+  await page.$eval('#cal-pick-grid', (grid) => {
+    // 세 번째 칸이 3월입니다. 글자는 언어마다 달라 자리로 고릅니다.
+    grid.querySelectorAll('.cal-pick-cell')[2]?.click();
+  });
+  await page.waitForTimeout(350);
+  check('달을 고르면 판이 닫힘', (await pickOpen()) === false);
+  const jumped = await page.evaluate(() => (
+    document.querySelector('#cal-grid .cal-day:not(.is-outside)')?.dataset.day));
+  check('고른 년·월로 달력이 옮겨 감', jumped?.startsWith(`${wantYear}-03`), `첫 날짜 ${jumped}`);
+
+  // Esc 로 닫히고, 접기 버튼은 판과 따로 움직여야 합니다.
+  await page.click('#cal-pick-open');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  check('Esc 로 고르기 판이 닫힘', (await pickOpen()) === false);
+
+  await page.click('#cal-fold');
+  await page.waitForTimeout(250);
+  check('접기 버튼은 고르기 판과 따로 움직임',
+    (await page.locator('#cal-grid .cal-day').count()) === 7 && (await pickOpen()) === false,
+    `${await page.locator('#cal-grid .cal-day').count()}칸`);
+  await page.click('#cal-fold');
+  await page.waitForTimeout(250);
+  await page.click('#cal-today');
+  await page.waitForTimeout(250);
 
   // ---------- 분류 커스터마이징 ----------
   // 앞의 검사에서 다른 날짜/주로 옮겨 다녔습니다. 오늘 칸을 보려면 오늘로 돌아와야 합니다.
