@@ -1476,6 +1476,39 @@ export function isStamped() { return /^[0-9a-f]{40}$/.test(BUILD.commit); }`,
       await ctx.close();
     }
 
+    /*
+     * 메뉴에 지금 도는 빌드가 적혀야 합니다.
+     *
+     * 새 APK 를 덮어썼는데 화면이 그대로일 때, '설치가 안 된 것' 인지 '설치는 됐는데
+     * 화면이 안 바뀐 것' 인지 가릴 방법이 없었습니다. 설정 탭 맨 아래까지 내려가야
+     * 버전을 볼 수 있었기 때문입니다. 메뉴를 열면 바로 보이게 둡니다.
+     */
+    {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true }; });
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await np.waitForTimeout(400);
+      await np.$eval('#menu-open', (n) => n.click());
+      await np.waitForTimeout(300);
+      const line = await np.$eval('#sidebar-build', (n) => n.textContent.trim());
+      check('앱: 메뉴에 빌드와 실행 위치가 적힘', line.includes('앱') && line.length > 2, line);
+      await ctx.close();
+    }
+    {
+      const ctx = await browser.newContext();
+      const np = await ctx.newPage();
+      await np.goto(BASE, { waitUntil: 'networkidle' });
+      await np.waitForSelector('body[data-ready="true"]');
+      await np.waitForTimeout(400);
+      await np.$eval('#menu-open', (n) => n.click());
+      await np.waitForTimeout(300);
+      const line = await np.$eval('#sidebar-build', (n) => n.textContent.trim());
+      check('웹: 메뉴의 빌드 줄이 실행 위치를 웹으로 적음', line.includes('웹'), line);
+      await ctx.close();
+    }
+
     /* 웹에서는 이 칸이 뜨면 안 됩니다. 내려받기가 정상 동작하는데 군더더기가 붙습니다. */
     {
       const ctx = await browser.newContext({ acceptDownloads: true });

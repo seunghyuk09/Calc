@@ -1768,6 +1768,16 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
   word-break: break-all;
 }
 
+/* 메뉴 맨 아래의 빌드 표시. 눈에 걸리지 않게 두되, 찾으면 바로 읽히게 합니다. */
+.sidebar-build {
+  margin: auto 0 0;
+  padding: 10px 10px 0;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 /* 버튼 바로 밑에 붙는 한 줄 안내. 버튼처럼 보이면 안 되므로 작고 흐리게 둡니다. */
 .sidebar-note {
   margin: 2px 0 0;

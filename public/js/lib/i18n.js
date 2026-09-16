@@ -83,6 +83,9 @@ const DICT = {
     'cz.card.weather.now': '현재 날씨', 'cz.card.weather.week': '주간 예보',
     'cz.card.todo.plan': '계획표',
     // ---- 화면 편집 (카드를 끌어 옮기기) ----
+    'upd.where.app': '앱',
+    'upd.where.web': '웹',
+    'upd.where.file': '파일',
     'todo.view.list': '목록',
     'todo.view.hours': '시간대',
     'todo.aria.dayView': '하루 보기 방식',
@@ -297,6 +300,9 @@ const DICT = {
     'cz.card.weather.now': 'Current weather', 'cz.card.weather.week': 'Weekly forecast',
     'cz.card.todo.plan': 'Planner',
     // ---- Arrange mode (drag cards around) ----
+    'upd.where.app': 'App',
+    'upd.where.web': 'Web',
+    'upd.where.file': 'File',
     'todo.view.list': 'List',
     'todo.view.hours': 'By hour',
     'todo.aria.dayView': 'Day view mode',
