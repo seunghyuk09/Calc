@@ -932,11 +932,24 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 /* 그 자리에서 고칠 때 쓰는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
 .today-rot-input { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 4px 8px; font-size: 14px; }
 
+/*
+ * 할 일 위젯의 정적 카드(div).
+ * button 이 아니라 기본 모양이 없습니다. 다른 위젯과 같은 눌림새를 직접 줍니다.
+ * 이게 없으면 '누를 수 있는 곳' 으로 보이지 않습니다.
+ */
+.today-card-static { cursor: pointer; transition: border-color .15s ease; }
+.today-card-static:hover { border-color: var(--accent); }
+
+/* 문구가 '눌러서 계획표를 여세요' 라고 말합니다. 실제로 누르는 버튼입니다. */
 .today-rot-empty {
   display: flex; align-items: center; justify-content: center;
-  min-height: 46px; padding: 12px;
-  font-size: 13px; color: var(--text-faint); text-align: center;
+  width: 100%; min-height: 46px; padding: 12px;
+  border: 0; background: none;
+  font: inherit; font-size: 13px; color: var(--text-faint); text-align: center;
+  cursor: pointer;
 }
+.today-rot-empty:hover { color: var(--text-dim); }
+.today-rot-empty:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-sm); }
 
 /* 계획표에서 방금 찾아온 항목을 잠깐 강조합니다. */
 .todo-item.is-revealed {

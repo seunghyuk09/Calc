@@ -941,11 +941,24 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 /* 그 자리에서 고칠 때 쓰는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
 .today-rot-input { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 4px 8px; font-size: 14px; }
 
+/*
+ * 할 일 위젯의 정적 카드(div).
+ * button 이 아니라 기본 모양이 없습니다. 다른 위젯과 같은 눌림새를 직접 줍니다.
+ * 이게 없으면 '누를 수 있는 곳' 으로 보이지 않습니다.
+ */
+.today-card-static { cursor: pointer; transition: border-color .15s ease; }
+.today-card-static:hover { border-color: var(--accent); }
+
+/* 문구가 '눌러서 계획표를 여세요' 라고 말합니다. 실제로 누르는 버튼입니다. */
 .today-rot-empty {
   display: flex; align-items: center; justify-content: center;
-  min-height: 46px; padding: 12px;
-  font-size: 13px; color: var(--text-faint); text-align: center;
+  width: 100%; min-height: 46px; padding: 12px;
+  border: 0; background: none;
+  font: inherit; font-size: 13px; color: var(--text-faint); text-align: center;
+  cursor: pointer;
 }
+.today-rot-empty:hover { color: var(--text-dim); }
+.today-rot-empty:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-sm); }
 
 /* 계획표에서 방금 찾아온 항목을 잠깐 강조합니다. */
 .todo-item.is-revealed {
@@ -6666,8 +6679,17 @@ function todoBody() {
       item?.done && SCOPES.includes(item.scope) && typeof item.period === 'string'
       && isCurrent(item.scope, item.period)
     ));
-    track.append(el('div', { class: 'today-rot-empty' },
-      t(finishedToday ? 'today.todo.allDone' : 'today.todo.empty')));
+    /*
+     * 버튼입니다. 문구가 '눌러서 계획표를 여세요' 라고 말하고 있습니다.
+     *
+     * div 로 두었더니 눌러도 아무 일이 없었습니다. 할 일 위젯만 카드가 button 이 아니라
+     * div(.today-card-static) 여서, 카드 단위 위임이 잡는 선택자에 걸리지 않았습니다.
+     * 여기를 버튼으로 두면 키보드로도 갈 수 있습니다. (div 는 초점이 가지 않습니다)
+     */
+    track.append(el('button', {
+      class: 'today-rot-empty', type: 'button',
+      onclick: () => goToTab('todo'),
+    }, t(finishedToday ? 'today.todo.allDone' : 'today.todo.empty')));
     return track;
   }
 
@@ -6787,7 +6809,14 @@ function renderWidgets() {
   if (arrangeBusy()) { renderHeld = true; return; }
   const { widgets } = getPrefs();
   if (!widgets.length) {
-    host.replaceChildren(el('div', { class: 'today-rot-empty' }, t('today.empty')));
+    /*
+     * 이쪽도 버튼입니다. 문구가 '설정 탭에서 골라 주세요' 라고 말하는데
+     * 누를 수 없으면 읽은 사람이 직접 탭을 찾아가야 합니다.
+     */
+    host.replaceChildren(el('button', {
+      class: 'today-rot-empty', type: 'button',
+      onclick: () => goToTab('settings'),
+    }, t('today.empty')));
     rows = [];
     return;
   }
@@ -6914,7 +6943,15 @@ function initToday() {
       syncTimer();
       return;
     }
-    const card = e.target.closest('.today-card[data-goto]');
+    /*
+     * 카드 아무 데나 눌러도 그 탭으로 갑니다.
+     *
+     * 예전에는 '.today-card' 로 찾았는데, 할 일 위젯만 카드가 button 이 아니라
+     * div 라서 클래스가 'today-card-static' 입니다. 클래스 선택자는 토큰이 정확히
+     * 맞아야 걸리므로 할 일 카드만 통째로 빠져, 제목이나 여백을 눌러도 아무 일이
+     * 없었습니다. data 속성으로 찾으면 둘 다 걸립니다.
+     */
+    const card = e.target.closest('[data-widget][data-goto]');
     if (!card) return;
     const tab = card.dataset.goto;
     goToTab(tab);

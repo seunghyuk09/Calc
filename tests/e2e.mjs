@@ -705,6 +705,67 @@ const main = async () => {
     (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true',
     `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
 
+  /* ---------- 할 일 위젯도 카드째 눌러 넘어가야 합니다 ----------
+   *
+   * '오늘 할 일을 눌러도 이동이 안 된다' 는 지적에서 나온 검사입니다.
+   *
+   * 할 일 위젯만 카드가 button 이 아니라 div 입니다. (안에 항목 버튼과 일시정지
+   * 버튼이 들어가는데, 버튼 안에 버튼은 HTML 규칙 위반입니다) 그래서 클래스가
+   * 'today-card-static' 인데, 카드 위임이 '.today-card' 로 찾고 있었습니다.
+   * 클래스 선택자는 토큰이 정확히 맞아야 하므로 할 일 카드만 통째로 빠졌습니다.
+   *
+   * 다른 위젯 여섯 개는 button 이라 멀쩡했고, 줄의 '글' 을 누르는 길도 따로 있어서
+   * 검사 492개가 전부 통과하는 동안에도 이 버그는 살아 있었습니다.
+   */
+  await goTab(page, 'today');
+  await page.waitForTimeout(300);
+  /*
+   * 아래 검사들의 전제입니다.
+   * 할 일 위젯만 카드가 div 라서 이 버그가 났습니다. 나중에 button 으로 바뀌면
+   * 이 검사가 먼저 알려 줍니다. (그러면 아래 검사의 의미도 달라집니다)
+   */
+  check('전제: 할 일 위젯만 카드가 div 다 (이 버그의 뿌리)',
+    (await page.evaluate(() => document.querySelector('[data-widget="todo"]')?.tagName)) === 'DIV'
+    && (await page.evaluate(() => document.querySelector('[data-widget="weather"]')?.tagName)) === 'BUTTON',
+    await page.evaluate(() => document.querySelector('[data-widget="todo"]')?.className));
+  await page.click('[data-widget="todo"] .card-title');
+  await settlePagerOf(page);
+  check('할 일 카드 제목을 눌러도 TO DO 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  // 할 일이 하나도 없을 때. 사용자가 실제로 누른 자리입니다.
+  const keepItems = await page.evaluate(() => localStorage.getItem('daily-kit:todo.items'));
+  await page.evaluate(() => localStorage.setItem('daily-kit:todo.items', '[]'));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(400);
+  check('할 일이 없으면 안내 문구가 버튼이다 (문구가 "눌러서" 라고 말합니다)',
+    (await page.evaluate(() => document.querySelector('.today-rot-empty')?.tagName)) === 'BUTTON',
+    await page.evaluate(() => document.querySelector('.today-rot-empty')?.tagName));
+  check('안내 문구에 키보드 초점이 간다',
+    await page.evaluate(() => {
+      const n = document.querySelector('.today-rot-empty');
+      n.focus();
+      return document.activeElement === n;
+    }));
+  await page.click('.today-rot-empty');
+  await settlePagerOf(page);
+  check('"등록된 할 일이 없습니다" 를 눌러도 TO DO 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  // 심어 둔 할 일을 되돌립니다. 뒤 검사가 씁니다.
+  await page.evaluate((raw) => localStorage.setItem('daily-kit:todo.items', raw), keepItems);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(400);
+  check('되돌린 할 일이 다시 보임',
+    (await page.locator('#today-rot .today-rot-item').count()) >= 1,
+    `${await page.locator('#today-rot .today-rot-item').count()}건`);
+
   // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
   console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
 
@@ -3519,16 +3580,35 @@ export function isStamped() { return true; }`,
       return r;
     };
 
+    /*
+     * 짧게 누르는 것은 그냥 '탭' 입니다. 카드를 눌렀으니 그 탭으로 넘어갑니다.
+     *
+     * 예전에는 여기서 탭이 안 넘어갔습니다. 할 일 위젯 카드가 button 이 아니라
+     * div 라서 카드 위임에 걸리지 않았기 때문입니다. 그건 버그였고, 검사가 그
+     * 버그를 전제로 쓰여 있었습니다. 이제는 넘어가는 게 맞으므로 되돌아옵니다.
+     */
+    const phoneTab = () => phone.evaluate(() => document.body.dataset.tab);
     await pressHold('#today-widgets > [data-widget]', 120);
     check('꾹 누르기: 짧게 누르면 편집이 켜지지 않음', (await holding()) === false);
+    check('꾹 누르기: 짧게 누르면 그냥 탭이라 그 화면으로 넘어감',
+      (await phoneTab()) !== 'today', await phoneTab());
+    await goTab(phone, 'today');
+    await phone.waitForTimeout(500);
 
     await pressHold('#today-widgets > [data-widget]', 700, 60);
     check('꾹 누르기: 누른 채 밀면(스크롤) 편집이 켜지지 않음', (await holding()) === false);
+    await goTab(phone, 'today');
+    await phone.waitForTimeout(500);
 
     await pressHold('#today-widgets > [data-widget]', 700);
     check('꾹 누르기: 오래 누르면 편집이 켜짐', (await holding()) === true);
-    check('꾹 누르기: 위젯이 버튼이지만 탭이 넘어가지 않음',
-      (await phone.evaluate(() => document.querySelector('.tab[data-tab="today"]').getAttribute('aria-selected'))) === 'true');
+    /*
+     * 꾹 눌러 편집이 켜지면 그 누름은 '탭' 이 아닙니다.
+     * arrange.js 가 click 을 잡아먹어야 합니다. 안 그러면 편집을 켜자마자
+     * 딴 탭으로 튕겨 나가 카드를 옮길 수가 없습니다.
+     */
+    check('꾹 누르기: 편집이 켜지면 그 누름으로 탭이 넘어가지 않음',
+      (await phoneTab()) === 'today', await phoneTab());
     await phone.$eval('#arr-done', (n) => n.click());
     await phone.waitForTimeout(300);
 
