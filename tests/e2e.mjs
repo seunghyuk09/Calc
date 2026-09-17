@@ -1153,7 +1153,15 @@ const main = async () => {
   console.log('\n▶ 영속성 / PWA');
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('body[data-ready="true"]');
-  check('새로고침 후 설정 탭 복원', (await page.getAttribute('.tab[data-tab="settings"]', 'aria-selected')) === 'true');
+  /*
+   * 예전에는 보던 탭을 되살렸습니다. 지금은 새로 열면 언제나 '오늘' 입니다.
+   * ('앱을 껐다 켜도 오늘 탭으로 안 온다' 는 지적에 따라 바꿨습니다)
+   * 아래 검사들은 탭이 아니라 '저장한 값' 이 살아남는지를 봅니다. 그건 그대로입니다.
+   */
+  check('새로고침하면 오늘 탭으로 열림',
+    (await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')) === 'true',
+    `실제: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+  await goTab(page, 'settings');
   await goTab(page, 'todo');
   await page.waitForTimeout(200);
   check('새로고침 후 Planner 단위/기간 복원',
@@ -1256,6 +1264,24 @@ const main = async () => {
 
     await fresh.goto(BASE, { waitUntil: 'load' });
     await fresh.waitForSelector('body[data-ready="true"]');
+
+    /*
+     * 최소 표시 시간.
+     * 부팅이 끝나는 즉시 걷었더니 빠른 기기에서 0.2초 만에 깜빡이고 말았습니다.
+     * 준비가 끝난 직후에도 가림막은 아직 떠 있어야 합니다.
+     */
+    const stillUp = await fresh.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('#splash'));
+      return { vis: cs.visibility, op: Number(cs.opacity), splash: document.body.dataset.splash || '', ms: Math.round(performance.now()) };
+    });
+    check('준비가 끝나도 시작 화면이 바로 사라지지 않음',
+      stillUp.vis === 'visible' && stillUp.op > 0.5 && stillUp.splash !== 'done',
+      `${stillUp.ms}ms 시점 visibility=${stillUp.vis} opacity=${stillUp.op} 표시=${stillUp.splash || '아직'}`);
+
+    await fresh.waitForSelector('body[data-splash="done"]', { timeout: 6000 });
+    const shownFor = await fresh.evaluate(() => Math.round(performance.now()));
+    check('시작 화면이 1초 넘게 떠 있음', shownFor >= 1000, `${shownFor}ms`);
+
     await fresh.waitForTimeout(500);
     const gone = await fresh.evaluate(() => {
       const cs = getComputedStyle(document.querySelector('#splash'));
@@ -1271,12 +1297,16 @@ const main = async () => {
     await goTab(fresh, 'calc');
     check('시작 탭 검사 준비: 계산기로 이동', (await activeOf()) === 'calc');
 
-    // (가) 금방 다시 열면 보던 탭 그대로.
+    /*
+     * (가) 앱을 새로 켜면 얼마 안 지났어도 '오늘' 입니다.
+     * 처음에는 10분 규칙만 걸었더니, 껐다가 곧바로 켜면 보던 탭이 그대로 열려
+     * '앱을 열면 오늘 탭이어야 한다' 는 요청과 어긋났습니다.
+     */
     await fresh.reload({ waitUntil: 'load' });
     await fresh.waitForSelector('body[data-ready="true"]');
     await fresh.waitForTimeout(300);
     const soon = await activeOf();
-    check('금방 다시 열면 보던 탭 그대로', soon === 'calc', `실제: ${soon}`);
+    check('앱을 새로 켜면 곧바로 켜도 오늘로', soon === 'today', `실제: ${soon}`);
 
     /*
      * (나) 11분 비운 뒤.

@@ -158,12 +158,16 @@ a { color: var(--accent); }
 }
 
 /*
- * 부팅이 끝나면 곧바로 사라집니다.
- * pointer-events 를 여기서 풀어야, 사라지는 0.32초 동안 탭이 막히지 않습니다.
- * (자동화 검사도 data-ready 직후에 화면을 만집니다)
+ * 두 가지를 나눠 둡니다.
+ *
+ * data-ready  : 앱이 실제로 쓸 수 있게 된 순간. 여기서 손가락을 풀어 줍니다.
+ *               가림막이 그 뒤로도 탭을 삼키면 그게 더 나쁩니다.
+ * data-splash : 가림막을 걷는 순간. main.js 가 최소 표시 시간을 채운 뒤 붙입니다.
+ *               부팅이 끝나자마자 걷었더니 빠른 기기에서 깜빡이고 말았습니다.
  */
-body[data-ready="true"] .splash {
-  pointer-events: none;
+body[data-ready="true"] .splash { pointer-events: none; }
+
+body[data-splash="done"] .splash {
   animation: splash-done .32s ease forwards;
 }
 
@@ -201,7 +205,7 @@ body[data-ready="true"] .splash {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body[data-ready="true"] .splash { animation-duration: .01s; }
+  body[data-splash="done"] .splash { animation-duration: .01s; }
   .splash-dots i { animation: none; opacity: .5; }
 }
 
@@ -9854,8 +9858,8 @@ const __m_js_lib_session_js = (function () {
 /**
  * session.js — 앱을 열 때 어느 화면을 보여 줄지
  *
- * 그동안은 마지막에 보던 탭을 그대로 열었습니다. 어제 계산기를 켜 뒀으면
- * 오늘 아침에도 계산기가 열립니다. 하루를 시작하며 볼 화면은 '오늘' 입니다.
+ * 앱을 새로 켤 때는 언제나 '오늘' 로 엽니다. 그건 main.js 의 부팅 경로가 합니다.
+ * 여기 있는 것은 '잠깐 다른 앱을 보다 돌아왔을 때' 의 규칙입니다.
  *
  * 재는 것은 '앱을 떠나 있던 시간' 입니다. 화면을 켜 둔 채 가만히 있던 시간은
  * 세지 않습니다. 읽고 있는데 화면이 저 혼자 바뀌면 그게 더 나쁩니다.
@@ -9887,26 +9891,7 @@ function awayTooLong(lastSeen, now = Date.now(), limit = AWAY_RESET_MS) {
   if (!Number.isFinite(gap) || gap < 0) return false;
   return gap > limit;
 }
-
-/**
- * 앱을 열 때 보여 줄 탭.
- *
- * @param {object} o
- * @param {string} o.saved 마지막에 보던 탭
- * @param {number} o.lastSeen 마지막으로 앱을 떠난 시각(epoch ms)
- * @param {string[]} o.tabs 지금 화면에 놓인 탭들 (설정에서 숨길 수 있습니다)
- * @param {string} o.home 처음 화면으로 삼을 탭
- * @param {number} [o.now]
- * @returns {string}
- */
-function startTab({ saved, lastSeen, tabs, home, now = Date.now() }) {
-  const list = Array.isArray(tabs) ? tabs : [];
-  // '오늘' 을 숨겨 뒀을 수도 있습니다. 그러면 남아 있는 첫 탭이 처음 화면입니다.
-  const fallback = list.includes(home) ? home : (list[0] || home);
-  if (!list.includes(saved)) return fallback;
-  return awayTooLong(lastSeen, now) ? fallback : saved;
-}
-  return { awayTooLong, startTab, AWAY_RESET_MS };
+  return { awayTooLong, AWAY_RESET_MS };
 })();
 
 /* ===== js/main.js ===== */
@@ -9929,7 +9914,7 @@ const __m_js_main_js = (function () {
   const { initUpdate, registerServiceWorker } = __m_js_modules_update_js;
   const { initLang, t, onLangChange, applyStatic } = __m_js_lib_i18n_js;
   const { setNavigator, notifyTabChange } = __m_js_lib_nav_js;
-  const { startTab, awayTooLong } = __m_js_lib_session_js;
+  const { awayTooLong } = __m_js_lib_session_js;
   const { ALL_TABS, onPrefsChange } = __m_js_lib_prefs_js;
 /**
  * main.js — 앱 부트스트랩
@@ -9955,7 +9940,6 @@ const __m_js_main_js = (function () {
 
 
 
-const TAB_KEY = 'ui.activeTab';
 const DEFAULT_TAB = 'today';
 
 /* 자리를 비운 시간에 따라 시작 화면을 정합니다. 규칙은 lib/session.js 에 있습니다. */
@@ -9973,6 +9957,32 @@ function lastSeen() {
 /** 지금 화면 구성에서 쓸 수 있는 처음 화면. ('오늘'을 숨겨 둘 수도 있습니다) */
 function homeTab(tabs) {
   return tabs.includes(DEFAULT_TAB) ? DEFAULT_TAB : (tabs[0] || DEFAULT_TAB);
+}
+
+/*
+ * 시작 화면을 최소 이만큼은 보여 줍니다.
+ *
+ * 부팅이 끝나는 즉시 걷었더니, 빠른 기기에서는 0.2초 만에 끝나 깜빡이고 말았습니다.
+ * 켜지는 느낌을 주려면 글자를 읽을 시간은 있어야 합니다.
+ * 얼마가 알맞은지는 취향이라, 1.2초는 제 판단입니다.
+ */
+const MIN_SPLASH_MS = 1200;
+
+/**
+ * 시작 화면을 걷습니다. 너무 빨리 끝났으면 남은 시간만큼 기다립니다.
+ *
+ * performance.now() 는 페이지를 읽기 시작한 뒤 흐른 시간입니다.
+ * 부팅 함수가 시작한 시점이 아니라 '화면이 떠 있던 시간' 이라 여기에 맞습니다.
+ *
+ * 화면을 가리는 일과 손가락을 막는 일은 나눠 뒀습니다.
+ * 입력을 막는 것은 data-ready 까지입니다. 그때부터 앱은 실제로 쓸 수 있고,
+ * 남은 시간 동안 가림막이 탭을 삼키면 그게 더 나쁩니다. (css 의 pointer-events)
+ */
+function dismissSplash() {
+  const done = () => { document.body.dataset.splash = 'done'; };
+  const left = MIN_SPLASH_MS - performance.now();
+  if (!(left > 0)) { done(); return; }
+  setTimeout(done, left);
 }
 
 /*
@@ -10018,7 +10028,6 @@ function setActiveTab(tab) {
     TABS.forEach((id) => { const panel = panelOf(id); if (panel) panel.inert = id !== tab; });
   }
 
-  save(TAB_KEY, tab);
   // 딴 화면으로 넘어가면 편집을 끝냅니다. 도구줄이 남아 있으면 무엇을 편집 중인지 헷갈립니다.
   arrangeFollowTab(tab);
   runLazyInit(tab);
@@ -10345,15 +10354,17 @@ function initTabs() {
   TABS = applyTabLayout();
 
   /*
-   * 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
-   * 다만 10분 넘게 떠나 있었으면 마지막 탭을 버리고 '오늘'로 엽니다.
+   * 앱을 새로 켜면 언제나 '오늘'로 엽니다.
+   *
+   * 처음에는 '10분 넘게 떠나 있었을 때만' 되돌렸습니다. 그런데 앱을 껐다가
+   * 곧바로 켜면 10분이 안 지났으니 보던 탭이 그대로 열렸습니다.
+   * '앱을 열면 오늘 탭이어야 한다' 는 요청과 어긋납니다.
+   *
+   * 이 줄은 페이지를 새로 읽을 때만 돕니다. 안드로이드 WebView 는 앱이
+   * 완전히 꺼졌다 켜질 때만 다시 읽으므로, 여기가 곧 '앱을 새로 켠 순간' 입니다.
+   * 잠깐 홈 버튼을 눌렀다 돌아오는 경우는 아래 10분 규칙이 맡습니다.
    */
-  setActiveTab(startTab({
-    saved: load(TAB_KEY, DEFAULT_TAB),
-    lastSeen: lastSeen(),
-    tabs: TABS,
-    home: DEFAULT_TAB,
-  }));
+  setActiveTab(homeTab(TABS));
   markSeen();
   // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
   requestAnimationFrame(() => scrollToPanel(currentTab, false));
@@ -10414,6 +10425,7 @@ function boot() {
   safeInit('탭', initTabs);
   registerServiceWorker();
   document.body.dataset.ready = 'true'; // 자동화 테스트용 준비 완료 신호
+  dismissSplash();
 }
 
 if (document.readyState === 'loading') {

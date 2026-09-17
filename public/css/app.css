@@ -149,12 +149,16 @@ a { color: var(--accent); }
 }
 
 /*
- * 부팅이 끝나면 곧바로 사라집니다.
- * pointer-events 를 여기서 풀어야, 사라지는 0.32초 동안 탭이 막히지 않습니다.
- * (자동화 검사도 data-ready 직후에 화면을 만집니다)
+ * 두 가지를 나눠 둡니다.
+ *
+ * data-ready  : 앱이 실제로 쓸 수 있게 된 순간. 여기서 손가락을 풀어 줍니다.
+ *               가림막이 그 뒤로도 탭을 삼키면 그게 더 나쁩니다.
+ * data-splash : 가림막을 걷는 순간. main.js 가 최소 표시 시간을 채운 뒤 붙입니다.
+ *               부팅이 끝나자마자 걷었더니 빠른 기기에서 깜빡이고 말았습니다.
  */
-body[data-ready="true"] .splash {
-  pointer-events: none;
+body[data-ready="true"] .splash { pointer-events: none; }
+
+body[data-splash="done"] .splash {
   animation: splash-done .32s ease forwards;
 }
 
@@ -192,7 +196,7 @@ body[data-ready="true"] .splash {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body[data-ready="true"] .splash { animation-duration: .01s; }
+  body[data-splash="done"] .splash { animation-duration: .01s; }
   .splash-dots i { animation: none; opacity: .5; }
 }
 
