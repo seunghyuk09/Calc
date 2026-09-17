@@ -1,8 +1,8 @@
 /**
  * session.js — 앱을 열 때 어느 화면을 보여 줄지
  *
- * 그동안은 마지막에 보던 탭을 그대로 열었습니다. 어제 계산기를 켜 뒀으면
- * 오늘 아침에도 계산기가 열립니다. 하루를 시작하며 볼 화면은 '오늘' 입니다.
+ * 앱을 새로 켤 때는 언제나 '오늘' 로 엽니다. 그건 main.js 의 부팅 경로가 합니다.
+ * 여기 있는 것은 '잠깐 다른 앱을 보다 돌아왔을 때' 의 규칙입니다.
  *
  * 재는 것은 '앱을 떠나 있던 시간' 입니다. 화면을 켜 둔 채 가만히 있던 시간은
  * 세지 않습니다. 읽고 있는데 화면이 저 혼자 바뀌면 그게 더 나쁩니다.
@@ -33,23 +33,4 @@ export function awayTooLong(lastSeen, now = Date.now(), limit = AWAY_RESET_MS) {
    */
   if (!Number.isFinite(gap) || gap < 0) return false;
   return gap > limit;
-}
-
-/**
- * 앱을 열 때 보여 줄 탭.
- *
- * @param {object} o
- * @param {string} o.saved 마지막에 보던 탭
- * @param {number} o.lastSeen 마지막으로 앱을 떠난 시각(epoch ms)
- * @param {string[]} o.tabs 지금 화면에 놓인 탭들 (설정에서 숨길 수 있습니다)
- * @param {string} o.home 처음 화면으로 삼을 탭
- * @param {number} [o.now]
- * @returns {string}
- */
-export function startTab({ saved, lastSeen, tabs, home, now = Date.now() }) {
-  const list = Array.isArray(tabs) ? tabs : [];
-  // '오늘' 을 숨겨 뒀을 수도 있습니다. 그러면 남아 있는 첫 탭이 처음 화면입니다.
-  const fallback = list.includes(home) ? home : (list[0] || home);
-  if (!list.includes(saved)) return fallback;
-  return awayTooLong(lastSeen, now) ? fallback : saved;
 }

@@ -20,10 +20,9 @@ import { initArrange, startArrange, arrangeFollowTab } from './modules/arrange.j
 import { initUpdate, registerServiceWorker } from './modules/update.js';
 import { initLang, t, onLangChange, applyStatic } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
-import { startTab, awayTooLong } from './lib/session.js';
+import { awayTooLong } from './lib/session.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
-const TAB_KEY = 'ui.activeTab';
 const DEFAULT_TAB = 'today';
 
 /* 자리를 비운 시간에 따라 시작 화면을 정합니다. 규칙은 lib/session.js 에 있습니다. */
@@ -41,6 +40,32 @@ function lastSeen() {
 /** 지금 화면 구성에서 쓸 수 있는 처음 화면. ('오늘'을 숨겨 둘 수도 있습니다) */
 function homeTab(tabs) {
   return tabs.includes(DEFAULT_TAB) ? DEFAULT_TAB : (tabs[0] || DEFAULT_TAB);
+}
+
+/*
+ * 시작 화면을 최소 이만큼은 보여 줍니다.
+ *
+ * 부팅이 끝나는 즉시 걷었더니, 빠른 기기에서는 0.2초 만에 끝나 깜빡이고 말았습니다.
+ * 켜지는 느낌을 주려면 글자를 읽을 시간은 있어야 합니다.
+ * 얼마가 알맞은지는 취향이라, 1.2초는 제 판단입니다.
+ */
+const MIN_SPLASH_MS = 1200;
+
+/**
+ * 시작 화면을 걷습니다. 너무 빨리 끝났으면 남은 시간만큼 기다립니다.
+ *
+ * performance.now() 는 페이지를 읽기 시작한 뒤 흐른 시간입니다.
+ * 부팅 함수가 시작한 시점이 아니라 '화면이 떠 있던 시간' 이라 여기에 맞습니다.
+ *
+ * 화면을 가리는 일과 손가락을 막는 일은 나눠 뒀습니다.
+ * 입력을 막는 것은 data-ready 까지입니다. 그때부터 앱은 실제로 쓸 수 있고,
+ * 남은 시간 동안 가림막이 탭을 삼키면 그게 더 나쁩니다. (css 의 pointer-events)
+ */
+function dismissSplash() {
+  const done = () => { document.body.dataset.splash = 'done'; };
+  const left = MIN_SPLASH_MS - performance.now();
+  if (!(left > 0)) { done(); return; }
+  setTimeout(done, left);
 }
 
 /*
@@ -86,7 +111,6 @@ function setActiveTab(tab) {
     TABS.forEach((id) => { const panel = panelOf(id); if (panel) panel.inert = id !== tab; });
   }
 
-  save(TAB_KEY, tab);
   // 딴 화면으로 넘어가면 편집을 끝냅니다. 도구줄이 남아 있으면 무엇을 편집 중인지 헷갈립니다.
   arrangeFollowTab(tab);
   runLazyInit(tab);
@@ -413,15 +437,17 @@ function initTabs() {
   TABS = applyTabLayout();
 
   /*
-   * 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
-   * 다만 10분 넘게 떠나 있었으면 마지막 탭을 버리고 '오늘'로 엽니다.
+   * 앱을 새로 켜면 언제나 '오늘'로 엽니다.
+   *
+   * 처음에는 '10분 넘게 떠나 있었을 때만' 되돌렸습니다. 그런데 앱을 껐다가
+   * 곧바로 켜면 10분이 안 지났으니 보던 탭이 그대로 열렸습니다.
+   * '앱을 열면 오늘 탭이어야 한다' 는 요청과 어긋납니다.
+   *
+   * 이 줄은 페이지를 새로 읽을 때만 돕니다. 안드로이드 WebView 는 앱이
+   * 완전히 꺼졌다 켜질 때만 다시 읽으므로, 여기가 곧 '앱을 새로 켠 순간' 입니다.
+   * 잠깐 홈 버튼을 눌렀다 돌아오는 경우는 아래 10분 규칙이 맡습니다.
    */
-  setActiveTab(startTab({
-    saved: load(TAB_KEY, DEFAULT_TAB),
-    lastSeen: lastSeen(),
-    tabs: TABS,
-    home: DEFAULT_TAB,
-  }));
+  setActiveTab(homeTab(TABS));
   markSeen();
   // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
   requestAnimationFrame(() => scrollToPanel(currentTab, false));
@@ -482,6 +508,7 @@ function boot() {
   safeInit('탭', initTabs);
   registerServiceWorker();
   document.body.dataset.ready = 'true'; // 자동화 테스트용 준비 완료 신호
+  dismissSplash();
 }
 
 if (document.readyState === 'loading') {
