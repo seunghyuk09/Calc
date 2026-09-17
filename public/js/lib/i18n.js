@@ -14,6 +14,8 @@ const DEFAULT_LANG = 'ko';
 // 값이 함수인 항목은 인자를 받아 문장을 만듭니다. (복수형 처리 등)
 const DICT = {
   ko: {
+    // 시작 화면(스플래시)이 스크린리더에 읽히는 문구
+    'app.loading': '불러오는 중',
     'today.weather.title': '현재 날씨',
     'today.weather.loading': '날씨를 불러오는 중…',
     'today.weather.error': '날씨를 불러오지 못했습니다',
@@ -231,6 +233,7 @@ const DICT = {
     'todo.toast.cleared': (n) => `완료 항목 ${n}건을 삭제했습니다`,
   },
   en: {
+    'app.loading': 'Loading',
     'today.weather.title': 'Current weather',
     'today.weather.loading': 'Loading weather…',
     'today.weather.error': "Couldn't load the weather",

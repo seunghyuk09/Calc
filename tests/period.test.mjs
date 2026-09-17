@@ -85,17 +85,17 @@ test('표시 이름 — 영문 (기본값)', () => {
   assert.equal(label('day', '2026-09-14'), 'Mon, Sep 14, 2026');
   assert.equal(label('month', '2026-09'), 'Sep 2026');
   assert.equal(label('year', '2026'), '2026');
-  assert.equal(label('week', '2026-W38'), 'Week 38, 2026 · Sep 13–19');
+  assert.equal(label('week', '2026-W38'), '2026 · Sep 13–19');
   // 달을 걸치는 주
-  assert.match(label('week', '2026-W01'), /Dec 28 – Jan 3/);
+  assert.equal(label('week', '2026-W01'), '2026 · Dec 28 – Jan 3');
 });
 
 test('표시 이름 — 한국어', () => {
   assert.equal(label('day', '2026-09-14', 'ko'), '2026년 9월 14일 (월)');
   assert.equal(label('month', '2026-09', 'ko'), '2026년 9월');
   assert.equal(label('year', '2026', 'ko'), '2026년');
-  assert.equal(label('week', '2026-W38', 'ko'), '2026년 38주차 · 9월 13–19일');
-  assert.equal(label('week', '2026-W01', 'ko'), '2026년 1주차 · 12월 28일 – 1월 3일');
+  assert.equal(label('week', '2026-W38', 'ko'), '2026년 9월 13–19일');
+  assert.equal(label('week', '2026-W01', 'ko'), '2026년 12월 28일 – 1월 3일');
 });
 
 test('요일 표기가 한/영 모두 정확', () => {
@@ -119,11 +119,11 @@ test('주 표기는 ISO 연도를 포함해 다른 해와 구분됨', () => {
   const a = label('week', '2020-W53', 'ko');
   const b = label('week', '2026-W53', 'ko');
   assert.notEqual(a, b, '다른 해의 같은 주차가 같은 문자열이면 안 됩니다');
-  assert.match(a, /^2020년 53주차/);
-  assert.match(b, /^2026년 53주차/);
+  assert.match(a, /^2020년 /);
+  assert.match(b, /^2026년 /);
   // 연말에 걸친 주는 달력 연도가 아니라 ISO 연도를 써야 합니다 (2025-12-29 는 2026-W01)
-  assert.match(label('week', '2026-W01', 'ko'), /^2026년 1주차/);
-  assert.match(label('week', '2026-W01', 'en'), /^Week 1, 2026/);
+  assert.match(label('week', '2026-W01', 'ko'), /^2026년 /);
+  assert.match(label('week', '2026-W01', 'en'), /^2026 · /);
 });
 
 /*
@@ -201,5 +201,19 @@ test('옛 ISO 주차 키를 지금 키로 옮긴다', () => {
 test('옛 키 이사: 형식이 아니면 null', () => {
   for (const bad of ['', '2026-38', '2026W38', 'abcd-W01', null, undefined, '2026-09-14']) {
     assert.equal(fromLegacyIsoWeek(bad), null, `${String(bad)} 를 통과시켰습니다`);
+  }
+});
+
+/*
+ * 주차 번호는 빼기로 했습니다. ('38주차 같은 건 아무도 안 본다')
+ * 다시 들어오면 이 검사가 잡습니다.
+ */
+test('기간 이름에 주차 번호를 넣지 않는다', () => {
+  for (const key of ['2026-W01', '2026-W38', '2026-W53']) {
+    for (const lang of ['ko', 'en']) {
+      const out = label('week', key, lang);
+      assert.ok(!/주차/.test(out), `${key}/${lang}: ${out}`);
+      assert.ok(!/\bWeek\b/.test(out), `${key}/${lang}: ${out}`);
+    }
   }
 });

@@ -15,6 +15,21 @@
 <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
+
+<!--
+  시작 화면.
+  모듈을 불러오는 동안 빈 화면이 보이지 않게 덮습니다.
+
+  boot() 이 끝나면 body[data-ready] 가 붙으면서 걷힙니다.
+  부팅이 실패해 그 표시가 안 붙어도 4초 뒤 스스로 걷힙니다.
+  화면이 영영 잠기는 것보다 반쯤 준비된 화면이라도 보이는 편이 낫습니다.
+-->
+<div class="splash" id="splash" role="status" data-i18n-aria="app.loading" aria-label="불러오는 중">
+  <span class="splash-mark" aria-hidden="true">DK</span>
+  <span class="splash-name" aria-hidden="true">Daily Kit</span>
+  <span class="splash-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+</div>
+
 <div class="app">
 
   <header class="app-header">

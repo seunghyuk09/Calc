@@ -138,6 +138,73 @@ a { color: var(--accent); }
   position: relative;
 }
 
+/* ---------- 시작 화면 ---------- */
+/*
+ * 배경을 var(--bg) 로 두면 별도 처리 없이 다크에서도 맞습니다.
+ * data-theme 이 아직 안 붙은 상태에서는 위쪽의
+ * `:root:not([data-theme="light"])` + prefers-color-scheme 규칙이 이미 적용되기 때문입니다.
+ */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;            /* 토스트(100)·편집막대(46)보다 위 */
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  background: var(--bg);
+  /* 부팅이 실패해도 화면이 영영 잠기면 안 됩니다. 4초 뒤 스스로 걷힙니다. */
+  animation: splash-failsafe 0s linear 4s forwards;
+}
+
+/*
+ * 부팅이 끝나면 곧바로 사라집니다.
+ * pointer-events 를 여기서 풀어야, 사라지는 0.32초 동안 탭이 막히지 않습니다.
+ * (자동화 검사도 data-ready 직후에 화면을 만집니다)
+ */
+body[data-ready="true"] .splash {
+  pointer-events: none;
+  animation: splash-done .32s ease forwards;
+}
+
+@keyframes splash-failsafe { to { opacity: 0; visibility: hidden; } }
+@keyframes splash-done { to { opacity: 0; visibility: hidden; } }
+
+.splash-mark {
+  width: 64px; height: 64px;
+  display: grid; place-items: center;
+  border-radius: 18px;
+  background: var(--accent-fill);
+  color: var(--accent-text);
+  font-size: 26px; font-weight: 800; letter-spacing: .5px;
+}
+
+.splash-name {
+  font-size: 15px; font-weight: 700; letter-spacing: .2px;
+  color: var(--text-dim);
+}
+
+.splash-dots { display: flex; gap: 6px; }
+
+.splash-dots i {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  animation: splash-blink 1.1s ease-in-out infinite;
+}
+.splash-dots i:nth-child(2) { animation-delay: .16s; }
+.splash-dots i:nth-child(3) { animation-delay: .32s; }
+
+@keyframes splash-blink {
+  0%, 80%, 100% { opacity: .25; }
+  40% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-ready="true"] .splash { animation-duration: .01s; }
+  .splash-dots i { animation: none; opacity: .5; }
+}
+
 .app-header {
   flex: none;   /* 본문이 남은 높이를 다 쓰도록 헤더는 줄어들지 않게 고정합니다 */
   position: sticky;
@@ -1965,6 +2032,20 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
 </style>
 </head>
 <body>
+<!--
+  시작 화면.
+  모듈을 불러오는 동안 빈 화면이 보이지 않게 덮습니다.
+
+  boot() 이 끝나면 body[data-ready] 가 붙으면서 걷힙니다.
+  부팅이 실패해 그 표시가 안 붙어도 4초 뒤 스스로 걷힙니다.
+  화면이 영영 잠기는 것보다 반쯤 준비된 화면이라도 보이는 편이 낫습니다.
+-->
+<div class="splash" id="splash" role="status" data-i18n-aria="app.loading" aria-label="불러오는 중">
+  <span class="splash-mark" aria-hidden="true">DK</span>
+  <span class="splash-name" aria-hidden="true">Daily Kit</span>
+  <span class="splash-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+</div>
+
 <div class="app">
 
   <header class="app-header">
@@ -2736,6 +2817,8 @@ const DEFAULT_LANG = 'ko';
 // 값이 함수인 항목은 인자를 받아 문장을 만듭니다. (복수형 처리 등)
 const DICT = {
   ko: {
+    // 시작 화면(스플래시)이 스크린리더에 읽히는 문구
+    'app.loading': '불러오는 중',
     'today.weather.title': '현재 날씨',
     'today.weather.loading': '날씨를 불러오는 중…',
     'today.weather.error': '날씨를 불러오지 못했습니다',
@@ -2953,6 +3036,7 @@ const DICT = {
     'todo.toast.cleared': (n) => `완료 항목 ${n}건을 삭제했습니다`,
   },
   en: {
+    'app.loading': 'Loading',
     'today.weather.title': 'Current weather',
     'today.weather.loading': 'Loading weather…',
     'today.weather.error': "Couldn't load the weather",
@@ -3422,10 +3506,19 @@ function label(scope, key, lang = 'en') {
   }
 
   if (scope === 'week') {
-    const week = Number(key.split('-W')[1]);
+    /*
+     * 주차 번호('38주차')는 넣지 않습니다.
+     * 실제로 보는 것은 '며칠부터 며칠까지' 이고, 주차 번호는 그 앞자리를 차지하며
+     * 좁은 화면에서 날짜를 밀어냅니다. 주차를 세는 사람은 거의 없습니다.
+     *
+     * 연도는 남깁니다. 빼면 2020-W53 과 2026-W53 이 똑같은 글자가 되어
+     * 해를 넘겨 이동할 때 어느 해를 보고 있는지 알 수 없습니다.
+     * 달력 연도가 아니라 키의 연도(ISO 연도)를 씁니다. 연말에 걸친 주는
+     * 12월이어도 다음 해 1주차라, 달력 연도를 쓰면 저장 키와 어긋납니다.
+     */
     const isoYear = Number(key.split('-W')[0]);
     const range = weekRange(key, lang);
-    return ko ? `${isoYear}년 ${week}주차 · ${range}` : `Week ${week}, ${isoYear} · ${range}`;
+    return ko ? `${isoYear}년 ${range}` : `${isoYear} · ${range}`;
   }
 
   if (scope === 'month') {
@@ -8572,93 +8665,6 @@ function initAi() {
   return { refreshAiMode, initAi, APIKEY_KEY, MODEL_KEY };
 })();
 
-/* ===== js/modules/banner.js ===== */
-const __m_js_modules_banner_js = (function () {
-  const { $, el } = __m_js_lib_dom_js;
-  const { load, save } = __m_js_lib_store_js;
-/** 배너 모듈: 설정에서 등록한 문구를 6초마다 순환 표시합니다. */
-
-
-const BANNER_KEY = 'banner.items';
-const ROTATE_MS = 6000;
-
-const DEFAULTS = [
-  { title: '환영합니다 👋', text: '계산기 · 날씨 · 할 일 · 타이머를 한 화면에서' },
-  { title: '설정에서 바꿔보세요', text: '이 배너 문구는 설정 탭에서 직접 편집할 수 있습니다' },
-];
-
-// 웹 주소로 접속했을 때만 설치 안내가 의미가 있습니다.
-// 파일을 직접 연 경우(file://)에는 매니페스트가 없어 '홈 화면에 추가' 가 동작하지 않습니다.
-function installHint() {
-  const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-  return isWeb
-    ? { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' }
-    : { title: '오프라인으로 실행 중', text: '인터넷 없이도 계산기 · 타이머 · 메모를 쓸 수 있습니다' };
-}
-
-let items = DEFAULTS;
-let index = 0;
-let timer = null;
-
-function render() {
-  const item = items[index] || DEFAULTS[0];
-  $('#banner-title').textContent = item.title || '';
-  $('#banner-text').textContent = item.text || '';
-
-  const dots = $('#banner-dots');
-  dots.replaceChildren();
-  if (items.length <= 1) return;
-  items.forEach((_, i) => {
-    dots.append(el('button', {
-      class: 'banner-dot',
-      type: 'button',
-      'aria-label': `배너 ${i + 1}`,
-      'aria-current': String(i === index),
-      onclick: () => { index = i; render(); restart(); },
-    }));
-  });
-}
-
-function restart() {
-  clearInterval(timer);
-  if (items.length <= 1) return;
-  timer = setInterval(() => { index = (index + 1) % items.length; render(); }, ROTATE_MS);
-}
-
-/**
- * 여러 줄 텍스트를 배너 항목 배열로 변환합니다.
- * "제목 | 내용" 형식이면 나누고, 아니면 전체를 내용으로 씁니다.
- */
-function parseBannerText(raw) {
-  return String(raw || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const pipe = line.indexOf('|');
-      if (pipe === -1) return { title: '', text: line };
-      return { title: line.slice(0, pipe).trim(), text: line.slice(pipe + 1).trim() };
-    });
-}
-
-function applyBanner(list) {
-  items = Array.isArray(list) && list.length ? list : [...DEFAULTS, installHint()];
-  index = 0;
-  render();
-  restart();
-}
-
-function initBanner() {
-  applyBanner(load(BANNER_KEY, null));
-}
-
-function saveBanner(list) {
-  save(BANNER_KEY, list);
-  applyBanner(list);
-}
-  return { parseBannerText, applyBanner, initBanner, saveBanner, BANNER_KEY };
-})();
-
 /* ===== js/lib/version.js ===== */
 const __m_js_lib_version_js = (function () {
 /**
@@ -9052,6 +9058,117 @@ function initUpdate() {
   setTimeout(() => { autoCheck(); }, AUTO_DELAY_MS);
 }
   return { isNativeUrl, isNative, updateMode, registerServiceWorker, checkForUpdate, autoCheck, initUpdate };
+})();
+
+/* ===== js/modules/banner.js ===== */
+const __m_js_modules_banner_js = (function () {
+  const { $, el } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
+  const { isNative, isNativeUrl } = __m_js_modules_update_js;
+/** 배너 모듈: 설정에서 등록한 문구를 6초마다 순환 표시합니다. */
+
+
+
+const BANNER_KEY = 'banner.items';
+const ROTATE_MS = 6000;
+
+const DEFAULTS = [
+  { title: '환영합니다 👋', text: '계산기 · 날씨 · 할 일 · 타이머를 한 화면에서' },
+  { title: '설정에서 바꿔보세요', text: '이 배너 문구는 설정 탭에서 직접 편집할 수 있습니다' },
+];
+
+/** 실행 위치별로 의미가 있는 안내 문구. */
+const HINTS = Object.freeze({
+  native: { title: '앱으로 실행 중', text: '업데이트는 설정 탭의 앱 업데이트에서 확인할 수 있습니다' },
+  web: { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' },
+  file: { title: '오프라인으로 실행 중', text: '인터넷 없이도 계산기 · 타이머 · 메모를 쓸 수 있습니다' },
+});
+
+/**
+ * 주소를 보고 실행 위치를 가릅니다.
+ *
+ * 프로토콜만 보면 안 됩니다. 안드로이드 앱의 주소는 `https://localhost` 라서
+ * 프로토콜이 `https:` 입니다. 그래서 앱 안에서 '브라우저 메뉴 → 홈 화면에 추가' 를
+ * 안내하고 있었습니다. 이미 설치된 앱에 설치하라고 말한 셈입니다.
+ *
+ * update.js / sw.js 와 같은 규칙(`isNativeUrl`)을 씁니다. 판정이 갈리면 또 어긋납니다.
+ *
+ * @param {Location | {protocol: string, hostname: string, port: string}} loc
+ * @returns {'native' | 'web' | 'file'}
+ */
+function hintEnv(loc) {
+  if (isNativeUrl(loc)) return 'native';
+  if (loc?.protocol === 'http:' || loc?.protocol === 'https:') return 'web';
+  return 'file';
+}
+
+function installHint() {
+  // Capacitor 전역이 있으면 그것도 앱입니다. (주소 판정보다 넓기만 하고 좁지 않습니다)
+  const where = isNative() ? 'native' : hintEnv(window.location);
+  return HINTS[where];
+}
+
+let items = DEFAULTS;
+let index = 0;
+let timer = null;
+
+function render() {
+  const item = items[index] || DEFAULTS[0];
+  $('#banner-title').textContent = item.title || '';
+  $('#banner-text').textContent = item.text || '';
+
+  const dots = $('#banner-dots');
+  dots.replaceChildren();
+  if (items.length <= 1) return;
+  items.forEach((_, i) => {
+    dots.append(el('button', {
+      class: 'banner-dot',
+      type: 'button',
+      'aria-label': `배너 ${i + 1}`,
+      'aria-current': String(i === index),
+      onclick: () => { index = i; render(); restart(); },
+    }));
+  });
+}
+
+function restart() {
+  clearInterval(timer);
+  if (items.length <= 1) return;
+  timer = setInterval(() => { index = (index + 1) % items.length; render(); }, ROTATE_MS);
+}
+
+/**
+ * 여러 줄 텍스트를 배너 항목 배열로 변환합니다.
+ * "제목 | 내용" 형식이면 나누고, 아니면 전체를 내용으로 씁니다.
+ */
+function parseBannerText(raw) {
+  return String(raw || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const pipe = line.indexOf('|');
+      if (pipe === -1) return { title: '', text: line };
+      return { title: line.slice(0, pipe).trim(), text: line.slice(pipe + 1).trim() };
+    });
+}
+
+function applyBanner(list) {
+  items = Array.isArray(list) && list.length ? list : [...DEFAULTS, installHint()];
+  index = 0;
+  render();
+  restart();
+}
+
+function initBanner() {
+  applyBanner(load(BANNER_KEY, null));
+}
+
+function saveBanner(list) {
+  save(BANNER_KEY, list);
+  applyBanner(list);
+}
+  return { hintEnv, parseBannerText, applyBanner, initBanner, saveBanner, BANNER_KEY };
 })();
 
 /* ===== js/modules/settings.js ===== */
@@ -9687,6 +9804,66 @@ function refreshAppearance(prefs) {
   return { applySkinAccent, applyCardPrefs, applyCardOrder, applyTabLayout, initAppearance, refreshAppearance };
 })();
 
+/* ===== js/lib/session.js ===== */
+const __m_js_lib_session_js = (function () {
+/**
+ * session.js — 앱을 열 때 어느 화면을 보여 줄지
+ *
+ * 그동안은 마지막에 보던 탭을 그대로 열었습니다. 어제 계산기를 켜 뒀으면
+ * 오늘 아침에도 계산기가 열립니다. 하루를 시작하며 볼 화면은 '오늘' 입니다.
+ *
+ * 재는 것은 '앱을 떠나 있던 시간' 입니다. 화면을 켜 둔 채 가만히 있던 시간은
+ * 세지 않습니다. 읽고 있는데 화면이 저 혼자 바뀌면 그게 더 나쁩니다.
+ *
+ * 여기에는 판정만 둡니다. 시각을 읽고 쓰는 일은 main.js 가 합니다.
+ * (그래야 이 규칙을 브라우저 없이 검사할 수 있습니다)
+ */
+
+/** 이 시간 넘게 떠나 있었으면 처음 화면으로 돌아갑니다. */
+const AWAY_RESET_MS = 10 * 60 * 1000;
+
+/**
+ * 자리를 비운 지 오래인가.
+ *
+ * @param {number} lastSeen 마지막으로 앱을 떠난 시각(epoch ms). 기록이 없으면 0.
+ * @param {number} now 지금 시각(epoch ms).
+ * @param {number} limit 기준 시간(ms).
+ * @returns {boolean}
+ */
+function awayTooLong(lastSeen, now = Date.now(), limit = AWAY_RESET_MS) {
+  const last = Number(lastSeen);
+  // 처음 쓰는 경우엔 기록이 없습니다. 이때는 어차피 처음 화면으로 엽니다.
+  if (!Number.isFinite(last) || last <= 0) return false;
+  const gap = Number(now) - last;
+  /*
+   * 기기 시계가 뒤로 가면(시간대 변경, 수동 조정) 음수가 납니다.
+   * 그 값으로 화면을 바꾸지 않습니다. 사용자가 한 일이 아닙니다.
+   */
+  if (!Number.isFinite(gap) || gap < 0) return false;
+  return gap > limit;
+}
+
+/**
+ * 앱을 열 때 보여 줄 탭.
+ *
+ * @param {object} o
+ * @param {string} o.saved 마지막에 보던 탭
+ * @param {number} o.lastSeen 마지막으로 앱을 떠난 시각(epoch ms)
+ * @param {string[]} o.tabs 지금 화면에 놓인 탭들 (설정에서 숨길 수 있습니다)
+ * @param {string} o.home 처음 화면으로 삼을 탭
+ * @param {number} [o.now]
+ * @returns {string}
+ */
+function startTab({ saved, lastSeen, tabs, home, now = Date.now() }) {
+  const list = Array.isArray(tabs) ? tabs : [];
+  // '오늘' 을 숨겨 뒀을 수도 있습니다. 그러면 남아 있는 첫 탭이 처음 화면입니다.
+  const fallback = list.includes(home) ? home : (list[0] || home);
+  if (!list.includes(saved)) return fallback;
+  return awayTooLong(lastSeen, now) ? fallback : saved;
+}
+  return { awayTooLong, startTab, AWAY_RESET_MS };
+})();
+
 /* ===== js/main.js ===== */
 const __m_js_main_js = (function () {
   const { $, $$, toast, initToastRegion } = __m_js_lib_dom_js;
@@ -9707,6 +9884,7 @@ const __m_js_main_js = (function () {
   const { initUpdate, registerServiceWorker } = __m_js_modules_update_js;
   const { initLang, t, onLangChange, applyStatic } = __m_js_lib_i18n_js;
   const { setNavigator, notifyTabChange } = __m_js_lib_nav_js;
+  const { startTab, awayTooLong } = __m_js_lib_session_js;
   const { ALL_TABS, onPrefsChange } = __m_js_lib_prefs_js;
 /**
  * main.js — 앱 부트스트랩
@@ -9731,8 +9909,26 @@ const __m_js_main_js = (function () {
 
 
 
+
 const TAB_KEY = 'ui.activeTab';
 const DEFAULT_TAB = 'today';
+
+/* 자리를 비운 시간에 따라 시작 화면을 정합니다. 규칙은 lib/session.js 에 있습니다. */
+const SEEN_KEY = 'ui.lastSeen';
+
+/** 지금이 '앱을 떠나는 순간' 임을 적어 둡니다. */
+function markSeen() {
+  save(SEEN_KEY, Date.now());
+}
+
+function lastSeen() {
+  return Number(load(SEEN_KEY, 0));
+}
+
+/** 지금 화면 구성에서 쓸 수 있는 처음 화면. ('오늘'을 숨겨 둘 수도 있습니다) */
+function homeTab(tabs) {
+  return tabs.includes(DEFAULT_TAB) ? DEFAULT_TAB : (tabs[0] || DEFAULT_TAB);
+}
 
 /*
  * 화면에 실제로 놓인 탭. 설정에서 순서를 바꾸거나 숨기면 이 배열이 바뀝니다.
@@ -10103,11 +10299,34 @@ function initTabs() {
 
   TABS = applyTabLayout();
 
-  // 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
-  const startTab = load(TAB_KEY, DEFAULT_TAB);
-  setActiveTab(TABS.includes(startTab) ? startTab : (TABS[0] || DEFAULT_TAB));
+  /*
+   * 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
+   * 다만 10분 넘게 떠나 있었으면 마지막 탭을 버리고 '오늘'로 엽니다.
+   */
+  setActiveTab(startTab({
+    saved: load(TAB_KEY, DEFAULT_TAB),
+    lastSeen: lastSeen(),
+    tabs: TABS,
+    home: DEFAULT_TAB,
+  }));
+  markSeen();
   // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
   requestAnimationFrame(() => scrollToPanel(currentTab, false));
+
+  /*
+   * 앱이 살아 있는 채로 뒤로 갔다가 돌아오는 경우.
+   * 안드로이드 WebView 는 홈 버튼을 눌러도 페이지를 다시 읽지 않으므로,
+   * 위의 부팅 경로만으로는 며칠이 지나도 보던 탭 그대로 열립니다.
+   *
+   * 떠날 때 시각을 찍고, 돌아왔을 때 10분이 넘었으면 '오늘'로 돌립니다.
+   */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { markSeen(); return; }
+    if (awayTooLong(lastSeen())) activate(homeTab(TABS));
+    markSeen();
+  });
+  // iOS 사파리는 탭을 버릴 때 visibilitychange 대신 pagehide 만 줄 때가 있습니다.
+  window.addEventListener('pagehide', markSeen);
 
   onPrefsChange((prefs) => {
     refreshAppearance(prefs);

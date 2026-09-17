@@ -58,6 +58,7 @@ const APP_SHELL = [
   './js/lib/i18n.js',
   './js/lib/nav.js',
   './js/lib/prefs.js',
+  './js/lib/session.js',
   './js/lib/version.js',
   './js/modules/today.js',
   './js/modules/calculator.js',

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  앱을 켤 때 잠깐 보이는 화면.
+
+  여기 있던 splash.png 는 Capacitor 가 넣어 준 기본 이미지(파란 X)였습니다.
+  앱을 켜면 남의 로고가 먼저 떴습니다. 앱 아이콘과 앱 배경색으로 바꿉니다.
+
+  배경색은 웹 화면의 밝은 배경과 같은 값(#F4F5F7)이라, 네이티브 화면에서
+  웹 화면으로 넘어갈 때 색이 튀지 않습니다.
+  어두운 테마는 drawable-night/splash.xml 이 맡습니다.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F4F5F7" />
+        </shape>
+    </item>
+    <!-- android:width/height 는 API 23 부터입니다. 이 앱의 minSdk 는 24 입니다. -->
+    <item
+        android:drawable="@mipmap/ic_launcher"
+        android:gravity="center"
+        android:width="144dp"
+        android:height="144dp" />
+</layer-list>

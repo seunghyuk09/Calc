@@ -1,6 +1,7 @@
 /** 배너 모듈: 설정에서 등록한 문구를 6초마다 순환 표시합니다. */
 import { $, el } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
+import { isNative, isNativeUrl } from './update.js';
 
 export const BANNER_KEY = 'banner.items';
 const ROTATE_MS = 6000;
@@ -10,13 +11,35 @@ const DEFAULTS = [
   { title: '설정에서 바꿔보세요', text: '이 배너 문구는 설정 탭에서 직접 편집할 수 있습니다' },
 ];
 
-// 웹 주소로 접속했을 때만 설치 안내가 의미가 있습니다.
-// 파일을 직접 연 경우(file://)에는 매니페스트가 없어 '홈 화면에 추가' 가 동작하지 않습니다.
+/** 실행 위치별로 의미가 있는 안내 문구. */
+const HINTS = Object.freeze({
+  native: { title: '앱으로 실행 중', text: '업데이트는 설정 탭의 앱 업데이트에서 확인할 수 있습니다' },
+  web: { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' },
+  file: { title: '오프라인으로 실행 중', text: '인터넷 없이도 계산기 · 타이머 · 메모를 쓸 수 있습니다' },
+});
+
+/**
+ * 주소를 보고 실행 위치를 가릅니다.
+ *
+ * 프로토콜만 보면 안 됩니다. 안드로이드 앱의 주소는 `https://localhost` 라서
+ * 프로토콜이 `https:` 입니다. 그래서 앱 안에서 '브라우저 메뉴 → 홈 화면에 추가' 를
+ * 안내하고 있었습니다. 이미 설치된 앱에 설치하라고 말한 셈입니다.
+ *
+ * update.js / sw.js 와 같은 규칙(`isNativeUrl`)을 씁니다. 판정이 갈리면 또 어긋납니다.
+ *
+ * @param {Location | {protocol: string, hostname: string, port: string}} loc
+ * @returns {'native' | 'web' | 'file'}
+ */
+export function hintEnv(loc) {
+  if (isNativeUrl(loc)) return 'native';
+  if (loc?.protocol === 'http:' || loc?.protocol === 'https:') return 'web';
+  return 'file';
+}
+
 function installHint() {
-  const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-  return isWeb
-    ? { title: '홈 화면에 추가', text: '브라우저 메뉴 → 홈 화면에 추가 하면 앱처럼 쓸 수 있어요' }
-    : { title: '오프라인으로 실행 중', text: '인터넷 없이도 계산기 · 타이머 · 메모를 쓸 수 있습니다' };
+  // Capacitor 전역이 있으면 그것도 앱입니다. (주소 판정보다 넓기만 하고 좁지 않습니다)
+  const where = isNative() ? 'native' : hintEnv(window.location);
+  return HINTS[where];
 }
 
 let items = DEFAULTS;

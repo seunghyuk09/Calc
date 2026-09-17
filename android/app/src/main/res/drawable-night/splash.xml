@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  어두운 테마에서 앱을 켤 때 보이는 화면.
+  배경색은 웹 화면의 어두운 배경과 같은 값(#0F1216)입니다.
+  밝은 테마는 drawable/splash.xml 이 맡습니다.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#0F1216" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@mipmap/ic_launcher"
+        android:gravity="center"
+        android:width="144dp"
+        android:height="144dp" />
+</layer-list>
