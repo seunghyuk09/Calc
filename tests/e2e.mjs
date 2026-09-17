@@ -1210,6 +1210,123 @@ const main = async () => {
     check('manifest 유효', manifestOk);
   }
 
+  /* ---------- 10-b. 시작 화면과 '10분 비우면 오늘로' ----------
+   *
+   * 앱을 열면 계속 마지막에 보던 탭이 열리던 문제. 규칙 자체는
+   * tests/session.test.mjs 가 보고, 여기서는 '실제로 연결돼 있는지'만 봅니다.
+   * 본 흐름의 상태를 건드리지 않도록 따로 띄운 페이지에서 합니다.
+   */
+  {
+    const fresh = await context.newPage();
+    await fresh.route('**/api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+
+    /*
+     * 부팅 전에 화면을 덮는지.
+     *
+     * main.js 를 막아 '준비 표시가 아직 없는 상태'를 확실히 만듭니다.
+     * 그냥 열어서 보면 부팅이 먼저 끝나 버려, 통과해도 아무것도 증명하지 못합니다.
+     *
+     * 서비스 워커가 있으면 그쪽이 캐시에서 내주므로 가로채기가 통하지 않습니다.
+     * 그래서 서비스 워커를 끈 새 컨텍스트에서 봅니다.
+     * file:// 모드에서는 요청을 가로챌 수 없어 이 확인만 건너뜁니다.
+     */
+    if (!IS_FILE) {
+      const coldCtx = await context.browser().newContext({
+        serviceWorkers: 'block', viewport: { width: 390, height: 844 },
+      });
+      const cold = await coldCtx.newPage();
+      await cold.route('**/main.js', (route) => route.abort());
+      await cold.goto(BASE, { waitUntil: 'commit' });
+      await cold.waitForSelector('#splash', { state: 'attached', timeout: 10000 });
+      const cover = await cold.evaluate(() => {
+        const s = document.querySelector('#splash');
+        const cs = getComputedStyle(s);
+        const r = s.getBoundingClientRect();
+        return {
+          vis: cs.visibility, op: Number(cs.opacity), ready: document.body.dataset.ready || '',
+          covers: r.width >= innerWidth - 1 && r.height >= innerHeight - 1,
+        };
+      });
+      check('시작 화면이 부팅 전 화면을 덮는다',
+        cover.vis === 'visible' && cover.op > 0.9 && cover.covers && !cover.ready,
+        `visibility=${cover.vis} opacity=${cover.op} 덮음=${cover.covers} 준비=${cover.ready || '아직'}`);
+      await coldCtx.close();
+    }
+
+    await fresh.goto(BASE, { waitUntil: 'load' });
+    await fresh.waitForSelector('body[data-ready="true"]');
+    await fresh.waitForTimeout(500);
+    const gone = await fresh.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('#splash'));
+      return { vis: cs.visibility, op: Number(cs.opacity), pe: cs.pointerEvents };
+    });
+    check('부팅이 끝나면 시작 화면이 걷힌다',
+      gone.vis === 'hidden' || gone.op === 0, `visibility=${gone.vis} opacity=${gone.op}`);
+    check('걷히는 동안 화면을 막지 않는다', gone.pe === 'none', `pointer-events=${gone.pe}`);
+
+    const activeOf = () => fresh.evaluate(() =>
+      document.querySelector('.tab[aria-selected="true"]')?.dataset.tab || '');
+
+    await goTab(fresh, 'calc');
+    check('시작 탭 검사 준비: 계산기로 이동', (await activeOf()) === 'calc');
+
+    // (가) 금방 다시 열면 보던 탭 그대로.
+    await fresh.reload({ waitUntil: 'load' });
+    await fresh.waitForSelector('body[data-ready="true"]');
+    await fresh.waitForTimeout(300);
+    const soon = await activeOf();
+    check('금방 다시 열면 보던 탭 그대로', soon === 'calc', `실제: ${soon}`);
+
+    /*
+     * (나) 11분 비운 뒤.
+     * evaluate 로 심으면 안 됩니다. reload 의 언로드에서 pagehide 가 돌며
+     * 방금 심은 과거 시각을 '지금' 으로 덮어씁니다. (그 동작 자체는 맞습니다)
+     * 새 문서의 스크립트보다 먼저 도는 자리에 한 번만 심습니다.
+     */
+    await fresh.addInitScript(() => {
+      if (sessionStorage.getItem('__staleOnce')) return;
+      sessionStorage.setItem('__staleOnce', '1');
+      localStorage.setItem('daily-kit:ui.lastSeen', String(Date.now() - 11 * 60 * 1000));
+    });
+    await fresh.reload({ waitUntil: 'load' });
+    await fresh.waitForSelector('body[data-ready="true"]');
+    await fresh.waitForTimeout(300);
+    const late = await activeOf();
+    check('10분 넘게 비우면 오늘로 연다', late === 'today', `실제: ${late}`);
+
+    // 화면만 되돌릴 뿐, 저장한 내용을 지우지는 않습니다.
+    const keptKeys = await fresh.evaluate(() =>
+      Object.keys(localStorage).filter((k) => k.startsWith('daily-kit:')).length);
+    check('시작 화면을 되돌려도 저장 데이터는 남는다', keptKeys > 1, `키 ${keptKeys}개`);
+
+    /*
+     * (다) 새로고침 없이 돌아오는 경우.
+     * 안드로이드 WebView 는 홈 버튼을 눌러도 페이지를 다시 읽지 않습니다.
+     * 부팅 경로만 고치면 며칠이 지나도 보던 탭 그대로 열립니다.
+     */
+    await goTab(fresh, 'memo');
+    await fresh.evaluate(() => {
+      localStorage.setItem('daily-kit:ui.lastSeen', String(Date.now() - 11 * 60 * 1000));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await fresh.waitForTimeout(400);
+    const resumed = await activeOf();
+    check('새로고침 없이 돌아와도 오늘로', resumed === 'today', `실제: ${resumed}`);
+
+    // (라) 잠깐 비운 복귀는 건드리지 않습니다. 읽는 중에 화면이 튀면 그게 더 나쁩니다.
+    await goTab(fresh, 'memo');
+    await fresh.evaluate(() => {
+      localStorage.setItem('daily-kit:ui.lastSeen', String(Date.now() - 60 * 1000));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await fresh.waitForTimeout(400);
+    const short = await activeOf();
+    check('잠깐 비운 복귀는 화면을 건드리지 않는다', short === 'memo', `실제: ${short}`);
+
+    await fresh.close();
+  }
+
   // ---------- 11. 스크린샷 ----------
   await goTab(page, 'calc');
   await page.fill('#calc-expr', '(1250+890)*1.1');

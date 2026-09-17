@@ -20,10 +20,28 @@ import { initArrange, startArrange, arrangeFollowTab } from './modules/arrange.j
 import { initUpdate, registerServiceWorker } from './modules/update.js';
 import { initLang, t, onLangChange, applyStatic } from './lib/i18n.js';
 import { setNavigator, notifyTabChange } from './lib/nav.js';
+import { startTab, awayTooLong } from './lib/session.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
 const TAB_KEY = 'ui.activeTab';
 const DEFAULT_TAB = 'today';
+
+/* 자리를 비운 시간에 따라 시작 화면을 정합니다. 규칙은 lib/session.js 에 있습니다. */
+const SEEN_KEY = 'ui.lastSeen';
+
+/** 지금이 '앱을 떠나는 순간' 임을 적어 둡니다. */
+function markSeen() {
+  save(SEEN_KEY, Date.now());
+}
+
+function lastSeen() {
+  return Number(load(SEEN_KEY, 0));
+}
+
+/** 지금 화면 구성에서 쓸 수 있는 처음 화면. ('오늘'을 숨겨 둘 수도 있습니다) */
+function homeTab(tabs) {
+  return tabs.includes(DEFAULT_TAB) ? DEFAULT_TAB : (tabs[0] || DEFAULT_TAB);
+}
 
 /*
  * 화면에 실제로 놓인 탭. 설정에서 순서를 바꾸거나 숨기면 이 배열이 바뀝니다.
@@ -394,11 +412,34 @@ function initTabs() {
 
   TABS = applyTabLayout();
 
-  // 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
-  const startTab = load(TAB_KEY, DEFAULT_TAB);
-  setActiveTab(TABS.includes(startTab) ? startTab : (TABS[0] || DEFAULT_TAB));
+  /*
+   * 처음 쓰는 사람은 '오늘'로, 그 외에는 마지막에 보던 탭으로 엽니다.
+   * 다만 10분 넘게 떠나 있었으면 마지막 탭을 버리고 '오늘'로 엽니다.
+   */
+  setActiveTab(startTab({
+    saved: load(TAB_KEY, DEFAULT_TAB),
+    lastSeen: lastSeen(),
+    tabs: TABS,
+    home: DEFAULT_TAB,
+  }));
+  markSeen();
   // 레이아웃이 잡히기 전에 스크롤하면 위치가 0 으로 계산됩니다. 한 프레임 뒤에 옮깁니다.
   requestAnimationFrame(() => scrollToPanel(currentTab, false));
+
+  /*
+   * 앱이 살아 있는 채로 뒤로 갔다가 돌아오는 경우.
+   * 안드로이드 WebView 는 홈 버튼을 눌러도 페이지를 다시 읽지 않으므로,
+   * 위의 부팅 경로만으로는 며칠이 지나도 보던 탭 그대로 열립니다.
+   *
+   * 떠날 때 시각을 찍고, 돌아왔을 때 10분이 넘었으면 '오늘'로 돌립니다.
+   */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { markSeen(); return; }
+    if (awayTooLong(lastSeen())) activate(homeTab(TABS));
+    markSeen();
+  });
+  // iOS 사파리는 탭을 버릴 때 visibilitychange 대신 pagehide 만 줄 때가 있습니다.
+  window.addEventListener('pagehide', markSeen);
 
   onPrefsChange((prefs) => {
     refreshAppearance(prefs);
