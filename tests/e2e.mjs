@@ -1210,7 +1210,7 @@ const main = async () => {
     check('manifest 유효', manifestOk);
   }
 
-  /* ---------- 10-b. 시작 화면과 '10분 비우면 오늘로' ----------
+  /* ---------- 10-d. 시작 화면과 '10분 비우면 오늘로' ----------
    *
    * 앱을 열면 계속 마지막에 보던 탭이 열리던 문제. 규칙 자체는
    * tests/session.test.mjs 가 보고, 여기서는 '실제로 연결돼 있는지'만 봅니다.
@@ -1834,6 +1834,24 @@ export function isStamped() { return true; }`,
   const live = await page.evaluate(async () => {
     const main = document.querySelector('#main');
     const btns = [...document.querySelectorAll('#tabs .tab')];
+    /*
+     * 먼저 스크롤이 멎기를 기다립니다.
+     *
+     * 바로 위 goTab 의 부드러운 스크롤이 아직 굴러가고 있을 수 있습니다.
+     * 그 스크롤이 걸어 둔 정착 타이머(120ms 디바운스)가 아래 측정 창 안에서 터지면
+     * settlePager 가 aria-selected 를 스크롤 위치 쪽으로 옮겨 버립니다.
+     * 그러면 이름은 제대로 바뀌었는데도 'selected === before' 가 깨져 실패합니다.
+     * 실제로 CI 에서 그렇게 한 번 났습니다. (기대 "Weather" / 실제 "Weather" · 30ms · todo -> weather)
+     *
+     * 200ms 동안 스크롤 이벤트가 한 번도 없으면 정착은 이미 끝난 것입니다.
+     */
+    await new Promise((done) => {
+      let quiet;
+      const finish = () => { main.removeEventListener('scroll', arm); done(); };
+      function arm() { clearTimeout(quiet); quiet = setTimeout(finish, 200); }
+      main.addEventListener('scroll', arm);
+      arm();
+    });
     const before = document.querySelector('.tab[aria-selected="true"]')?.dataset.tab;
     // 버튼으로 옮긴 직후에는 목적지 이름을 붙들고 있습니다. 손을 대면 풀리므로 그대로 흉내 냅니다.
     main.dispatchEvent(new Event('pointerdown'));
