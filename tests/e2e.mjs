@@ -2269,6 +2269,50 @@ export function isStamped() { return true; }`,
       const grid = document.querySelector('#cal-grid');
       return grid.scrollWidth <= grid.clientWidth + 1;
     }));
+
+  /*
+   * 달마다 줄 수가 다르면(2월 넉 줄, 8월 여섯 줄) 열두 장을 늘어놓았을 때
+   * 카드 안이 들쭉날쭉해 보입니다. 빈 칸으로 채워 여섯 줄로 맞춥니다.
+   */
+  const miniCells = await page.evaluate(() => (
+    [...document.querySelectorAll('#cal-grid .cal-mini')]
+      .map((n) => n.querySelectorAll('.cal-mini-day').length)));
+  check('연간 — 열두 달 모두 여섯 줄(42칸)로 고르다',
+    miniCells.length === 12 && miniCells.every((n) => n === 42),
+    [...new Set(miniCells)].join(','));
+  const miniHeights = await page.evaluate(() => (
+    [...document.querySelectorAll('#cal-grid .cal-mini')]
+      .map((n) => Math.round(n.getBoundingClientRect().height))));
+  check('연간 — 달 카드 높이가 모두 같다',
+    new Set(miniHeights).size === 1, [...new Set(miniHeights)].join(','));
+
+  /*
+   * 모양이 바뀔 때만 살짝 나타납니다.
+   * 달력은 할 일을 체크하기만 해도 다시 그려집니다. 그때마다 애니메이션이 돌면
+   * 체크 한 번에 달력이 깜빡여서 도리어 거슬립니다.
+   */
+  const enterStart = () => page.evaluate(() => {
+    const g = document.querySelector('#cal-grid');
+    const a = g.getAnimations?.()[0];
+    return { has: g.classList.contains('is-enter'), start: a ? Math.round(a.startTime || 0) : null };
+  });
+  check('연간 — 모양이 바뀌면 나타나는 동작이 붙는다', (await enterStart()).has);
+  const beforeRerender = await enterStart();
+  // 같은 모양으로 다시 그리게 만듭니다. (저장값을 건드리면 onTodoChange 가 돌아갑니다)
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(raw));
+    document.querySelector('#cal-grid').dispatchEvent(new Event('x-noop'));
+  });
+  await page.click('#period-next');
+  await page.waitForTimeout(300);
+  await page.click('#period-prev');
+  await page.waitForTimeout(300);
+  const afterRerender = await enterStart();
+  check('연간 — 같은 모양으로 다시 그려도 동작이 다시 시작되지 않는다',
+    afterRerender.start === beforeRerender.start,
+    `${beforeRerender.start} -> ${afterRerender.start}`);
+
   // 달 한 장을 누르면 그 달의 월간으로 내려갑니다. (연간 -> 월간 -> 일간)
   await page.click('#cal-grid .cal-mini[data-mini-month$="-03"]');
   await page.waitForTimeout(300);
