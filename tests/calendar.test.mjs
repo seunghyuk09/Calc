@@ -9,7 +9,7 @@ globalThis.window = {
 // calendar.js 가 dom.js 를 거쳐 document 를 건드리므로 최소한만 흉내 냅니다.
 globalThis.document = { querySelector: () => null, querySelectorAll: () => [] };
 
-const { monthGrid, weekRow, groupByDay, dayKey } = await import('../public/js/modules/calendar.js');
+const { monthGrid, weekRow, groupByDay, dayKey, shapeOf, monthsOfYear } = await import('../public/js/modules/calendar.js');
 const { emojiOf, isCategory, CATEGORY_IDS } = await import('../public/js/lib/categories.js');
 const { daysOfWeek } = await import('../public/js/modules/todo.js');
 
@@ -136,4 +136,43 @@ test('분류: 모르는 값은 기본 분류로 떨어진다', () => {
 test('분류: 이모지가 서로 겹치지 않는다 (달력에서 구분이 안 됩니다)', () => {
   const emojis = CATEGORY_IDS.map(emojiOf);
   assert.equal(new Set(emojis).size, emojis.length, `중복: ${emojis.join(' ')}`);
+});
+
+/*
+ * 달력 모양은 계획표에서 고른 단위를 그대로 따릅니다.
+ * 예전에는 달력이 '접기' 로 제 모양을 따로 정해서, 주간 계획을 보면서 한 달 격자를
+ * 보고 있는 일이 생겼습니다. 이제 둘이 어긋날 수 없습니다.
+ */
+test('달력 모양은 계획표 단위를 그대로 따른다', () => {
+  assert.equal(shapeOf('day'), 'day');
+  assert.equal(shapeOf('week'), 'week');
+  assert.equal(shapeOf('month'), 'month');
+  assert.equal(shapeOf('year'), 'year');
+});
+
+test('모르는 단위가 저장돼 있어도 달력이 사라지지 않는다', () => {
+  // localStorage 는 사용자가 직접 고칠 수 있고 예전 버전이 남아 있을 수도 있습니다.
+  [undefined, null, '', 'quarter', 0, {}].forEach((bad) => {
+    assert.equal(shapeOf(bad), 'month', String(bad));
+  });
+});
+
+test('연간 보기는 열두 달을 준다', () => {
+  const months = monthsOfYear(2026);
+  assert.equal(months.length, 12, '넉 장씩 석 줄');
+  months.forEach((d, i) => {
+    assert.equal(d.getFullYear(), 2026);
+    assert.equal(d.getMonth(), i);
+    assert.equal(d.getDate(), 1, '각 달의 1일이어야 dateOf 규칙과 맞습니다');
+  });
+});
+
+test('연간 보기의 달 하나하나가 그 달의 격자를 만들 수 있다', () => {
+  // 2026년 2월은 28일까지입니다. 미니 달력도 같은 규칙으로 그려집니다.
+  const feb = monthsOfYear(2026)[1];
+  const cells = monthGrid(feb);
+  const own = cells.filter((d) => d.getMonth() === 1);
+  assert.equal(own.length, 28);
+  assert.equal(dayKey(own[0]), '2026-02-01');
+  assert.equal(dayKey(own[own.length - 1]), '2026-02-28');
 });

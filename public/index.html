@@ -172,33 +172,44 @@
     <!-- ================= TO DO (계획표) — 문구는 한/영 선택 -->
     <section class="panel grid" id="panel-todo" role="tabpanel" aria-label="TO DO" lang="ko">
 
-      <!-- 달력을 맨 위에 둡니다. 한 달을 보면서 날짜를 눌러 그 날로 옮기는 것이 기본 흐름입니다.
-           내용을 다 적을 수 없는 칸이라 분류 이모지만 놓고, 자세한 것은 아래 목록에서 봅니다. -->
-      <div class="card cal-card" data-card="todo.cal">
-        <div class="period-nav cal-nav">
-          <button class="icon-btn" id="cal-prev" type="button" data-i18n-aria="cal.prev">‹</button>
-          <!-- 달 이름을 누르면 접혔다 펴집니다.
-               한 달치는 좁은 화면의 절반을 쓰므로, 하루치 목록을 손볼 때는 한 주만 남깁니다.
-               접기 버튼을 따로 두면 영어에서 이 줄이 카드 폭을 넘겼습니다. -->
-          <!-- 달 이름을 누르면 년·월 고르기 판이 열립니다. 한 해 뒤로 가려고 ‹ 를 열두 번 누를 수는 없습니다. -->
-          <button class="period-label cal-label" id="cal-pick-open" type="button"
+      <!--
+        계획표 한 장.
+
+        예전에는 달력이 따로 카드였습니다. 좁은 화면에서 절반 가까이를 쓰면서,
+        정작 계획을 적어 넣는 칸을 화면 밖으로 밀어냈습니다.
+        이제 달력은 계획을 넣는 자리 바로 위 — 진행률과 분류 이모지 사이에 들어갑니다.
+
+        움직이는 줄도 하나뿐입니다. 예전에는 달력과 계획표가 ‹ › 를 따로 갖고 있어
+        어느 쪽을 움직이는지 헷갈렸습니다. 이제 아래 한 줄이 둘 다 움직입니다.
+      -->
+      <div class="card" data-card="todo.plan">
+        <!-- 계획 단위: 일 / 주 / 월 / 연. 달력 모양도 이 단위를 그대로 따라갑니다. -->
+        <div class="scope-tabs" id="scope-tabs" role="tablist" data-i18n-aria="todo.aria.scopeTabs">
+          <button class="scope-tab" data-scope="day"   role="tab" aria-selected="true"  data-i18n="todo.scope.day">일간</button>
+          <button class="scope-tab" data-scope="week"  role="tab" aria-selected="false" data-i18n="todo.scope.week">주간</button>
+          <button class="scope-tab" data-scope="month" role="tab" aria-selected="false" data-i18n="todo.scope.month">월간</button>
+          <button class="scope-tab" data-scope="year"  role="tab" aria-selected="false" data-i18n="todo.scope.year">연간</button>
+        </div>
+
+        <!--
+          기간 이동. 달력도 이 줄 하나로 움직입니다.
+          기간 이름을 누르면 년·월 고르기 판이 열립니다.
+          ‹ 를 열두 번 눌러 한 해 전으로 가게 둘 수는 없습니다.
+        -->
+        <div class="period-nav">
+          <button class="icon-btn" id="period-prev" type="button" data-i18n-aria="todo.nav.prev">‹</button>
+          <button class="period-label" id="period-label" type="button"
                   data-i18n-aria="cal.pick.open" aria-expanded="false" aria-controls="cal-pick">
-            <span id="cal-label" aria-live="polite" aria-atomic="true">—</span>
-            <span class="cal-fold-mark" aria-hidden="true">▾</span>
+            <span id="period-label-text" aria-live="polite" aria-atomic="true">—</span>
+            <span class="period-pick-mark" aria-hidden="true">▾</span>
           </button>
-          <button class="icon-btn" id="cal-next" type="button" data-i18n-aria="cal.next">›</button>
-          <!-- 접기는 따로 뺐습니다. 달 이름이 이제 고르기 판을 여는 자리라 겸할 수 없습니다. -->
-          <button class="icon-btn cal-fold-btn" id="cal-fold" type="button"
-                  aria-expanded="true" aria-controls="cal-grid">
-            <span id="cal-fold-mark" aria-hidden="true">⌃</span>
-          </button>
-          <button class="btn btn-sm" id="cal-today" type="button" data-i18n="cal.today">이번 달</button>
+          <button class="icon-btn" id="period-next" type="button" data-i18n-aria="todo.nav.next">›</button>
+          <button class="btn btn-sm" id="period-today" type="button" data-i18n="todo.nav.today">오늘</button>
         </div>
 
         <!--
           년·월 고르기 판.
-          달 이름을 누르면 열립니다. 달 격자에서 연도를 누르면 연도 격자로 바뀝니다.
-          (Material 날짜 선택기와 같은 흐름입니다)
+          달 격자에서 연도를 누르면 연도 격자로 바뀝니다. (Material 날짜 선택기와 같은 흐름)
         -->
         <div class="cal-pick" id="cal-pick" hidden>
           <div class="cal-pick-nav">
@@ -210,40 +221,6 @@
           <div class="cal-pick-grid" id="cal-pick-grid" role="group"></div>
         </div>
 
-        <!--
-          보기 전환: 달력 격자 / 일정 목록.
-          Google 캘린더의 '일정(Schedule)' 보기처럼, 격자를 버리고 날짜별로 묶은
-          시간순 목록으로 봅니다. 좁은 화면에서는 이쪽이 읽기 쉽습니다.
-        -->
-        <div class="cal-views" id="cal-views" role="tablist" data-i18n-aria="cal.view.label">
-          <button class="cal-view-tab" id="cal-view-grid" type="button" role="tab"
-                  aria-selected="true" data-i18n="cal.view.grid">달력</button>
-          <button class="cal-view-tab" id="cal-view-agenda" type="button" role="tab"
-                  aria-selected="false" data-i18n="cal.view.agenda">일정</button>
-        </div>
-        <div class="cal-agenda" id="cal-agenda" hidden></div>
-        <div class="cal-grid" id="cal-grid" role="group" data-i18n-aria="cal.aria.grid"
-             aria-label="월 달력"></div>
-      </div>
-
-      <!-- 고른 기간의 목록. 달력에서 날짜를 누르면 이 카드가 그 날로 바뀝니다. -->
-      <div class="card" data-card="todo.plan">
-        <!-- 계획 단위: 일 / 주 / 월 / 연 -->
-        <div class="scope-tabs" id="scope-tabs" role="tablist" data-i18n-aria="todo.aria.scopeTabs">
-          <button class="scope-tab" data-scope="day"   role="tab" aria-selected="true"  data-i18n="todo.scope.day">일간</button>
-          <button class="scope-tab" data-scope="week"  role="tab" aria-selected="false" data-i18n="todo.scope.week">주간</button>
-          <button class="scope-tab" data-scope="month" role="tab" aria-selected="false" data-i18n="todo.scope.month">월간</button>
-          <button class="scope-tab" data-scope="year"  role="tab" aria-selected="false" data-i18n="todo.scope.year">연간</button>
-        </div>
-
-        <!-- 기간 이동 -->
-        <div class="period-nav">
-          <button class="icon-btn" id="period-prev" type="button" data-i18n-aria="todo.nav.prev">‹</button>
-          <div class="period-label" id="period-label" aria-live="polite" aria-atomic="true">—</div>
-          <button class="icon-btn" id="period-next" type="button" data-i18n-aria="todo.nav.next">›</button>
-          <button class="btn btn-sm" id="period-today" type="button" data-i18n="todo.nav.today">오늘</button>
-        </div>
-
         <!-- 진행률 -->
         <div class="progress-row">
           <div class="progress-track"><div class="progress-fill" id="todo-progress-fill"></div></div>
@@ -251,13 +228,33 @@
         </div>
 
         <!--
+          달력. 게이지와 분류 이모지 사이가 제자리입니다.
+
+          모양은 위에서 고른 단위를 따릅니다.
+            일간 — 고른 날짜 한 줄
+            주간 — 그 주 이레
+            월간 — 그 달 한 판
+            연간 — 열두 달을 작게, 한 줄에 넉 장씩 석 줄
+          '일정' 은 격자를 버리고 앞으로 올 일을 시간순으로 늘어놓는 보기입니다.
+        -->
+        <div class="cal-block" id="cal-block">
+          <div class="cal-views" id="cal-views" role="tablist" data-i18n-aria="cal.view.label">
+            <button class="cal-view-tab" id="cal-view-grid" type="button" role="tab"
+                    aria-selected="true" data-i18n="cal.view.grid">달력</button>
+            <button class="cal-view-tab" id="cal-view-agenda" type="button" role="tab"
+                    aria-selected="false" data-i18n="cal.view.agenda">일정</button>
+          </div>
+          <div class="cal-agenda" id="cal-agenda" hidden></div>
+          <!-- 이름표는 모양(하나/이레/한 달/열두 달)마다 달라서 calendar.js 가 붙입니다. -->
+          <div class="cal-grid" id="cal-grid" role="group" aria-label="달력"></div>
+        </div>
+
+        <!--
           입력.
-          예전에는 분류 드롭다운 + 입력칸 + 추가 버튼이 한 줄에 몰려 있어 좁은 화면에서 난잡했습니다.
           분류는 이모지 칩 한 줄로 빼서 한 번에 보이게 하고, 입력줄은 글자와 추가 버튼만 남겼습니다.
         -->
         <form class="todo-form" id="todo-form">
-          <!-- 분류 칩과 '분류 편집' 버튼(🏷️)을 todo.js 가 함께 채웁니다.
-               편집을 따로 한 줄 차지하게 두면 좁은 화면에서 목록이 그만큼 줄어듭니다. -->
+          <!-- 분류 칩과 '분류 편집' 버튼(🏷️)을 todo.js 가 함께 채웁니다. -->
           <div class="cat-row" id="todo-cats" role="group" data-i18n-aria="todo.aria.category"
                aria-label="활동 분류"></div>
           <!-- 평소에는 숨어 있습니다. 🏷️ 를 눌러야 펼쳐집니다. -->
@@ -267,8 +264,7 @@
           <div class="row">
             <input class="field grow" id="todo-input" maxlength="200" autocomplete="off"
                    data-i18n-placeholder="todo.input.placeholder">
-            <!-- 시각은 일간에서만 씁니다. 주/월/연 계획은 하루 안의 시각이라는 게 없습니다.
-                 비워 두면 '종일' 로 들어가 예전과 똑같이 동작합니다. -->
+            <!-- 시각은 일간에서만 씁니다. 비워 두면 '종일' 로 들어갑니다. -->
             <input class="field todo-time-input" id="todo-time" type="time" step="300"
                    data-i18n-aria="todo.time.label" hidden>
             <button class="btn btn-primary" type="submit" data-i18n="todo.btn.add">추가</button>
@@ -294,8 +290,7 @@
 
         <!--
           일간에서만 뜨는 보기 전환.
-          '시간대' 는 하루를 시간 단위로 늘어놓아, 몇 시에 무엇이 있는지 한눈에 보고
-          빈 시간을 눌러 그 시각으로 바로 넣는 화면입니다. (달력 앱의 '일' 보기와 같은 꼴)
+          '시간대' 는 하루를 시간 단위로 늘어놓는 화면입니다.
           주/월/연 계획에는 하루 안의 시각이라는 게 없으므로 이 줄은 숨습니다.
         -->
         <div class="todo-dayviews" id="todo-dayviews" role="tablist"
@@ -548,6 +543,25 @@
     (실제로 재현됨: 화면 높이 844px 인데 막대가 3311px 위치에 놓였습니다)
     .app 은 딱 보이는 만큼의 높이라, 그 안에 붙이면 어떤 환경에서도 화면 안에 있습니다.
   -->
+  <!--
+    어느 탭에 있든 한 번에 '오늘' 로 돌아오는 버튼.
+
+    탭이 아홉 개라 서너 장 쓸어 넘기면 처음 화면이 멀어집니다.
+    서랍을 열어 고르는 건 두 번 누르는 일입니다.
+
+    .arr-dock 과 같은 이유로 .app 안에 둡니다. body 바로 밑에서 position: fixed 로
+    띄우면, 안드로이드 WebView 처럼 '보이는 화면'과 '배치 기준 화면'이 다른 곳에서
+    기준이 화면보다 훨씬 커져 버튼이 화면 밖으로 밀려납니다.
+    (이 저장소에서 실제로 겪은 일입니다: 화면 높이 844px, 막대 위치 3311px)
+
+    '오늘' 탭에 있을 때는 body[data-tab="today"] 가 이 버튼을 감춥니다.
+  -->
+  <button class="home-fab" id="home-fab" type="button"
+          data-i18n-aria="app.backToToday" aria-label="오늘 탭으로 돌아가기">
+    <span class="home-fab-icon" aria-hidden="true">◎</span>
+    <span class="home-fab-text" data-i18n="tab.today">오늘</span>
+  </button>
+
   <div class="arr-dock" id="arr-dock" role="toolbar" aria-label="화면 편집" hidden>
     <span class="arr-dock-hint" id="arr-hint" data-i18n="arr.hint">카드를 끌어 옮기고, 크기를 고르세요.</span>
     <button class="btn btn-sm btn-primary" id="arr-done" type="button" data-i18n="arr.done">완료</button>

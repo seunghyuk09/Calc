@@ -362,16 +362,16 @@ const main = async () => {
     await page.textContent('.scope-tab[data-scope="day"]'));
   check('한국어 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === '추가');
   check('한국어 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === '계획을 입력하고 Enter');
-  check('한국어 기간 표기', /^\d{4}년 \d{1,2}월 \d{1,2}일 \(.\)$/.test(await page.textContent('#period-label')),
-    await page.textContent('#period-label'));
+  check('한국어 기간 표기', /^\d{4}년 \d{1,2}월 \d{1,2}일 \(.\)$/.test(await page.textContent('#period-label-text')),
+    await page.textContent('#period-label-text'));
 
   // 영어로 전환
   await setLanguage('en');
   check('영어 전환 — 단위 라벨', (await page.textContent('.scope-tab[data-scope="day"]')) === 'Day');
   check('영어 전환 — 추가 버튼', (await page.textContent('#todo-form button[type="submit"]')) === 'Add');
   check('영어 전환 — 입력 안내', (await page.getAttribute('#todo-input', 'placeholder')) === 'Add a plan and press Enter');
-  check('영어 전환 — 기간 표기', /^\w{3}, \w{3} \d{1,2}, \d{4}$/.test(await page.textContent('#period-label')),
-    await page.textContent('#period-label'));
+  check('영어 전환 — 기간 표기', /^\w{3}, \w{3} \d{1,2}, \d{4}$/.test(await page.textContent('#period-label-text')),
+    await page.textContent('#period-label-text'));
   check('영어 전환 — 필터 라벨', (await page.textContent('.chip[data-filter="active"]')) === 'Active');
   await openMore(page);
   check('영어 전환 — 이월 버튼', (await page.textContent('#todo-carry')).includes('Carry over'));
@@ -408,7 +408,7 @@ const main = async () => {
   await setLanguage('en');
 
   check('기본 단위는 Day', (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
-  const dayLabel = await page.textContent('#period-label');
+  const dayLabel = await page.textContent('#period-label-text');
   check('오늘 기간이 강조 표시', await page.evaluate(() =>
     document.querySelector('#period-label').classList.contains('is-current')), dayLabel);
 
@@ -473,7 +473,7 @@ const main = async () => {
   // 기간 이동: 다음 날에는 항목이 없어야 함 (기간별로 분리되는지)
   await page.click('#period-next');
   check('다음 날은 빈 목록', (await page.locator('#todo-list .todo-item').count()) === 0,
-    await page.textContent('#period-label'));
+    await page.textContent('#period-label-text'));
   check('빈 목록 안내가 영어', (await page.textContent('#todo-list .empty')) === 'No plans for this period yet.',
     await page.textContent('#todo-list .empty'));
   check('다음 날은 현재 기간 아님', !(await page.evaluate(() =>
@@ -498,7 +498,7 @@ const main = async () => {
   ]) {
     await page.click(`.scope-tab[data-scope="${sc}"]`);
     await page.waitForTimeout(150);
-    const lbl = await page.textContent('#period-label');
+    const lbl = await page.textContent('#period-label-text');
     check(`${sc} 단위 기간 표기`, pattern.test(lbl), `실제: ${lbl}`);
     const before = await page.locator('#todo-list .todo-item').count();
     if (sc === 'week') {
@@ -518,7 +518,7 @@ const main = async () => {
   await page.waitForTimeout(150);
   check('오늘이 든 기간에서 단위를 바꾸면 오늘로',
     await page.evaluate(() => document.querySelector('#period-label').classList.contains('is-current')),
-    await page.textContent('#period-label'));
+    await page.textContent('#period-label-text'));
 
   // Day 로 돌아와도 Day 항목만 보여야 함
   await page.click('.scope-tab[data-scope="day"]');
@@ -704,6 +704,67 @@ const main = async () => {
   check('날씨 카드 클릭 -> 날씨 탭으로 이동',
     (await page.getAttribute('.tab[data-tab="weather"]', 'aria-selected')) === 'true',
     `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  /* ---------- 할 일 위젯도 카드째 눌러 넘어가야 합니다 ----------
+   *
+   * '오늘 할 일을 눌러도 이동이 안 된다' 는 지적에서 나온 검사입니다.
+   *
+   * 할 일 위젯만 카드가 button 이 아니라 div 입니다. (안에 항목 버튼과 일시정지
+   * 버튼이 들어가는데, 버튼 안에 버튼은 HTML 규칙 위반입니다) 그래서 클래스가
+   * 'today-card-static' 인데, 카드 위임이 '.today-card' 로 찾고 있었습니다.
+   * 클래스 선택자는 토큰이 정확히 맞아야 하므로 할 일 카드만 통째로 빠졌습니다.
+   *
+   * 다른 위젯 여섯 개는 button 이라 멀쩡했고, 줄의 '글' 을 누르는 길도 따로 있어서
+   * 검사 492개가 전부 통과하는 동안에도 이 버그는 살아 있었습니다.
+   */
+  await goTab(page, 'today');
+  await page.waitForTimeout(300);
+  /*
+   * 아래 검사들의 전제입니다.
+   * 할 일 위젯만 카드가 div 라서 이 버그가 났습니다. 나중에 button 으로 바뀌면
+   * 이 검사가 먼저 알려 줍니다. (그러면 아래 검사의 의미도 달라집니다)
+   */
+  check('전제: 할 일 위젯만 카드가 div 다 (이 버그의 뿌리)',
+    (await page.evaluate(() => document.querySelector('[data-widget="todo"]')?.tagName)) === 'DIV'
+    && (await page.evaluate(() => document.querySelector('[data-widget="weather"]')?.tagName)) === 'BUTTON',
+    await page.evaluate(() => document.querySelector('[data-widget="todo"]')?.className));
+  await page.click('[data-widget="todo"] .card-title');
+  await settlePagerOf(page);
+  check('할 일 카드 제목을 눌러도 TO DO 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  // 할 일이 하나도 없을 때. 사용자가 실제로 누른 자리입니다.
+  const keepItems = await page.evaluate(() => localStorage.getItem('daily-kit:todo.items'));
+  await page.evaluate(() => localStorage.setItem('daily-kit:todo.items', '[]'));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(400);
+  check('할 일이 없으면 안내 문구가 버튼이다 (문구가 "눌러서" 라고 말합니다)',
+    (await page.evaluate(() => document.querySelector('.today-rot-empty')?.tagName)) === 'BUTTON',
+    await page.evaluate(() => document.querySelector('.today-rot-empty')?.tagName));
+  check('안내 문구에 키보드 초점이 간다',
+    await page.evaluate(() => {
+      const n = document.querySelector('.today-rot-empty');
+      n.focus();
+      return document.activeElement === n;
+    }));
+  await page.click('.today-rot-empty');
+  await settlePagerOf(page);
+  check('"등록된 할 일이 없습니다" 를 눌러도 TO DO 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="todo"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  // 심어 둔 할 일을 되돌립니다. 뒤 검사가 씁니다.
+  await page.evaluate((raw) => localStorage.setItem('daily-kit:todo.items', raw), keepItems);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(400);
+  check('되돌린 할 일이 다시 보임',
+    (await page.locator('#today-rot .today-rot-item').count()) >= 1,
+    `${await page.locator('#today-rot .today-rot-item').count()}건`);
 
   // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
   console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
@@ -1433,10 +1494,10 @@ const main = async () => {
       await mobile.setViewportSize({ width: w, height: 844 });
       await setMobileLang(lang);
       const lab = await mobile.evaluate(() => {
-        const n = document.querySelector('#cal-label');
+        const n = document.querySelector('#period-label-text');
         return { text: n.textContent, visible: Math.round(n.getBoundingClientRect().width), needed: n.scrollWidth };
       });
-      check(`달 이름이 온전히 보임 (${w}px ${lang})`, lab.needed - lab.visible <= 1,
+      check(`기간 이름이 온전히 보임 (${w}px ${lang})`, lab.needed - lab.visible <= 1,
         `"${lab.text}" 보임 ${lab.visible}px / 필요 ${lab.needed}px`);
     }
   }
@@ -2030,22 +2091,51 @@ export function isStamped() { return true; }`,
   await page.waitForTimeout(250);
   check('달력 검사 시작 전 기간이 오늘',
     await page.evaluate(() => document.querySelector('#period-label').classList.contains('is-current')),
-    await page.textContent('#period-label'));
-  check('달력이 그려짐', (await page.locator('#cal-grid .cal-day').count()) >= 28,
+    await page.textContent('#period-label-text'));
+  /*
+   * 달력 모양은 계획표 단위를 그대로 따릅니다.
+   * 일간에서는 칸 하나짜리 격자가 의미가 없어서 날짜 한 줄만 나옵니다.
+   */
+  check('일간 — 달력이 날짜 한 줄', (await page.locator('#cal-grid .cal-one').count()) === 1
+    && (await page.locator('#cal-grid .cal-day').count()) === 0,
+    `한 줄 ${await page.locator('#cal-grid .cal-one').count()} / 칸 ${await page.locator('#cal-grid .cal-day').count()}`);
+  check('일간 — 날짜 줄이 오늘 표시를 가짐',
+    (await page.locator('#cal-grid .cal-one.is-today').count()) === 1);
+  check('일간 — 모양 표시가 day', (await page.getAttribute('#cal-grid', 'data-shape')) === 'day');
+
+  // 한 달 격자는 월간에서 봅니다.
+  await page.click('.scope-tab[data-scope="month"]');
+  await page.waitForTimeout(250);
+  check('월간 — 달력이 그려짐', (await page.locator('#cal-grid .cal-day').count()) >= 28,
     `${await page.locator('#cal-grid .cal-day').count()}칸`);
-  check('요일 머리글 7개', (await page.locator('#cal-grid .cal-wd').count()) === 7);
+  check('월간 — 요일 머리글 7개', (await page.locator('#cal-grid .cal-wd').count()) === 7);
   // 달력 한 줄과 계획표의 '주간' 단위가 겹쳐야 '이번 주'를 한 줄로 강조할 수 있습니다.
   // 이 시점의 언어는 앞선 검사에 따라 달라집니다. 두 표기를 모두 받습니다.
   const firstWd = (await page.locator('#cal-grid .cal-wd').first().textContent()).trim();
   check('요일이 일요일에서 시작', firstWd === '일' || firstWd === 'Sun', firstWd);
-  check('달력이 목록보다 위에 있음',
+  /*
+   * 달력은 이제 계획표 카드 안, 진행률 게이지와 분류 이모지 사이에 있습니다.
+   * 예전에는 따로 카드였고 좁은 화면의 절반 가까이를 써서 입력칸을 밀어냈습니다.
+   */
+  check('달력이 진행률과 분류 이모지 사이에 있음',
     await page.evaluate(() => {
-      const cal = document.querySelector('.cal-card').getBoundingClientRect();
-      const plan = document.querySelector('[data-card="todo.plan"]').getBoundingClientRect();
-      return cal.top <= plan.top;
+      const gauge = document.querySelector('.progress-row').getBoundingClientRect();
+      const cal = document.querySelector('#cal-block').getBoundingClientRect();
+      const cats = document.querySelector('#todo-cats').getBoundingClientRect();
+      return gauge.bottom <= cal.top + 1 && cal.bottom <= cats.top + 1;
     }));
+  check('달력이 계획표 카드 안에 있음',
+    await page.evaluate(() => !!document.querySelector('[data-card="todo.plan"] #cal-block')));
+  check('따로 있던 달력 카드는 사라짐',
+    (await page.locator('.cal-card').count()) === 0);
   check('오늘 칸이 표시됨',
     (await page.locator(`.cal-day[data-day="${todayKey}"].is-today`).count()) === 1);
+
+  // 날짜를 눌러 일간으로 내려와야 그 날짜에 계획이 들어갑니다.
+  await page.click(`.cal-day[data-day="${todayKey}"]`);
+  await page.waitForTimeout(200);
+  check('오늘 칸을 누르면 일간으로 내려옴',
+    (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
 
   // 분류를 골라 등록하면 그 날 칸에 이모지가 붙어야 합니다.
   await page.click('.cat-chip[data-cat="health"]');
@@ -2056,11 +2146,23 @@ export function isStamped() { return true; }`,
   await page.fill('#todo-input', '달력 확인용 운동');
   await page.press('#todo-input', 'Enter');
   await page.waitForTimeout(250);
+  check('목록에도 분류 이모지가 붙음',
+    (await page.locator('#todo-list .todo-cat').count()) >= 1);
+
+  /*
+   * 달력 칸의 이모지는 월간에서 봅니다.
+   * 일간에서는 날짜 한 줄만 있고 칸이 없습니다. (모양이 단위를 따르기 때문입니다)
+   * 되돌아가는 길은 그 날짜 줄 자체입니다. 눌러서 올라갑니다.
+   */
+  await page.click('#cal-grid .cal-one');
+  await page.waitForTimeout(250);
+  check('일간의 날짜 줄을 누르면 월간으로 올라감',
+    (await page.getAttribute('.scope-tab[data-scope="month"]', 'aria-selected')) === 'true'
+    && (await page.locator('#cal-grid .cal-day').count()) >= 28,
+    `칸 ${await page.locator('#cal-grid .cal-day').count()}개`);
   const todayCell = page.locator(`.cal-day[data-day="${todayKey}"]`);
   const marks = (await todayCell.locator('.cal-mark').allTextContents()).join('');
   check('고른 분류의 이모지가 달력에 표시됨', marks.includes('🏃'), `표시: ${marks || '(없음)'}`);
-  check('목록에도 분류 이모지가 붙음',
-    (await page.locator('#todo-list .todo-cat').count()) >= 1);
 
   // ---------- 날짜를 눌러 그 날로 옮겨 가고, 그 날짜에 바로 추가 ----------
   const otherDay = await page.evaluate(() => {
@@ -2071,10 +2173,8 @@ export function isStamped() { return true; }`,
   await page.click(`.cal-day[data-day="${otherDay}"]`);
   await page.waitForTimeout(200);
   check('날짜를 누르면 목록이 그 날로 옮겨감',
-    (await page.textContent('#period-label')).includes(String(Number(otherDay.slice(8, 10)))),
-    `${otherDay} -> ${await page.textContent('#period-label')}`);
-  check('누른 날짜가 선택 표시됨',
-    (await page.locator(`.cal-day[data-day="${otherDay}"].is-selected`).count()) === 1);
+    (await page.textContent('#period-label-text')).includes(String(Number(otherDay.slice(8, 10)))),
+    `${otherDay} -> ${await page.textContent('#period-label-text')}`);
   check('누른 날짜로 옮기면 단위가 일간',
     (await page.getAttribute('.scope-tab[data-scope="day"]', 'aria-selected')) === 'true');
 
@@ -2082,6 +2182,21 @@ export function isStamped() { return true; }`,
   await page.fill('#todo-input', '그 날짜에 바로 추가');
   await page.press('#todo-input', 'Enter');
   await page.waitForTimeout(250);
+  // 다시 월간으로 올라가 두 날짜를 나란히 봅니다.
+  await page.click('#cal-grid .cal-one');
+  await page.waitForTimeout(250);
+  /*
+   * 칸마다 '선택' 칠을 하지 않습니다.
+   * 달력 모양이 곧 보고 있는 기간이라, 월간이면 그 달 전부가 선택된 셈입니다.
+   * 전부 칠하면 화면만 뭉치고 알려 주는 것이 없습니다.
+   */
+  check('칸에 선택 칠이 남아 있지 않음',
+    (await page.locator('#cal-grid .cal-day.is-selected').count()) === 0,
+    `${await page.locator('#cal-grid .cal-day.is-selected').count()}칸`);
+  check('올라온 달이 그 날짜의 달',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}').period))
+      === otherDay.slice(0, 7),
+    await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}').period));
   check('누른 날짜에 계획이 들어감',
     ((await page.locator(`.cal-day[data-day="${otherDay}"] .cal-marks`).textContent()) || '').includes('📚'),
     await page.locator(`.cal-day[data-day="${otherDay}"] .cal-marks`).textContent());
@@ -2089,12 +2204,19 @@ export function isStamped() { return true; }`,
     !((await todayCell.locator('.cal-marks').textContent()) || '').includes('📚'));
 
   // ---------- 주간: 그 날짜가 든 주가 한 줄로 강조되고, 날짜별로 묶여 보입니다 ----------
+  /*
+   * 주간으로 갈 때 기준이 되는 날짜를 못박습니다.
+   * setScope 는 보고 있던 날짜를 그대로 두고 단위만 바꾸는데, 지금은 달을 보고 있어서
+   * 기준이 '그 달의 1일' 또는 '오늘' 이 됩니다. 아래 검사는 otherDay 가 든 주를 봅니다.
+   */
+  await page.click(`.cal-day[data-day="${otherDay}"]`);
+  await page.waitForTimeout(200);
   await page.click('.scope-tab[data-scope="week"]');
   await page.waitForTimeout(250);
   const weekCells = await page.evaluate(() =>
-    [...document.querySelectorAll('.cal-day.is-selected')].map((n) => n.dataset.day));
-  check('주간에서 7일이 강조됨', weekCells.length === 7, `${weekCells.length}일`);
-  check('강조된 주에 방금 고른 날짜가 들어 있음', weekCells.includes(otherDay),
+    [...document.querySelectorAll('#cal-grid .cal-day')].map((n) => n.dataset.day));
+  check('주간에는 그 주 이레만 나옴', weekCells.length === 7, `${weekCells.length}일`);
+  check('나온 이레에 방금 고른 날짜가 들어 있음', weekCells.includes(otherDay),
     `${otherDay} / ${weekCells.join(',')}`);
   check('주간 목록이 날짜별로 묶임',
     (await page.locator('#todo-list .todo-group-head').count()) >= 1,
@@ -2102,33 +2224,70 @@ export function isStamped() { return true; }`,
   await page.click('.scope-tab[data-scope="day"]');
   await page.waitForTimeout(200);
 
-  // ---------- 달력 접기 ----------
-  const monthCells = await page.locator('#cal-grid .cal-day').count();
-  await page.click('#cal-fold');
+  // ---------- 달력 모양이 단위를 따라간다 ----------
+  /*
+   * 예전에는 달력에 '접기' 버튼이 따로 있어서, 주간 계획을 보면서 한 달 격자를
+   * 보고 있는 일이 생겼습니다. 이제 둘이 어긋날 수 없습니다.
+   */
+  await page.click('.scope-tab[data-scope="week"]');
   await page.waitForTimeout(250);
-  check('접으면 한 주만 남음', (await page.locator('#cal-grid .cal-day').count()) === 7,
+  check('주간 — 이레만 나옴',
+    (await page.getAttribute('#cal-grid', 'data-shape')) === 'week'
+    && (await page.locator('#cal-grid .cal-day').count()) === 7,
     `${await page.locator('#cal-grid .cal-day').count()}칸`);
-  check('접으면 목록 공간이 넓어짐',
-    await page.evaluate(() => {
-      const plan = document.querySelector('[data-card="todo.plan"]');
-      return plan.clientHeight > 0;
-    }));
-  await page.click('#cal-next');
-  await page.waitForTimeout(200);
-  check('접힌 상태에서 ›는 한 주씩 움직임',
-    (await page.locator('#cal-grid .cal-day').count()) === 7
-    && !(await page.locator('#cal-grid .cal-day').first().getAttribute('data-day')).endsWith(otherDay.slice(8)),
-    await page.locator('#cal-grid .cal-day').first().getAttribute('data-day'));
-  // 주를 넘기면 다른 달로 넘어갈 수 있으므로, 펼치기 전에 원래 달로 되돌립니다.
-  await page.click('#cal-prev');
-  await page.waitForTimeout(150);
-  await page.click('#cal-fold');
+
+  await page.click('.scope-tab[data-scope="month"]');
   await page.waitForTimeout(250);
-  check('다시 펼치면 한 달이 돌아옴',
-    (await page.locator('#cal-grid .cal-day').count()) === monthCells,
-    `${await page.locator('#cal-grid .cal-day').count()} / ${monthCells}`);
-  await page.click('#cal-today');
-  await page.waitForTimeout(200);
+  check('월간 — 한 달이 나옴',
+    (await page.getAttribute('#cal-grid', 'data-shape')) === 'month'
+    && (await page.locator('#cal-grid .cal-day').count()) >= 28,
+    `${await page.locator('#cal-grid .cal-day').count()}칸`);
+
+  // 연간은 열두 달을 작게, 넉 장씩 석 줄.
+  await page.click('.scope-tab[data-scope="year"]');
+  await page.waitForTimeout(300);
+  check('연간 — 모양 표시가 year', (await page.getAttribute('#cal-grid', 'data-shape')) === 'year');
+  check('연간 — 열두 달이 나옴', (await page.locator('#cal-grid .cal-mini').count()) === 12,
+    `${await page.locator('#cal-grid .cal-mini').count()}장`);
+  check('연간 — 맨 위에 연도가 있음',
+    /^\d{4}$/.test(((await page.textContent('#cal-grid .cal-year-head')) || '').trim()),
+    await page.textContent('#cal-grid .cal-year-head'));
+  check('연간 — 한 줄에 넉 장씩 석 줄',
+    await page.evaluate(() => {
+      const tops = [...document.querySelectorAll('#cal-grid .cal-mini')]
+        .map((n) => Math.round(n.getBoundingClientRect().top));
+      const rows = [...new Set(tops)];
+      // 줄마다 넉 장이어야 합니다. (12 = 4 x 3)
+      return rows.length === 3 && rows.every((y) => tops.filter((t2) => t2 === y).length === 4);
+    }));
+  /*
+   * '스크롤에 힘쓰지 않아도 되도록' 이 요청이었습니다.
+   * 열두 달이 카드 폭 안에 들어가고 가로 스크롤이 생기지 않아야 합니다.
+   */
+  check('연간 — 가로로 넘치지 않음',
+    await page.evaluate(() => {
+      const grid = document.querySelector('#cal-grid');
+      return grid.scrollWidth <= grid.clientWidth + 1;
+    }));
+  // 달 한 장을 누르면 그 달의 월간으로 내려갑니다. (연간 -> 월간 -> 일간)
+  await page.click('#cal-grid .cal-mini[data-mini-month$="-03"]');
+  await page.waitForTimeout(300);
+  const viewNow = () => page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}'));
+  const drilled = await viewNow();
+  check('연간에서 달을 누르면 그 달의 월간으로 내려감',
+    drilled.scope === 'month' && /-03$/.test(drilled.period || ''),
+    `${drilled.scope} / ${drilled.period}`);
+
+  await page.click('#period-today');
+  await page.waitForTimeout(250);
+  /*
+   * 달마다 줄 수가 다릅니다. (5주인 달은 35칸, 6주인 달은 42칸)
+   * 칸 수를 고정값과 비교하면 달이 바뀔 때마다 깨집니다. 오늘 칸이 있는지로 봅니다.
+   */
+  check('오늘 버튼이 달력도 오늘 달로 되돌림',
+    (await page.locator(`#cal-grid .cal-day[data-day="${todayKey}"].is-today`).count()) === 1
+    && (await viewNow()).period === todayKey.slice(0, 7),
+    `${(await viewNow()).period} / 오늘 ${todayKey.slice(0, 7)}`);
 
   // ---------- 하루 안의 시각 ----------
   /*
@@ -2219,7 +2378,22 @@ export function isStamped() { return true; }`,
   check('18:30 항목은 18시 줄에 놓임 (분은 시 줄에 묶입니다)',
     rows1.some((h) => h.t === '18:00' && h.n >= 1));
 
-  // 빈 시간을 누르면 그 시각으로 넣을 수 있어야 합니다. 시각을 손으로 찍게 하면 의미가 없습니다.
+  /*
+   * 기본은 '일정이 있는 시각만' 입니다.
+   * 예전에는 06~22 시를 늘 깔아 두어서, 열 때마다 빈 줄 열일곱 개를 지나야 했습니다.
+   */
+  check('기본은 일정이 있는 시각만 나옴',
+    rows1.every((h) => /종일|All day/.test(h.t) || h.n >= 1),
+    rows1.map((h) => `${h.t}(${h.n})`).join(' '));
+  check('빈 시간 줄이 기본으로는 없음',
+    !rows1.some((h) => h.t === '15:00'),
+    rows1.map((h) => h.t).join(' '));
+
+  // 빈 시간에 넣으려면 먼저 펼칩니다. 그 뒤로는 빈 시간을 눌러 그 시각으로 넣습니다.
+  await page.click('#todo-hours-more');
+  await page.waitForTimeout(400);
+  const expanded = await hourRows();
+  check('모든 시간을 펼치면 스물네 줄 (+ 종일)', expanded.length === 25, `${expanded.length}줄`);
   await page.evaluate(() => document.querySelector('.todo-hour[data-hour="15"] .todo-hour-add')?.click());
   await page.waitForTimeout(300);
   check('빈 시간을 누르면 그 시각이 입력칸에 채워짐',
@@ -2258,9 +2432,7 @@ export function isStamped() { return true; }`,
   await page.click('#todo-hours-more');
   await page.waitForTimeout(400);
   const after = (await hourRows()).length;
-  check('이른·늦은 시간까지 펼칠 수 있음', after > before, `${before}줄 -> ${after}줄`);
-  await page.click('#todo-hours-more');
-  await page.waitForTimeout(300);
+  check('다시 접으면 일정 있는 시각만 남음', after < before, `${before}줄 -> ${after}줄`);
 
   // 주/월/연에는 하루 안의 시각이라는 게 없으므로 전환이 숨어야 합니다.
   await page.click('.scope-tab[data-scope="week"]');
@@ -2275,45 +2447,86 @@ export function isStamped() { return true; }`,
     (await page.evaluate(() => !document.querySelector('#todo-hours').hidden)) === true);
 
   /*
-   * 열면 지금 시각이 보여야 합니다.
+   * 열어도, 만져도 화면이 저 혼자 움직이지 않아야 합니다.
    *
-   * 06 시부터 그리므로, 고치기 전에는 낮에 열어도 새벽 줄만 보이고 지금 할 일은
-   * 화면 한참 아래(1057px, 화면 844)에 있었습니다. 달력·할 일 앱은 열면 지금을 보여 줍니다.
-   * 오늘을 보고 있을 때만 `.is-now` 가 생기므로, 없으면 이 검사는 건너뜁니다.
+   * 예전에는 시간대 보기가 떠오를 때 지금 시각 줄로 화면을 끌어내렸습니다.
+   * '일간으로 들어가면 자꾸 현재시간까지 내려간다' 는 지적을 받고 없앴습니다.
+   * 보는 자리는 사용자가 정합니다.
+   *
+   * 무엇이 스크롤되는지는 화면 폭에 따라 다릅니다. (좁으면 계획표 카드, 넓으면 창)
+   * 둘 다 재야 검사가 헛돌지 않습니다.
    */
+  /*
+   * 넓은 화면에서는 패널(.panel)이, 좁은 화면에서는 계획표 카드가 스크롤합니다.
+   * 셋을 다 재야 '안 움직였다' 가 헛돌지 않습니다.
+   */
+  const scrollPos = () => page.evaluate(() => {
+    const panel = document.querySelector('#panel-todo');
+    const card = document.querySelector('#panel-todo > [data-card="todo.plan"]');
+    return {
+      win: Math.round(window.scrollY || document.scrollingElement?.scrollTop || 0),
+      panel: Math.round(panel?.scrollTop || 0),
+      card: Math.round(card?.scrollTop || 0),
+    };
+  });
+  const toTop = () => page.evaluate(() => {
+    window.scrollTo(0, 0);
+    const panel = document.querySelector('#panel-todo');
+    if (panel) panel.scrollTop = 0;
+    const card = document.querySelector('#panel-todo > [data-card="todo.plan"]');
+    if (card) card.scrollTop = 0;
+  });
+
+  // 스물네 줄을 펼쳐 둡니다. 내용이 짧으면 '안 움직였다' 가 저절로 참이 되어 헛돕니다.
+  await page.click('#todo-hours-more');
+  await page.waitForTimeout(400);
+  check('지금 시각 줄이 존재함 (없으면 아래 검사가 헛돕니다)',
+    (await page.locator('#todo-hours .todo-hour.is-now').count()) === 1,
+    `${await page.locator('#todo-hours .todo-hour.is-now').count()}개`);
+  const tall = await page.evaluate(() => document.querySelector('#todo-hours').scrollHeight);
+  check('펼친 시간대가 화면보다 길다 (없으면 아래 검사가 헛돕니다)',
+    tall > 844, `${tall}px`);
+
   await page.click('#todo-view-list');
   await page.waitForTimeout(250);
-  await page.evaluate(() => { document.querySelector('#panel-todo').scrollTop = 0; });
+  await toTop();
   await page.click('#todo-view-hours');
   await page.waitForTimeout(600);
-  const nowRow = await page.evaluate(() => {
-    const row = document.querySelector('#todo-hours .todo-hour.is-now');
-    if (!row) return null;
-    const b = row.getBoundingClientRect();
-    return { top: Math.round(b.top), bottom: Math.round(b.bottom), vh: innerHeight, time: row.querySelector('.todo-hour-time')?.textContent.trim() };
-  });
-  if (nowRow) {
-    check('시간대 보기를 열면 지금 시각 줄이 화면 안에 있음',
-      nowRow.top >= 0 && nowRow.bottom <= nowRow.vh,
-      `${nowRow.time} 줄 ${nowRow.top}~${nowRow.bottom} / 화면 ${nowRow.vh}`);
-  } else {
-    check('시간대 보기: 오늘이 아니면 지금 줄이 없음 (건너뜀)', true, '`.is-now` 없음');
-  }
+  const opened = await scrollPos();
+  check('시간대 보기를 열어도 화면이 지금 시각으로 내려가지 않음',
+    opened.win <= 2 && opened.panel <= 2 && opened.card <= 2,
+    `창 ${opened.win} / 패널 ${opened.panel} / 카드 ${opened.card}`);
 
   // 항목을 만져도 화면이 저 혼자 튀면 안 됩니다. 그릴 때마다 옮기면 글자를 고칠 수가 없습니다.
-  const scrollBefore = await page.evaluate(() => document.querySelector('#panel-todo').scrollTop);
-  await page.evaluate(() => { document.querySelector('#panel-todo').scrollTop += 120; });
-  await page.waitForTimeout(150);
-  const moved = await page.evaluate(() => document.querySelector('#panel-todo').scrollTop);
+  // 실제로 스크롤되는 쪽을 찾아 손으로 내립니다. 안 내려가면 아래 검사가 헛돕니다.
+  await page.evaluate(() => {
+    const scrollable = [
+      document.querySelector('#panel-todo > [data-card="todo.plan"]'),
+      document.querySelector('#panel-todo'),
+      document.scrollingElement,
+    ].find((n) => n && n.scrollHeight > n.clientHeight + 10);
+    if (scrollable) scrollable.scrollTop += 120;
+  });
+  await page.waitForTimeout(200);
+  const moved = await scrollPos();
+  check('손으로 내리면 실제로 움직임 (없으면 아래 검사가 헛돕니다)',
+    moved.win + moved.panel + moved.card >= 100,
+    `창 ${moved.win} / 패널 ${moved.panel} / 카드 ${moved.card}`);
   await page.evaluate(() => {
     const box = document.querySelector('#todo-hours input[type="checkbox"]');
     if (box) box.click();
   });
   await page.waitForTimeout(500);
-  const scrollAfter = await page.evaluate(() => document.querySelector('#panel-todo').scrollTop);
+  const afterTap = await scrollPos();
   check('시간대 보기: 항목을 체크해도 화면이 지금 시각으로 튀지 않음',
-    Math.abs(scrollAfter - moved) <= 2,
-    `${Math.round(scrollBefore)} -> 손으로 ${Math.round(moved)} -> 체크 뒤 ${Math.round(scrollAfter)}`);
+    Math.abs(afterTap.win - moved.win) <= 2
+    && Math.abs(afterTap.panel - moved.panel) <= 2
+    && Math.abs(afterTap.card - moved.card) <= 2,
+    `손으로 ${moved.win}/${moved.panel}/${moved.card} -> 체크 뒤 ${afterTap.win}/${afterTap.panel}/${afterTap.card}`);
+
+  // 다시 접어 둡니다. 뒤따르는 검사가 기본 상태를 봅니다.
+  await page.click('#todo-hours-more');
+  await page.waitForTimeout(300);
 
   await page.click('#todo-view-list');
   await page.waitForTimeout(300);
@@ -2367,8 +2580,13 @@ export function isStamped() { return true; }`,
   check('일정으로 바꾸면 격자가 숨고 목록이 나옴',
     (await page.evaluate(() => document.querySelector('#cal-grid').hidden)) === true
     && (await page.evaluate(() => !document.querySelector('#cal-agenda').hidden)) === true);
-  check('일정 보기에서는 달 이동 줄이 숨겨짐 (달 단위가 의미 없습니다)',
-    (await page.evaluate(() => document.querySelector('.cal-nav').hidden)) === true);
+  /*
+   * 달력이 제 이동 줄을 갖고 있지 않으므로 숨길 것이 없습니다.
+   * 대신 일정 보기로 바꾸면 년·월 고르기 판이 닫혀야 합니다.
+   * 일정 목록은 오늘부터 앞으로 훑으므로 고른 기간과 무관합니다.
+   */
+  check('일정 보기로 바꾸면 년·월 고르기 판이 닫힘',
+    (await page.evaluate(() => document.querySelector('#cal-pick').hidden)) === true);
 
   const agenda = await page.evaluate(() => (
     [...document.querySelectorAll('#cal-agenda .cal-agenda-day')].map((day) => ({
@@ -2450,8 +2668,16 @@ export function isStamped() { return true; }`,
   await page.click('#cal-view-grid');
   await page.waitForTimeout(350);
   check('달력으로 되돌리면 격자가 돌아옴',
-    (await page.evaluate(() => !document.querySelector('#cal-grid').hidden)) === true
-    && (await page.locator('#cal-grid .cal-day').count()) > 7);
+    (await page.evaluate(() => !document.querySelector('#cal-grid').hidden)) === true);
+  /*
+   * 일정 줄을 누르면 그 날짜의 일간으로 내려옵니다. 달력도 따라서 날짜 한 줄이 됩니다.
+   * 아래 고르기 판 검사는 한 달 격자를 보므로 단위를 월간으로 맞춰 둡니다.
+   */
+  await page.click('.scope-tab[data-scope="month"]');
+  await page.waitForTimeout(300);
+  check('월간으로 바꾸면 한 달 격자가 돌아옴',
+    (await page.locator('#cal-grid .cal-day').count()) > 7,
+    `${await page.locator('#cal-grid .cal-day').count()}칸`);
 
   // ---------- 년·월 고르기 판 ----------
   /*
@@ -2463,9 +2689,9 @@ export function isStamped() { return true; }`,
     [...document.querySelectorAll('#cal-pick-grid .cal-pick-cell')].map((n) => n.textContent)));
 
   check('처음에는 고르기 판이 닫혀 있음', (await pickOpen()) === false);
-  await page.click('#cal-pick-open');
+  await page.click('#period-label');
   await page.waitForTimeout(250);
-  check('달 이름을 누르면 고르기 판이 열림', (await pickOpen()) === true);
+  check('기간 이름을 누르면 고르기 판이 열림', (await pickOpen()) === true);
   const months = await pickCells();
   check('판에 열두 달이 놓임', months.length === 12, `${months.length}칸: ${months.slice(0, 3).join(' ')}…`);
   check('지금 보고 있는 달이 표시됨',
@@ -2515,28 +2741,33 @@ export function isStamped() { return true; }`,
   check('고른 년·월로 달력이 옮겨 감', jumped?.startsWith(`${wantYear}-03`), `첫 날짜 ${jumped}`);
 
   // Esc 로 닫히고, 접기 버튼은 판과 따로 움직여야 합니다.
-  await page.click('#cal-pick-open');
+  await page.click('#period-label');
   await page.waitForTimeout(200);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   check('Esc 로 고르기 판이 닫힘', (await pickOpen()) === false);
 
-  await page.click('#cal-fold');
+  // 단위를 바꾸면 달력 모양도 따라가고, 고르기 판은 열리지 않습니다.
+  await page.click('.scope-tab[data-scope="week"]');
   await page.waitForTimeout(250);
-  check('접기 버튼은 고르기 판과 따로 움직임',
+  check('단위를 바꾸면 달력 모양도 따라가고 고르기 판은 그대로 닫혀 있음',
     (await page.locator('#cal-grid .cal-day').count()) === 7 && (await pickOpen()) === false,
     `${await page.locator('#cal-grid .cal-day').count()}칸`);
-  await page.click('#cal-fold');
-  await page.waitForTimeout(250);
-  await page.click('#cal-today');
+  await page.click('.scope-tab[data-scope="month"]');
   await page.waitForTimeout(250);
 
   // ---------- 분류 커스터마이징 ----------
-  // 앞의 검사에서 다른 날짜/주로 옮겨 다녔습니다. 오늘 칸을 보려면 오늘로 돌아와야 합니다.
+  /*
+   * 앞의 검사에서 다른 날짜/주로 옮겨 다녔습니다. 오늘 칸을 보려면 오늘로 돌아와야 합니다.
+   * 단위도 일간으로 맞춥니다. 계획은 '지금 보고 있는 기간' 에 들어가므로,
+   * 월간인 채로 넣으면 '그 달의 계획' 이 되어 오늘 칸에는 나타나지 않습니다.
+   */
+  await page.click('.scope-tab[data-scope="day"]');
   await page.click('#period-today');
   await page.waitForTimeout(250);
-  check('오늘 버튼을 누르면 달력도 오늘 달로 따라옴',
-    (await page.locator(`.cal-day[data-day="${todayKey}"]`).count()) === 1);
+  check('오늘 버튼을 누르면 달력도 오늘로 따라옴',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}').period)) === todayKey,
+    await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}').period));
   const beforeChips = await page.locator('#todo-cats .cat-chip').count();
   await page.click('[data-cat-edit]');
   await page.waitForTimeout(200);
@@ -2556,6 +2787,9 @@ export function isStamped() { return true; }`,
   await page.fill('#todo-input', '기타 연습');
   await page.press('#todo-input', 'Enter');
   await page.waitForTimeout(250);
+  // 달력 칸은 월간에서 봅니다. 일간에서는 날짜 한 줄뿐입니다.
+  await page.click('#cal-grid .cal-one');
+  await page.waitForTimeout(300);
   check('내 분류 이모지가 달력에 나타남',
     ((await todayCell.locator('.cal-marks').textContent()) || '').includes('🎵'),
     await todayCell.locator('.cal-marks').textContent());
@@ -2590,14 +2824,22 @@ export function isStamped() { return true; }`,
   });
   check('일정 없는 날에는 이모지가 없음', emptyDayMarks === 0, `${emptyDayMarks}개`);
 
-  // 상세에서 항목을 누르면 계획표가 그 날짜로 이동해야 합니다.
-  await page.click('#cal-prev');
-  await page.waitForTimeout(150);
-  const prevLabel = await page.textContent('#cal-label');
-  await page.click('#cal-next');
-  await page.waitForTimeout(150);
-  check('달 이동이 동작함', prevLabel !== (await page.textContent('#cal-label')),
-    `이전: ${prevLabel} / 지금: ${await page.textContent('#cal-label')}`);
+  /*
+   * 움직이는 줄은 하나뿐입니다.
+   * 예전에는 달력이 제 ‹ › 를 따로 갖고 있어 어느 쪽을 움직이는지 헷갈렸습니다.
+   */
+  const firstCell = () => page.getAttribute('#cal-grid .cal-day', 'data-day');
+  const cellBefore = await firstCell();
+  await page.click('#period-prev');
+  await page.waitForTimeout(200);
+  const prevLabel = await page.textContent('#period-label-text');
+  check('‹ 하나가 목록과 달력을 함께 옮김',
+    prevLabel !== (await page.textContent('#period-label-text')) || cellBefore !== (await firstCell()),
+    `${cellBefore} -> ${await firstCell()}`);
+  await page.click('#period-next');
+  await page.waitForTimeout(200);
+  check('› 로 되돌리면 제자리', (await firstCell()) === cellBefore,
+    `${cellBefore} / ${await firstCell()}`);
 
   // ---------- 11-a. 커스터마이즈 (테마 · 탭 · 위젯 · 카드 크기) ----------
   console.log('\n▶ 커스터마이즈');
@@ -3338,16 +3580,35 @@ export function isStamped() { return true; }`,
       return r;
     };
 
+    /*
+     * 짧게 누르는 것은 그냥 '탭' 입니다. 카드를 눌렀으니 그 탭으로 넘어갑니다.
+     *
+     * 예전에는 여기서 탭이 안 넘어갔습니다. 할 일 위젯 카드가 button 이 아니라
+     * div 라서 카드 위임에 걸리지 않았기 때문입니다. 그건 버그였고, 검사가 그
+     * 버그를 전제로 쓰여 있었습니다. 이제는 넘어가는 게 맞으므로 되돌아옵니다.
+     */
+    const phoneTab = () => phone.evaluate(() => document.body.dataset.tab);
     await pressHold('#today-widgets > [data-widget]', 120);
     check('꾹 누르기: 짧게 누르면 편집이 켜지지 않음', (await holding()) === false);
+    check('꾹 누르기: 짧게 누르면 그냥 탭이라 그 화면으로 넘어감',
+      (await phoneTab()) !== 'today', await phoneTab());
+    await goTab(phone, 'today');
+    await phone.waitForTimeout(500);
 
     await pressHold('#today-widgets > [data-widget]', 700, 60);
     check('꾹 누르기: 누른 채 밀면(스크롤) 편집이 켜지지 않음', (await holding()) === false);
+    await goTab(phone, 'today');
+    await phone.waitForTimeout(500);
 
     await pressHold('#today-widgets > [data-widget]', 700);
     check('꾹 누르기: 오래 누르면 편집이 켜짐', (await holding()) === true);
-    check('꾹 누르기: 위젯이 버튼이지만 탭이 넘어가지 않음',
-      (await phone.evaluate(() => document.querySelector('.tab[data-tab="today"]').getAttribute('aria-selected'))) === 'true');
+    /*
+     * 꾹 눌러 편집이 켜지면 그 누름은 '탭' 이 아닙니다.
+     * arrange.js 가 click 을 잡아먹어야 합니다. 안 그러면 편집을 켜자마자
+     * 딴 탭으로 튕겨 나가 카드를 옮길 수가 없습니다.
+     */
+    check('꾹 누르기: 편집이 켜지면 그 누름으로 탭이 넘어가지 않음',
+      (await phoneTab()) === 'today', await phoneTab());
     await phone.$eval('#arr-done', (n) => n.click());
     await phone.waitForTimeout(300);
 

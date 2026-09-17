@@ -116,32 +116,46 @@ test('자정과 하루 끝이 제자리에 온다 (경계)', () => {
  * 지금 시각은 범위와 상관없이 늘 들어가야 합니다.
  */
 
-test('시간대 보기: 기본은 06~22시', () => {
-  const hours = hoursToShow([], null);
-  assert.deepEqual(hours, [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+/*
+ * 보여 줄 시간 목록.
+ *
+ * 예전에는 06~22 시를 늘 깔아 두고 열 때마다 지금 시각으로 화면을 끌어내렸습니다.
+ * 빈 줄 열일곱 개를 지나야 했고, 읽던 자리가 저 혼자 움직였습니다.
+ * 이제 기본은 '일정이 있는 시각만' 이고, 빈 시간에 넣고 싶을 때만 전부 펼칩니다.
+ */
+
+test('시간대 보기: 기본은 일정이 있는 시각만', () => {
+  assert.deepEqual(hoursToShow([]), [], '아무것도 없으면 줄도 없습니다');
+  assert.deepEqual(
+    hoursToShow([{ scope: 'day', time: '09:30' }, { scope: 'day', time: '14:00' }]),
+    [9, 14],
+  );
 });
 
-test('시간대 보기: 할 일이 있는 시간은 범위 밖이어도 나온다', () => {
-  const hours = hoursToShow([{ scope: 'day', time: '02:30' }, { scope: 'day', time: '23:00' }], null);
-  assert.ok(hours.includes(2), '02시');
-  assert.ok(hours.includes(23), '23시');
+test('시간대 보기: 기본 범위라는 게 없다 (06~22시를 깔지 않는다)', () => {
+  // 예전 규칙이 되살아나면 여기서 잡힙니다.
+  assert.equal(hoursToShow([]).length, 0);
+  assert.deepEqual(hoursToShow([{ scope: 'day', time: '12:00' }]), [12]);
 });
 
-test('시간대 보기: 지금 시각은 범위 밖이어도 나온다', () => {
-  const hours = hoursToShow([], 3);
-  assert.ok(hours.includes(3), '새벽 3시에 열면 3시 줄이 있어야 합니다');
-  assert.deepEqual(hours, [3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+test('시간대 보기: 이른 시간·늦은 시간도 일정이 있으면 나온다', () => {
+  const hours = hoursToShow([{ scope: 'day', time: '02:30' }, { scope: 'day', time: '23:00' }]);
+  assert.deepEqual(hours, [2, 23]);
 });
 
-test('시간대 보기: 지금이 범위 안이면 줄이 늘지 않는다', () => {
-  assert.deepEqual(hoursToShow([], 12), hoursToShow([], null));
+test('시간대 보기: 전부 펼치면 스물네 줄', () => {
+  const hours = hoursToShow([], true);
+  assert.equal(hours.length, 24);
+  assert.equal(hours[0], 0);
+  assert.equal(hours[23], 23);
 });
 
-test('시간대 보기: 오늘이 아니면(지금 시각 없음) 기본 범위 그대로', () => {
-  assert.deepEqual(hoursToShow([], null).length, 17);
+test('시간대 보기: 전부 펼쳐도 순서는 이른 시각부터', () => {
+  const hours = hoursToShow([{ scope: 'day', time: '23:00' }], true);
+  assert.deepEqual(hours, [...hours].sort((a, b) => a - b));
 });
 
 test('시간대 보기: 같은 시간이 두 번 들어가지 않는다', () => {
-  const hours = hoursToShow([{ scope: 'day', time: '03:00' }], 3);
-  assert.equal(hours.filter((h) => h === 3).length, 1);
+  const hours = hoursToShow([{ scope: 'day', time: '03:00' }, { scope: 'day', time: '03:45' }]);
+  assert.deepEqual(hours, [3], '한 시간 안에 둘이 있어도 줄은 하나');
 });
