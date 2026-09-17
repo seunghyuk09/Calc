@@ -750,23 +750,45 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   box-shadow: 0 1px 2px rgba(16, 24, 40, .08);
 }
 
+/*
+ * 기간 이동 줄. ‹ 이름 › '오늘' 넷이 들어갑니다.
+ *
+ * 이름이 길어질 수 있어 줄을 접을 수 있게 둡니다.
+ * 일간에서는 '2026년 9월 17일 (목)' 이라 320px 한 줄에 넷이 다 들어가지 않습니다.
+ * 접지 않으면 이름이 잘려서 어느 날인지 알 수 없게 됩니다. (실제로 깨졌습니다)
+ */
 .period-nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
+/*
+ * 기간 이름은 년·월 고르기 판을 여는 버튼입니다.
+ * 달력이 제 이름표를 따로 갖고 있지 않으므로, 이 줄 하나가 달력과 목록을 함께 움직입니다.
+ */
 .period-label {
-  flex: 1;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -.01em;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  /* 이 아래로 좁아지면 '오늘' 을 다음 줄로 내려보냅니다. */
+  min-width: 128px;
+  min-height: 34px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit;
+  font-size: 14px; font-weight: 700; letter-spacing: -.01em;
+  cursor: pointer;
 }
+.period-label:hover { background: var(--surface-2); }
+.period-label:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/*
+ * 이름은 줄여서 감추지 않고 두 줄로 넘깁니다.
+ * 말줄임표로 잘리면 '2026년 9월 1…' 이 되어 어느 날인지 알 수 없습니다.
+ * 날짜는 잘려서는 안 되는 정보입니다.
+ */
+#period-label-text { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.period-pick-mark { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
 .period-label.is-current { color: var(--accent); }
 
 .progress-row { display: flex; align-items: center; gap: 9px; margin-top: 12px; }
@@ -1498,6 +1520,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .todo-hour-add:hover,
 .todo-hour-add:focus-visible { opacity: 1; border-color: var(--accent); color: var(--accent); }
 
+/* 시각을 정한 일이 하나도 없을 때. 빈 화면만 두면 뭘 해야 할지 알 수 없습니다. */
+.todo-hours-empty {
+  margin: 10px 0 0; padding: 12px 10px;
+  text-align: center; font-size: 12.5px; color: var(--text-faint);
+  border: 1px dashed var(--border); border-radius: var(--radius-sm);
+}
 .todo-hours-more { margin-top: 10px; width: 100%; }
 
 /* 그 자리에서 고칠 때 얹는 입력칸. 줄 높이가 튀지 않게 맞춥니다. */
@@ -1514,12 +1542,23 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
  */
 #todo-input { min-width: 9em; }
 
+/*
+ * 달력 격자.
+ * 모양(data-shape)은 계획표에서 고른 단위를 그대로 따릅니다.
+ *   day   — 고른 날짜 한 줄
+ *   week  — 그 주 이레
+ *   month — 그 달 한 판
+ *   year  — 열두 달을 작게, 넉 장씩 석 줄
+ */
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 3px;
   margin-top: 4px;
 }
+/* 하루짜리와 한 해짜리는 일곱 칸 격자가 아닙니다. */
+.cal-grid[data-shape="day"],
+.cal-grid[data-shape="year"] { display: block; }
 .cal-wd {
   text-align: center; font-size: 11px; font-weight: 700; color: var(--text-faint);
   padding: 4px 0 2px;
@@ -1547,7 +1586,7 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
   background: var(--accent-fill); color: var(--accent-text);
   border-radius: 999px; padding: 1px 6px; font-weight: 700;
 }
-.cal-day.is-selected { border-color: var(--accent); background: var(--accent-soft); }
+/* 일이 있는 날만 진하게. 달력 모양이 곧 보고 있는 기간이라 '선택' 칠은 두지 않습니다. */
 .cal-day.has-items { font-weight: 600; }
 
 .cal-num { font-size: 12.5px; line-height: 1.5; }
@@ -1593,43 +1632,72 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 
 
 /* =========================================================
-   TO DO — 달력이 위, 목록이 아래
+   TO DO — 달력은 계획표 카드 안에
    -----------------------------------------------------
-   좁은 화면에서는 달력을 고정해 두고 목록만 스크롤합니다.
-   달력이 같이 밀려 올라가면 '한 달을 보면서 고른다'는 흐름이 끊깁니다.
-   넓은 화면에서는 원래대로 두 칸으로 놓여 둘 다 보이므로 고정할 필요가 없습니다.
+   예전에는 달력이 따로 카드였고 좁은 화면의 절반 가까이를 썼습니다.
+   정작 계획을 적어 넣는 칸이 화면 밖으로 밀려나서, 카드 하나로 합쳤습니다.
+   달력 자리는 진행률 게이지 바로 아래, 분류 이모지 바로 위입니다.
    ========================================================= */
-.cal-card { padding-bottom: 10px; }
-.cal-nav { margin-top: 0; }
+.cal-block { margin-top: 10px; }
 
-/*
- * 달 이름은 년·월 고르기 판을 여는 자리입니다.
- *
- * 이 줄에는 ‹ › 접기 '이번 달' 까지 다섯 개가 들어갑니다.
- * 320px 영어('This month')에서는 한 줄에 다 들어가지 않아, 달 이름이 통째로 잘리고
- * ▾ 만 남았습니다. 어느 달인지 안 보이면 달력의 의미가 없습니다.
- * 그래서 이름에 최소 폭을 주고 줄을 접을 수 있게 했습니다. 모자라면 '이번 달'이 다음 줄로 갑니다.
- */
-.cal-nav { flex-wrap: wrap; }
-.cal-label {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  flex: 1 1 auto; min-width: 104px;
-  min-height: 36px; padding: 4px 8px;
-  border: 1px solid transparent; border-radius: var(--radius-sm);
-  background: none; color: inherit; font: inherit;
-  font-size: 14px; font-weight: 700; letter-spacing: -.01em;
-  cursor: pointer;
+/* ---------- 일간 — 날짜 한 줄 ---------- */
+/* 칸 하나짜리 격자는 의미가 없습니다. 누르는 곳도 아닙니다. */
+/* 누르면 그 날이 든 달로 올라갑니다. 되돌아가는 길이 없으면 한 번 내려간 뒤 갇힙니다. */
+.cal-one {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 46px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
 }
-.cal-label:hover { background: var(--surface-2); }
-.cal-label:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.cal-label > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-fold-mark { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
-/* 접기는 이제 제 버튼을 씁니다. 달 이름 자리는 년·월 고르기 판을 여는 데 썼습니다. */
-.cal-fold-btn { flex: none; width: 32px; height: 32px; font-size: 12px; }
+.cal-one:hover { border-color: var(--accent); }
+.cal-one:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-one.is-today { border-color: var(--accent); background: var(--accent-soft); }
+.cal-one-date { font-size: 14px; font-weight: 700; }
+.cal-one.is-today .cal-one-date { color: var(--accent); }
+.cal-one-count { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+.cal-one-up { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
+
+/* ---------- 연간 — 열두 달을 작게 ---------- */
+.cal-year-head {
+  text-align: center; font-size: 15px; font-weight: 700;
+  color: var(--accent); padding: 2px 0 8px;
+}
+/*
+ * 넉 장씩 석 줄.
+ * 한 해가 한 화면에 들어와야 '스크롤에 힘쓰지 않는다' 는 말이 성립합니다.
+ */
+.cal-year-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.cal-mini {
+  display: block; padding: 4px 3px 5px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; cursor: pointer;
+}
+.cal-mini:hover { border-color: var(--accent); }
+.cal-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 오늘이 든 달은 테두리로만 알립니다. 고른 기간과 헷갈리면 안 됩니다. */
+.cal-mini.is-now { border-color: var(--accent); background: var(--accent-soft); }
+.cal-mini-head {
+  display: block; text-align: center;
+  font-size: 10.5px; font-weight: 700; color: var(--text-dim); padding-bottom: 2px;
+}
+.cal-mini.is-now .cal-mini-head { color: var(--accent); }
+/* 칸을 딱 붙이면 '1011121314' 처럼 숫자가 한 덩어리로 읽힙니다. 아주 조금 띄웁니다. */
+.cal-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px 1px; }
+.cal-mini-day {
+  /* 아주 작은 판이라 날짜는 보여 주기만 합니다. 누르는 것은 달 한 장 전체입니다. */
+  text-align: center; font-size: 7px; line-height: 1.6;
+  color: var(--text-faint); font-variant-numeric: tabular-nums;
+}
+.cal-mini-day.is-blank { visibility: hidden; }
+/* 일이 있는 날만 진하게. 작은 판에서는 이모지를 놓을 자리가 없습니다. */
+.cal-mini-day.has-items { color: var(--text); font-weight: 700; }
+.cal-mini-day.is-today { color: var(--accent-text); background: var(--accent-fill); border-radius: 2px; font-weight: 700; }
 
 /* ---------- 년·월 고르기 판 ----------
  * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
- * 달 이름을 누르면 여기가 열리고, 연도를 누르면 달 격자가 연도 격자로 바뀝니다.
+ * 기간 이름을 누르면 여기가 열리고, 연도를 누르면 달 격자가 연도 격자로 바뀝니다.
  */
 .cal-pick {
   margin: 8px 0 2px;
@@ -1674,12 +1742,10 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
     /*
      * .grid 의 align-items:start 가 세로축용인데, flex-direction:column 에서는
      * 가로축에 걸립니다. 그대로 두면 카드가 내용 폭만큼 부풀어 화면을 넘칩니다.
-     * (320px 영어에서 달력 카드가 360px 이 되어 가로 스크롤이 생겼습니다)
      */
     align-items: stretch;
-    overflow: hidden;      /* 패널 전체가 아니라 목록만 스크롤합니다 */
+    overflow: hidden;      /* 패널 전체가 아니라 카드 안쪽만 스크롤합니다 */
   }
-  #panel-todo > .cal-card { flex: none; }
   #panel-todo > [data-card="todo.plan"] {
     flex: 1 1 auto;
     min-height: 0;         /* 이게 없으면 내용 높이만큼 늘어나 스크롤이 생기지 않습니다 */
@@ -1863,6 +1929,47 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
  * 화면 아래에 고정합니다. 카드를 끌다 보면 화면이 스크롤되는데,
  * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
  */
+/* =========================================================
+   어느 탭에 있든 한 번에 '오늘' 로
+   -----------------------------------------------------
+   탭이 아홉 개라 서너 장 쓸어 넘기면 처음 화면이 멀어집니다.
+
+   .arr-dock 과 같은 이유로 position: absolute 입니다. fixed 가 아닙니다.
+   fixed 는 '보이는 화면'이 아니라 브라우저가 정한 배치 기준 화면을 따르는데,
+   안드로이드 WebView 에서 그 둘이 어긋나 요소가 화면 밖으로 밀려납니다.
+   ========================================================= */
+.home-fab {
+  position: absolute; z-index: 40;
+  right: calc(14px + var(--sa-right));
+  bottom: calc(14px + var(--sa-bottom));
+  display: flex; align-items: center; gap: 5px;
+  min-height: 44px; padding: 0 15px 0 13px;
+  border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--accent-fill); color: var(--accent-text);
+  font: inherit; font-size: 13px; font-weight: 700;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, .22);
+  cursor: pointer;
+  transition: opacity var(--motion) var(--ease), transform var(--motion) var(--ease);
+}
+.home-fab:active { transform: scale(.96); }
+.home-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.home-fab-icon { font-size: 15px; line-height: 1; }
+
+/*
+ * '오늘' 탭에 있으면 숨깁니다. 이미 거기 있는데 돌아가는 버튼을 띄울 이유가 없습니다.
+ * 화면 편집 중과 서랍이 열렸을 때도 숨깁니다. 그때는 화면 아래가 이미 막대 차지입니다.
+ */
+body[data-tab="today"] .home-fab,
+body[data-arranging="on"] .home-fab,
+body[data-menu="open"] .home-fab {
+  opacity: 0; visibility: hidden; pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-fab { transition: none; }
+  .home-fab:active { transform: none; }
+}
+
 .arr-dock {
   /*
    * .app 을 기준으로 붙입니다. fixed 가 아닙니다.
@@ -1883,6 +1990,13 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
 
 /* 편집 중인 패널은 막대에 가리지 않도록 아래를 비워 둡니다. */
 .panel[data-arranging="on"] { padding-bottom: calc(96px + var(--sa-bottom)); }
+
+/*
+ * 떠 있는 '오늘' 버튼이 마지막 줄을 가리지 않도록 아래를 비웁니다.
+ * 버튼이 없는 '오늘' 탭에서는 비울 이유가 없습니다.
+ */
+body:not([data-tab="today"]) .panel { padding-bottom: calc(76px + var(--sa-bottom)); }
+body:not([data-tab="today"]) #panel-todo > [data-card="todo.plan"] { padding-bottom: 76px; }
 
 /*
  * 편집 중인 카드.

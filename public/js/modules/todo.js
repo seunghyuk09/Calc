@@ -302,9 +302,14 @@ function editTime(item) {
 /* ---------- 그리기 ---------- */
 
 function renderHeader() {
+  /*
+   * 기간 이름은 이제 년·월 고르기 판을 여는 버튼 안에 있습니다.
+   * 버튼에 통째로 글을 쓰면 ▾ 표시까지 지워지므로 안쪽 span 에만 씁니다.
+   */
   const labelEl = $('#period-label');
-  labelEl.textContent = label(scope, period, getLang());
-  labelEl.classList.toggle('is-current', isCurrent(scope, period));
+  const textEl = $('#period-label-text') || labelEl;
+  textEl.textContent = label(scope, period, getLang());
+  labelEl?.classList.toggle('is-current', isCurrent(scope, period));
 
   const rows = periodRows();
   const done = rows.filter((x) => x.done).length;
@@ -383,12 +388,8 @@ function itemRow(item, shownRows) {
 const DAY_VIEW_KEY = 'todo.dayView';
 /** 'list' 또는 'hours'. 일간에서만 씁니다. */
 let dayView = load(DAY_VIEW_KEY, 'list') === 'hours' ? 'hours' : 'list';
-/** 이른 시간(0~5시)과 늦은 시간(23시)까지 전부 펼쳤는지. */
+/** 스물네 시간을 전부 펼쳤는지. 기본은 일정이 있는 시각만 보여 줍니다. */
 let hoursAll = false;
-
-/** 기본으로 보여 줄 시간 범위. 할 일이 있는 시각은 범위 밖이어도 끌어와 보여 줍니다. */
-const DAY_START = 6;
-const DAY_END = 22;
 
 /** 그 시각(정시)에 속한 할 일들. 07:00~07:59 가 7시 줄입니다. */
 function rowsAtHour(rows, hour) {
@@ -399,18 +400,21 @@ function rowsAtHour(rows, hour) {
 }
 
 /**
- * 화면에 그릴 시간 목록. 접었을 때도 할 일이 있는 시간은 빠지지 않습니다.
+ * 화면에 그릴 시간 목록.
  *
- * 지금 시각도 빠지지 않습니다. 기본 범위가 06~22 시라, 새벽에 열면 '지금' 줄이
- * 아예 그려지지 않아 지금 뭘 넣을 자리가 화면에 없었습니다.
+ * 기본은 '일정이 있는 시각만' 입니다.
+ * 예전에는 06~22 시를 늘 깔아 두고 지금 시각으로 화면을 끌어내렸습니다.
+ * 열 때마다 빈 줄 열일곱 개를 지나야 했고, 읽던 자리가 저 혼자 움직였습니다.
+ * 빈 시간에 넣고 싶을 때만 '모든 시간' 을 눌러 펼칩니다.
  *
- * @param {number|null} nowHour 오늘을 보고 있으면 지금 시각, 아니면 null
+ * @param {Array} timed 시각이 붙은 할 일들
+ * @param {boolean} all 모든 시간을 펼쳤는지
  */
-export function hoursToShow(timed, nowHour = null) {
+export function hoursToShow(timed, all = false) {
   const used = new Set(timed.map((x) => Math.floor(minutesOf(x) / 60)));
   const out = [];
   for (let h = 0; h < 24; h += 1) {
-    if (hoursAll || used.has(h) || h === nowHour || (h >= DAY_START && h <= DAY_END)) out.push(h);
+    if (all || used.has(h)) out.push(h);
   }
   return out;
 }
@@ -455,32 +459,6 @@ function hourRow(hour, rows, shown, nowHour) {
   body);
 }
 
-/* 시간대 화면이 지금 떠 있는가. 켜지는 '순간' 만 잡으려고 둡니다. */
-let hoursVisible = false;
-
-/**
- * 지금 시각 줄을 화면 안으로 옮깁니다.
- *
- * 줄은 renderHours 가 그리므로 한 프레임 뒤에 찾습니다.
- * 오늘이 아니면 `.is-now` 가 없고, 그때는 아무 일도 하지 않습니다.
- * (어제나 내일을 보면서 '지금' 으로 튀면 그게 더 이상합니다)
- *
- * inline: 'nearest' 가 중요합니다. 본문이 가로 페이저라서 이걸 빼면
- * 세로로 옮기다가 옆 탭으로 밀려날 수 있습니다.
- */
-function scrollHoursToNow() {
-  requestAnimationFrame(() => {
-    const row = $('#todo-hours .todo-hour.is-now');
-    if (!row) return;
-    try {
-      row.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-    } catch {
-      // 옛 브라우저는 옵션 객체를 모릅니다. 옮기지 못해도 화면은 정상입니다.
-      try { row.scrollIntoView(); } catch { /* 무시 */ }
-    }
-  });
-}
-
 function renderHours() {
   const host = $('#todo-hours');
   if (!host) return;
@@ -498,9 +476,18 @@ function renderHours() {
     el('div', { class: 'todo-hour-time' }, t('todo.hours.allDay')),
     allDayBody));
 
-  hoursToShow(timed, nowHour).forEach((h) => {
+  const hours = hoursToShow(timed, hoursAll);
+  hours.forEach((h) => {
     parts.push(hourRow(h, rowsAtHour(timed, h), rows, nowHour));
   });
+
+  /*
+   * 시각을 붙인 일이 하나도 없으면 줄이 아예 안 나옵니다.
+   * 빈 화면만 두면 여기서 뭘 해야 하는지 알 수 없으므로 한 줄 적어 둡니다.
+   */
+  if (!hours.length) {
+    parts.push(el('p', { class: 'todo-hours-empty' }, t('todo.hours.empty')));
+  }
 
   parts.push(el('button', {
     class: 'btn btn-sm btn-ghost todo-hours-more', type: 'button', id: 'todo-hours-more',
@@ -524,16 +511,10 @@ function syncDayView() {
   $('#todo-view-hours')?.setAttribute('aria-selected', String(useHours));
 
   /*
-   * 시간대 화면이 막 떠올랐으면 지금 시각 줄로 옮겨 줍니다.
-   *
-   * 06 시부터 그리므로, 낮에 열면 새벽 줄만 보이고 정작 지금 할 일은 한참 아래에
-   * 있었습니다. 달력·할 일 앱은 열면 지금 시각을 보여 줍니다.
-   *
-   * '떠오른 순간' 에만 합니다. 그릴 때마다 옮기면 항목을 체크하거나 글자를 고치는
-   * 도중에 화면이 저 혼자 튑니다.
+   * 화면을 저 혼자 움직이지 않습니다.
+   * 예전에는 시간대 보기가 떠오를 때 지금 시각 줄로 끌어내렸는데,
+   * 읽던 자리가 멋대로 바뀌는 게 더 불편했습니다. 보는 자리는 사용자가 정합니다.
    */
-  if (useHours && !hoursVisible) scrollHoursToNow();
-  hoursVisible = useHours;
   return useHours;
 }
 
@@ -729,6 +710,33 @@ export function openDate(dateKey, itemId = null) {
   saveView();
   syncScopeTabs();
   syncFilterChips();
+  render();
+  return true;
+}
+
+/**
+ * 단위는 그대로 두고 보는 기간만 옮깁니다. (년·월 고르기 판이 씁니다)
+ * 일간이면 그 날, 월간이면 그 달, 연간이면 그 해가 열립니다.
+ */
+export function gotoDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+  period = keyOf(scope, date);
+  saveView();
+  render();
+  return true;
+}
+
+/**
+ * 단위까지 함께 바꿉니다. (연간 달력에서 달 한 장을 눌렀을 때)
+ * 연간 -> 월간 -> 일간 으로 내려가는 흐름입니다.
+ */
+export function openPeriod(nextScope, date) {
+  if (!SCOPES.includes(nextScope)) return false;
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+  scope = nextScope;
+  period = keyOf(scope, date);
+  syncScopeTabs();
+  saveView();
   render();
   return true;
 }

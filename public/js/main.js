@@ -103,6 +103,8 @@ function runLazyInit(tab) {
  */
 function setActiveTab(tab) {
   currentTab = tab;
+  // '오늘로 돌아가기' 버튼은 CSS 가 이 값으로 숨깁니다. (오늘 탭에서는 띄울 이유가 없습니다)
+  document.body.dataset.tab = tab;
   $$('.tab').forEach((btn) => btn.setAttribute('aria-selected', String(btn.dataset.tab === tab)));
 
   // 화면 밖 패널은 키보드 탭 이동과 스크린리더에서 빼 둡니다.
@@ -433,6 +435,13 @@ function initTabs() {
   });
   setNavigator(activate);
   watchPagerScroll();
+
+  /*
+   * 어느 탭에 있든 한 번에 '오늘' 로.
+   * 탭이 아홉 개라 서너 장 쓸어 넘기면 처음 화면이 멀어집니다.
+   * 서랍을 열어 고르는 건 두 번 누르는 일입니다.
+   */
+  $('#home-fab')?.addEventListener('click', () => activate(homeTab(TABS)));
 
   TABS = applyTabLayout();
 
