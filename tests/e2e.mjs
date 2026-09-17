@@ -158,6 +158,24 @@ const main = async () => {
   const launchOptions = { args: ['--no-sandbox'] };
   if (CHROME) launchOptions.executablePath = CHROME;
   const browser = await chromium.launch(launchOptions);
+
+  /*
+   * 처음 켠 사람에게는 사용 안내가 화면을 덮습니다.
+   * 그대로 두면 아래 검사 오백여 개가 전부 그 판에 막힙니다.
+   *
+   * 그래서 컨텍스트를 만들 때마다 '이미 봤음' 을 심어 둡니다.
+   * newContext 를 한 곳에서 감싸 두면, 나중에 컨텍스트를 새로 추가해도 빠뜨리지 않습니다.
+   * 안내 자체는 rawNewContext 로 만든 깨끗한 컨텍스트에서 따로 검사합니다. (아래 1-b)
+   */
+  const rawNewContext = browser.newContext.bind(browser);
+  browser.newContext = async (...args) => {
+    const ctx = await rawNewContext(...args);
+    await ctx.addInitScript(() => {
+      try { localStorage.setItem('daily-kit:ui.intro', JSON.stringify({ v: 1, at: 0 })); } catch { /* 무시 */ }
+    });
+    return ctx;
+  };
+
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     locale: 'ko-KR',
@@ -202,6 +220,133 @@ const main = async () => {
     `실제 선택 탭: ${await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')}`);
   check('오늘 탭에 날짜 표시', ((await page.textContent('#today-date')) || '').length > 4,
     `실제: ${await page.textContent('#today-date')}`);
+
+  /* ---------- 1-b. 처음 켰을 때의 사용 안내 ----------
+   *
+   * 이 앱에는 탭 막대가 없어서 좌우로 쓸어 넘긴다는 것부터 알려 줘야 합니다.
+   * 깨끗한 컨텍스트에서만 검사합니다. 다른 검사들은 위에서 '이미 봤음' 을 심어 둡니다.
+   */
+  if (!IS_FILE) {
+    console.log('\n▶ 첫 실행 안내');
+    const freshCtx = await rawNewContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    const fp = await freshCtx.newPage();
+    await fp.route('**/api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+    await fp.route('**/geocoding-api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_GEO) }));
+    await fp.goto(BASE, { waitUntil: 'networkidle' });
+    await fp.waitForSelector('body[data-ready="true"]');
+    await fp.waitForTimeout(600);
+
+    const introOpen = () => fp.evaluate(() => document.body.dataset.intro === 'open');
+    const introTitle = () => fp.textContent('#intro-title');
+
+    check('처음 켜면 사용 안내가 뜬다', (await introOpen()) === true);
+    check('안내가 다섯 장이다',
+      (await fp.locator('#intro-dots .intro-dot').count()) === 5,
+      `${await fp.locator('#intro-dots .intro-dot').count()}장`);
+    check('첫 장에는 이전 버튼이 없다',
+      (await fp.evaluate(() => document.querySelector('#intro-prev').hidden)) === true);
+    check('첫 장은 탭 이동을 알려 준다',
+      ((await introTitle()) || '').includes('쓸어'), await introTitle());
+    /*
+     * 뒤에 있는 화면은 눌리면 안 됩니다.
+     * 안내를 덮어 놓고 그 아래가 눌리면 무엇을 누른 건지 알 수 없습니다.
+     */
+    check('안내가 떠 있으면 뒤 화면이 가려진다',
+      (await fp.evaluate(() => {
+        const box = document.querySelector('#today-widgets .today-card, #today-widgets [data-widget]');
+        if (!box) return false;
+        const r = box.getBoundingClientRect();
+        const hit = document.elementFromPoint(Math.round(r.x + r.width / 2), Math.round(r.y + 10));
+        return !!hit?.closest('#intro-scrim, #intro');
+      })) === true);
+
+    const first = await introTitle();
+    await fp.click('#intro-next');
+    await fp.waitForTimeout(300);
+    check('다음을 누르면 장이 넘어간다', (await introTitle()) !== first,
+      `${first} -> ${await introTitle()}`);
+    check('둘째 장부터는 이전 버튼이 보인다',
+      (await fp.evaluate(() => document.querySelector('#intro-prev').hidden)) === false);
+    await fp.click('#intro-prev');
+    await fp.waitForTimeout(300);
+    check('이전을 누르면 첫 장으로 돌아온다', (await introTitle()) === first);
+
+    // 키보드로도 넘깁니다. 슬라이드니까 좌우 키가 자연스럽습니다.
+    await fp.keyboard.press('ArrowRight');
+    await fp.waitForTimeout(250);
+    check('오른쪽 키로도 넘어간다', (await introTitle()) !== first, await introTitle());
+
+    /*
+     * 마지막 장까지 갑니다.
+     *
+     * 횟수를 세어 누르지 않습니다. 한 번 더 누르면 안내가 닫혀 버리는데, 닫힌 판도
+     * 마지막으로 그린 글자를 그대로 달고 있어서 아래 두 검사가 거짓으로 통과했습니다.
+     * 장 수를 늘리거나 줄여도 깨지지 않게 '시작하기' 가 뜰 때까지만 누릅니다.
+     */
+    for (let i = 0; i < 12; i += 1) {
+      if (((await fp.textContent('#intro-next')) || '').includes('시작')) break;
+      await fp.click('#intro-next');
+      await fp.waitForTimeout(150);
+    }
+    check('마지막 장에서도 안내는 아직 열려 있다 (닫힌 판을 보고 통과하지 않게)',
+      (await introOpen()) === true);
+    check('마지막 장에서는 건너뛰기가 사라진다',
+      (await fp.evaluate(() => document.querySelector('#intro-skip').hidden)) === true);
+    check('마지막 장 버튼은 시작하기다',
+      ((await fp.textContent('#intro-next')) || '').includes('시작'),
+      await fp.textContent('#intro-next'));
+
+    await fp.click('#intro-next');
+    await fp.waitForTimeout(350);
+    check('시작하기를 누르면 닫힌다', (await introOpen()) === false);
+    check('봤다는 기록이 남는다',
+      (await fp.evaluate(() => {
+        try { return JSON.parse(localStorage.getItem('daily-kit:ui.intro') || 'null')?.v >= 1; } catch { return false; }
+      })) === true);
+
+    await fp.reload({ waitUntil: 'networkidle' });
+    await fp.waitForSelector('body[data-ready="true"]');
+    await fp.waitForTimeout(500);
+    check('새로고침해도 다시 뜨지 않는다', (await introOpen()) === false);
+
+    // 한 번 보고 나면 설정 탭이 유일한 입구입니다.
+    await goTab(fp, 'settings');
+    await fp.waitForTimeout(300);
+    await fp.click('#set-intro');
+    await fp.waitForTimeout(400);
+    check('설정 탭에서 다시 열 수 있다', (await introOpen()) === true);
+    await fp.keyboard.press('Escape');
+    await fp.waitForTimeout(300);
+    check('Esc 로 닫힌다', (await introOpen()) === false);
+    await freshCtx.close();
+
+    /*
+     * 쓰던 사람에게는 뜨지 않아야 합니다.
+     * 업데이트를 받았다고 안내가 튀어나오면 그건 방해입니다.
+     */
+    const usedCtx = await rawNewContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    await usedCtx.addInitScript(() => {
+      // 안내 기록만 없고 다른 기록은 있는 상태 = 예전부터 쓰던 사람
+      try { localStorage.setItem('daily-kit:ui.theme', '"dark"'); } catch { /* 무시 */ }
+    });
+    const up = await usedCtx.newPage();
+    await up.route('**/api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+    await up.route('**/geocoding-api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_GEO) }));
+    await up.goto(BASE, { waitUntil: 'networkidle' });
+    await up.waitForSelector('body[data-ready="true"]');
+    await up.waitForTimeout(600);
+    check('쓰던 사람에게는 안내가 뜨지 않는다',
+      (await up.evaluate(() => document.body.dataset.intro === 'open')) === false);
+    check('쓰던 사람에게도 봤다고 기록해 둔다 (나중에 불쑥 뜨지 않게)',
+      (await up.evaluate(() => {
+        try { return JSON.parse(localStorage.getItem('daily-kit:ui.intro') || 'null')?.v >= 1; } catch { return false; }
+      })) === true);
+    await usedCtx.close();
+  }
 
   // ---------- 1. 계산기 ----------
   console.log('\n▶ 계산기');

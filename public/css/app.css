@@ -2008,6 +2008,75 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
  * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
  */
 /* =========================================================
+   처음 켰을 때 보여 주는 사용 안내
+   -----------------------------------------------------
+   .arr-dock 과 같은 이유로 position: absolute 입니다. fixed 는 안드로이드
+   WebView 에서 '보이는 화면' 과 기준이 어긋나 화면 밖으로 밀려납니다.
+   ========================================================= */
+.intro-scrim {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(16, 24, 40, .48);
+}
+.intro {
+  position: absolute; z-index: 61;
+  left: calc(16px + var(--sa-left)); right: calc(16px + var(--sa-right));
+  bottom: calc(16px + var(--sa-bottom));
+  /* 화면이 아주 낮을 때도 위로 넘치지 않게. 넘치면 카드 안이 스크롤됩니다. */
+  max-height: calc(100% - 32px - var(--sa-top) - var(--sa-bottom));
+  display: flex; align-items: flex-end;
+}
+/*
+ * 넓은 화면에서는 가운데 띄웁니다.
+ * 좁은 화면에서는 아래에 붙입니다. 손가락이 닿는 자리가 아래쪽입니다.
+ */
+@media (min-width: 760px) {
+  .intro { align-items: center; justify-content: center; top: 0; }
+  .intro-card { max-width: 420px; }
+}
+.intro-card {
+  width: 100%;
+  padding: 22px 20px 18px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 10px 34px rgba(16, 24, 40, .26);
+  overflow-y: auto;
+  animation: intro-in var(--motion) var(--ease) both;
+}
+/* 초점을 받기만 하는 카드라 테두리를 그리지 않습니다. 버튼들은 제 초점 표시를 그대로 씁니다. */
+.intro-card:focus { outline: none; }
+@keyframes intro-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.intro-icon { display: block; font-size: 34px; line-height: 1; margin-bottom: 12px; }
+.intro-title { margin: 0 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.intro-text { margin: 0; font-size: 14px; line-height: 1.65; color: var(--text-dim); }
+
+/* 몇 번째 장인지. 보여 주기만 하고 누르는 곳은 아닙니다. */
+.intro-dots { display: flex; gap: 6px; margin: 18px 0 16px; }
+.intro-dot {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--surface-3);
+  transition: background var(--motion) var(--ease), width var(--motion) var(--ease);
+}
+.intro-dot.is-on { width: 18px; background: var(--accent-fill); }
+
+.intro-actions { display: flex; align-items: center; gap: 8px; }
+/* '건너뛰기' 는 왼쪽 끝, 나머지는 오른쪽으로 몰아 둡니다. */
+#intro-skip { margin-right: auto; }
+#intro-prev + #intro-next, #intro-skip + #intro-next { margin-left: 0; }
+/* 건너뛰기가 숨으면 '이전' 이 왼쪽 끝을 맡습니다. */
+#intro-skip[hidden] + #intro-prev { margin-right: auto; }
+
+/* 안내가 떠 있는 동안에는 떠 있는 버튼을 감춥니다. 겹쳐 보이면 지저분합니다. */
+body[data-intro="open"] .home-fab { opacity: 0; visibility: hidden; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-card { animation: none; }
+  .intro-dot { transition: none; }
+}
+
+/* =========================================================
    어느 탭에 있든 한 번에 '오늘' 로
    -----------------------------------------------------
    탭이 아홉 개라 서너 장 쓸어 넘기면 처음 화면이 멀어집니다.

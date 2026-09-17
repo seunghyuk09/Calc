@@ -453,6 +453,10 @@
           </div>
         </div>
         <p class="card-sub" style="margin:-6px 0 14px">TO DO 탭의 버튼과 날짜 표기 언어입니다. 입력한 계획 내용은 바뀌지 않습니다.</p>
+        <!-- 처음 켰을 때 뜨는 안내를 다시 엽니다. 한 번 보고 나면 여기가 유일한 입구입니다. -->
+        <div class="row" style="margin-bottom:14px">
+          <button class="btn btn-sm" id="set-intro" type="button" data-i18n="intro.again">사용법 다시 보기</button>
+        </div>
         <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
         <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
         <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>
@@ -531,6 +535,35 @@
     (실제로 재현됨: 화면 높이 844px 인데 막대가 3311px 위치에 놓였습니다)
     .app 은 딱 보이는 만큼의 높이라, 그 안에 붙이면 어떤 환경에서도 화면 안에 있습니다.
   -->
+  <!--
+    처음 켰을 때 한 번 보여 주는 사용 안내.
+
+    이 앱에는 탭 막대가 없어서, 좌우로 쓸어 넘긴다는 것부터 알려 줘야 합니다.
+    카드를 꾹 눌러 옮기는 것도, 데이터가 이 기기에만 남는다는 것도 화면만 봐서는 모릅니다.
+
+    .arr-dock 과 같은 이유로 .app 안에 둡니다. body 바로 밑에서 position: fixed 로
+    띄우면 안드로이드 WebView 에서 화면 밖으로 밀려납니다.
+
+    쓰던 사람에게는 뜨지 않습니다. 기록이 하나도 없을 때만 뜨고,
+    그 뒤에는 설정 탭의 '사용법 다시 보기' 로 엽니다.
+  -->
+  <div class="intro-scrim" id="intro-scrim" hidden></div>
+  <div class="intro" id="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" hidden>
+    <!-- 초점은 버튼이 아니라 이 카드가 받습니다. 열자마자 버튼에 두꺼운 초점 링이
+         걸리면 손으로 쓰는 사람에게는 그리다 만 것처럼 보입니다. -->
+    <div class="intro-card" id="intro-card" tabindex="-1">
+      <span class="intro-icon" id="intro-icon" aria-hidden="true">↔</span>
+      <h2 class="intro-title" id="intro-title">—</h2>
+      <p class="intro-text" id="intro-text">—</p>
+      <div class="intro-dots" id="intro-dots" role="img"></div>
+      <div class="intro-actions">
+        <button class="btn btn-sm btn-ghost" id="intro-skip" type="button" data-i18n="intro.skip">건너뛰기</button>
+        <button class="btn btn-sm" id="intro-prev" type="button" data-i18n="intro.prev" hidden>이전</button>
+        <button class="btn btn-sm btn-primary" id="intro-next" type="button" data-i18n="intro.next">다음</button>
+      </div>
+    </div>
+  </div>
+
   <!--
     어느 탭에 있든 한 번에 '오늘' 로 돌아오는 버튼.
 
