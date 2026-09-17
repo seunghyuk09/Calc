@@ -22,7 +22,7 @@ globalThis.document = {
   }),
 };
 
-const { normalizeTime, minutesOf, sortDayRows } = await import('../public/js/modules/todo.js');
+const { normalizeTime, minutesOf, sortDayRows, hoursToShow } = await import('../public/js/modules/todo.js');
 
 /*
  * 하루 안의 시각.
@@ -106,4 +106,42 @@ test('빈 목록과 항목 하나도 던지지 않는다', () => {
 test('자정과 하루 끝이 제자리에 온다 (경계)', () => {
   const rows = [{ id: '밤', time: '23:59' }, { id: '자정', time: '00:00' }, { id: '종일' }];
   assert.deepEqual(sortDayRows(rows).map((x) => x.id), ['종일', '자정', '밤']);
+});
+
+/*
+ * 시간대 보기가 그릴 시간 줄.
+ *
+ * 기본 범위는 06~22 시입니다. 그런데 지금이 그 밖(새벽 3시)이면 '지금' 줄이
+ * 아예 안 그려져서, 지금 뭘 넣을 자리가 화면에 없었습니다.
+ * 지금 시각은 범위와 상관없이 늘 들어가야 합니다.
+ */
+
+test('시간대 보기: 기본은 06~22시', () => {
+  const hours = hoursToShow([], null);
+  assert.deepEqual(hours, [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+});
+
+test('시간대 보기: 할 일이 있는 시간은 범위 밖이어도 나온다', () => {
+  const hours = hoursToShow([{ scope: 'day', time: '02:30' }, { scope: 'day', time: '23:00' }], null);
+  assert.ok(hours.includes(2), '02시');
+  assert.ok(hours.includes(23), '23시');
+});
+
+test('시간대 보기: 지금 시각은 범위 밖이어도 나온다', () => {
+  const hours = hoursToShow([], 3);
+  assert.ok(hours.includes(3), '새벽 3시에 열면 3시 줄이 있어야 합니다');
+  assert.deepEqual(hours, [3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+});
+
+test('시간대 보기: 지금이 범위 안이면 줄이 늘지 않는다', () => {
+  assert.deepEqual(hoursToShow([], 12), hoursToShow([], null));
+});
+
+test('시간대 보기: 오늘이 아니면(지금 시각 없음) 기본 범위 그대로', () => {
+  assert.deepEqual(hoursToShow([], null).length, 17);
+});
+
+test('시간대 보기: 같은 시간이 두 번 들어가지 않는다', () => {
+  const hours = hoursToShow([{ scope: 'day', time: '03:00' }], 3);
+  assert.equal(hours.filter((h) => h === 3).length, 1);
 });

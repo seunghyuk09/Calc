@@ -2243,6 +2243,48 @@ export function isStamped() { return true; }`,
   await page.waitForTimeout(400);
   check('일간으로 돌아오면 고른 보기가 기억됨',
     (await page.evaluate(() => !document.querySelector('#todo-hours').hidden)) === true);
+
+  /*
+   * 열면 지금 시각이 보여야 합니다.
+   *
+   * 06 시부터 그리므로, 고치기 전에는 낮에 열어도 새벽 줄만 보이고 지금 할 일은
+   * 화면 한참 아래(1057px, 화면 844)에 있었습니다. 달력·할 일 앱은 열면 지금을 보여 줍니다.
+   * 오늘을 보고 있을 때만 `.is-now` 가 생기므로, 없으면 이 검사는 건너뜁니다.
+   */
+  await page.click('#todo-view-list');
+  await page.waitForTimeout(250);
+  await page.evaluate(() => { document.querySelector('#panel-todo').scrollTop = 0; });
+  await page.click('#todo-view-hours');
+  await page.waitForTimeout(600);
+  const nowRow = await page.evaluate(() => {
+    const row = document.querySelector('#todo-hours .todo-hour.is-now');
+    if (!row) return null;
+    const b = row.getBoundingClientRect();
+    return { top: Math.round(b.top), bottom: Math.round(b.bottom), vh: innerHeight, time: row.querySelector('.todo-hour-time')?.textContent.trim() };
+  });
+  if (nowRow) {
+    check('시간대 보기를 열면 지금 시각 줄이 화면 안에 있음',
+      nowRow.top >= 0 && nowRow.bottom <= nowRow.vh,
+      `${nowRow.time} 줄 ${nowRow.top}~${nowRow.bottom} / 화면 ${nowRow.vh}`);
+  } else {
+    check('시간대 보기: 오늘이 아니면 지금 줄이 없음 (건너뜀)', true, '`.is-now` 없음');
+  }
+
+  // 항목을 만져도 화면이 저 혼자 튀면 안 됩니다. 그릴 때마다 옮기면 글자를 고칠 수가 없습니다.
+  const scrollBefore = await page.evaluate(() => document.querySelector('#panel-todo').scrollTop);
+  await page.evaluate(() => { document.querySelector('#panel-todo').scrollTop += 120; });
+  await page.waitForTimeout(150);
+  const moved = await page.evaluate(() => document.querySelector('#panel-todo').scrollTop);
+  await page.evaluate(() => {
+    const box = document.querySelector('#todo-hours input[type="checkbox"]');
+    if (box) box.click();
+  });
+  await page.waitForTimeout(500);
+  const scrollAfter = await page.evaluate(() => document.querySelector('#panel-todo').scrollTop);
+  check('시간대 보기: 항목을 체크해도 화면이 지금 시각으로 튀지 않음',
+    Math.abs(scrollAfter - moved) <= 2,
+    `${Math.round(scrollBefore)} -> 손으로 ${Math.round(moved)} -> 체크 뒤 ${Math.round(scrollAfter)}`);
+
   await page.click('#todo-view-list');
   await page.waitForTimeout(300);
 

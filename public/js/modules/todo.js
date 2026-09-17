@@ -398,12 +398,19 @@ function rowsAtHour(rows, hour) {
   });
 }
 
-/** 화면에 그릴 시간 목록. 접었을 때도 할 일이 있는 시간은 빠지지 않습니다. */
-function hoursToShow(timed) {
+/**
+ * 화면에 그릴 시간 목록. 접었을 때도 할 일이 있는 시간은 빠지지 않습니다.
+ *
+ * 지금 시각도 빠지지 않습니다. 기본 범위가 06~22 시라, 새벽에 열면 '지금' 줄이
+ * 아예 그려지지 않아 지금 뭘 넣을 자리가 화면에 없었습니다.
+ *
+ * @param {number|null} nowHour 오늘을 보고 있으면 지금 시각, 아니면 null
+ */
+export function hoursToShow(timed, nowHour = null) {
   const used = new Set(timed.map((x) => Math.floor(minutesOf(x) / 60)));
   const out = [];
   for (let h = 0; h < 24; h += 1) {
-    if (hoursAll || used.has(h) || (h >= DAY_START && h <= DAY_END)) out.push(h);
+    if (hoursAll || used.has(h) || h === nowHour || (h >= DAY_START && h <= DAY_END)) out.push(h);
   }
   return out;
 }
@@ -448,6 +455,32 @@ function hourRow(hour, rows, shown, nowHour) {
   body);
 }
 
+/* 시간대 화면이 지금 떠 있는가. 켜지는 '순간' 만 잡으려고 둡니다. */
+let hoursVisible = false;
+
+/**
+ * 지금 시각 줄을 화면 안으로 옮깁니다.
+ *
+ * 줄은 renderHours 가 그리므로 한 프레임 뒤에 찾습니다.
+ * 오늘이 아니면 `.is-now` 가 없고, 그때는 아무 일도 하지 않습니다.
+ * (어제나 내일을 보면서 '지금' 으로 튀면 그게 더 이상합니다)
+ *
+ * inline: 'nearest' 가 중요합니다. 본문이 가로 페이저라서 이걸 빼면
+ * 세로로 옮기다가 옆 탭으로 밀려날 수 있습니다.
+ */
+function scrollHoursToNow() {
+  requestAnimationFrame(() => {
+    const row = $('#todo-hours .todo-hour.is-now');
+    if (!row) return;
+    try {
+      row.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    } catch {
+      // 옛 브라우저는 옵션 객체를 모릅니다. 옮기지 못해도 화면은 정상입니다.
+      try { row.scrollIntoView(); } catch { /* 무시 */ }
+    }
+  });
+}
+
 function renderHours() {
   const host = $('#todo-hours');
   if (!host) return;
@@ -465,7 +498,7 @@ function renderHours() {
     el('div', { class: 'todo-hour-time' }, t('todo.hours.allDay')),
     allDayBody));
 
-  hoursToShow(timed).forEach((h) => {
+  hoursToShow(timed, nowHour).forEach((h) => {
     parts.push(hourRow(h, rowsAtHour(timed, h), rows, nowHour));
   });
 
@@ -489,6 +522,18 @@ function syncDayView() {
   if (hours) hours.hidden = !useHours;
   $('#todo-view-list')?.setAttribute('aria-selected', String(!useHours));
   $('#todo-view-hours')?.setAttribute('aria-selected', String(useHours));
+
+  /*
+   * 시간대 화면이 막 떠올랐으면 지금 시각 줄로 옮겨 줍니다.
+   *
+   * 06 시부터 그리므로, 낮에 열면 새벽 줄만 보이고 정작 지금 할 일은 한참 아래에
+   * 있었습니다. 달력·할 일 앱은 열면 지금 시각을 보여 줍니다.
+   *
+   * '떠오른 순간' 에만 합니다. 그릴 때마다 옮기면 항목을 체크하거나 글자를 고치는
+   * 도중에 화면이 저 혼자 튑니다.
+   */
+  if (useHours && !hoursVisible) scrollHoursToNow();
+  hoursVisible = useHours;
   return useHours;
 }
 
