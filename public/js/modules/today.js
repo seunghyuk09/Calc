@@ -410,6 +410,33 @@ function renderWidgets() {
   }
 }
 
+/**
+ * 위젯 하나의 몸통만 다시 그립니다. 카드 껍데기와 머리는 그대로 둡니다.
+ *
+ * 왜 통째로 갈면 안 되는가
+ *   renderWidgets 의 replaceChildren 은 카드를 전부 새로 만듭니다.
+ *   그런데 이 함수가 날씨 도착·할 일 변경 어느 쪽으로도 불립니다.
+ *   날씨가 도착했다고 할 일 줄까지 갈아 버리면, 고치기 버튼을 누르려던 손가락이
+ *   허공을 짚습니다. 자동 검사에서도 '방금 있던 요소가 없다' 로 터집니다.
+ *   바뀐 카드만 손대면 옆 카드는 건드리지 않습니다.
+ *
+ * @returns {boolean} 그 카드가 화면에 있어 실제로 갈아 끼웠으면 true
+ */
+function renderWidgetBody(name) {
+  const spec = WIDGETS[name];
+  if (!spec) return false;
+  const card = $(`#today-widgets [data-widget="${name}"]`);
+  const head = card?.querySelector('.today-card-head');
+  if (!card || !head) return false;
+  /*
+   * 손가락이 카드에 걸려 있는 동안에는 손대지 않습니다.
+   * 이유는 renderWidgets 쪽에 적어 두었습니다. 여기도 같은 위험입니다.
+   */
+  if (arrangeBusy()) { renderHeld = true; return true; }
+  card.replaceChildren(head, spec.body());
+  return true;
+}
+
 function updateTodoCount() {
   const countEl = $('#today-todo-count');
   if (countEl) countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
@@ -697,8 +724,17 @@ export function initToday() {
   });
   document.addEventListener('visibilitychange', () => { syncTimer(); syncClock(); });
 
-  onTodoChange(() => { renderAll(); });
-  onWeatherChange(() => { renderAll(); });
+  onTodoChange(() => {
+    // 할 일 카드만 다시 그립니다. 없으면(위젯을 끈 경우) 그릴 것도 없습니다.
+    if (!renderWidgetBody('todo')) return;
+    updateTodoCount();
+    scrollToIndex(false);
+    updateRotateControl();
+    // 남은 개수가 바뀌면 순환을 돌릴지 말지도 달라집니다. (shouldRun 이 rows.length 를 봅니다)
+    syncTimer();
+  });
+  // 날씨가 도착했다고 할 일 줄을 뜯어내면 안 됩니다. 날씨 카드만 손댑니다.
+  onWeatherChange(() => { renderWidgetBody('weather'); });
   // 손가락이 떨어지고 편집도 끝나면, 그동안 미뤄 둔 그리기를 한 번 처리합니다.
   onArrangeChange(() => {
     if (arrangeBusy() || !renderHeld) return;
