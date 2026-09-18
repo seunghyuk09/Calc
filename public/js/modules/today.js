@@ -596,7 +596,9 @@ function renderAll() {
    * applyStatic 은 문서 전체에 한 번도 불리지 않아서, 부르지 않으면
    * 영어로 바꿔도 한국어가 그대로 남습니다.
    */
-  applyStatic($('#panel-today'));
+  // applyStatic 은 root.querySelectorAll 을 부릅니다. null 을 넘기면 그 자리에서 던집니다.
+  const panel = $('#panel-today');
+  if (panel) applyStatic(panel);
   renderLauncher();
   renderWidgets();
   syncTimer();

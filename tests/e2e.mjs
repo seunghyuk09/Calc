@@ -3866,29 +3866,45 @@ export function isStamped() { return true; }`,
     await phone.route('**/api.open-meteo.com/**', (route) => route.fulfill({
       status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
     }));
-    await phone.setViewportSize({ width: 390, height: 844 });
-    await phone.goto(BASE, { waitUntil: 'networkidle' });
-    await phone.waitForSelector('body[data-ready="true"]');
     /*
      * 저장소는 창끼리 같습니다. 앞 검사가 이미 순서를 뒤집고 카드를 '작게'로 줄여 놨습니다.
      * 그대로 두면 '바뀌었는지' 보는 검사가 처음부터 목표 상태라 무엇을 해도 통과합니다.
      * 깨끗한 자리에서 다시 시작합니다.
+     *
+     * 되돌리기는 페이지가 열리기 '전에' 걸어 둡니다.
+     * 예전에는 열고 나서 고치고 새로고침했는데, 새로고침 직후의 waitForSelector 는
+     * 아직 갈리지 않은 예전 문서에 걸릴 수 있습니다. 그러면 되돌리기 전 순서를 그대로
+     * 읽어 놓고 통과한 것처럼 지나갑니다. (CI 에서 실제로 여기서 어긋났습니다)
+     * 열리기 전에 걸면 새로고침이 아예 필요 없어 그 틈이 사라집니다.
      */
-    await phone.evaluate(() => {
-      const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
-      delete raw.cardOrder;
-      raw.cards = {};
-      localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+    await phone.addInitScript(() => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+        delete raw.cardOrder;
+        raw.cards = {};
+        localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+      } catch { /* 저장소를 못 쓰면 기본 순서라 그대로 진행하면 됩니다 */ }
     });
-    await phone.reload({ waitUntil: 'networkidle' });
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.goto(BASE, { waitUntil: 'networkidle' });
     await phone.waitForSelector('body[data-ready="true"]');
     await goTab(phone, 'quote');
     await phone.waitForTimeout(500);
 
     const phoneCards = () => phone.evaluate(() => (
       [...document.querySelectorAll('#panel-quote > [data-card]')].map((n) => n.dataset.card)));
+    /*
+     * 어긋났을 때 '무엇이 저장돼 있었는지' 까지 남깁니다.
+     * 예전에는 순서만 찍혀서, CI 에서만 어긋났을 때 되돌리기가 안 먹은 것인지
+     * 다른 창이 덮어쓴 것인지 로그만 보고는 가릴 수가 없었습니다.
+     */
+    const phoneStored = await phone.evaluate(() => {
+      try { return JSON.stringify(JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}').cardOrder ?? null); }
+      catch { return '(읽지 못함)'; }
+    });
     check('전화기 폭: 기본 순서에서 시작 (여기가 어긋나면 아래 검사가 헛돕니다)',
-      (await phoneCards()).join(',') === 'quote.today,quote.mine', (await phoneCards()).join(','));
+      (await phoneCards()).join(',') === 'quote.today,quote.mine',
+      `${(await phoneCards()).join(',')} · 저장된 cardOrder=${phoneStored}`);
 
     await phone.$eval('#arr-start', (n) => n.click());
     await phone.waitForTimeout(400);
