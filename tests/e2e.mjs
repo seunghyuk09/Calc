@@ -126,6 +126,34 @@ function check(name, ok, detail = '') {
   console.log(`${ok ? '  ✅' : '  ❌'} ${name}${detail ? ` — ${detail}` : ''}`);
 }
 
+/**
+ * 저장소가 진짜로 쓰이고 있는지 봅니다.
+ *
+ * store.js 는 localStorage 가 막히면 조용히 메모리로 내려갑니다. (memoryFallback)
+ * 그러면 저장은 '성공' 하는데 새로고침하면 전부 사라져서, 뒤의 검사 수백 개가
+ * 저마다 다른 곳에서 '새로고침 후에 없어졌다' 로 깨집니다.
+ * 원인은 하나인데 증상만 흩어져 로그만 보고는 가릴 수가 없습니다.
+ */
+async function storeState(target) {
+  return target.evaluate(() => {
+    let raw = 'ok';
+    try {
+      localStorage.setItem('__e2e_probe__', '1');
+      if (localStorage.getItem('__e2e_probe__') !== '1') raw = '읽기 불일치';
+      localStorage.removeItem('__e2e_probe__');
+    } catch (e) { raw = `막힘: ${e?.name || e}`; }
+    // 앱은 부팅 때 ui.lastSeen 을 남깁니다. 진짜 localStorage 에 없으면 메모리로 내려간 것입니다.
+    let appKeys = -1;
+    let keys = '';
+    try {
+      const all = Object.keys(localStorage).filter((k) => k.startsWith('daily-kit:'));
+      appKeys = all.length;
+      keys = all.sort().join(',');
+    } catch { appKeys = -1; }
+    return { raw, appKeys, keys, protocol: location.protocol };
+  });
+}
+
 // Open-Meteo 공식 문서 스키마에 맞춘 모의 응답 (컨테이너 네트워크가 차단되어 실호출 불가)
 const MOCK_FORECAST = {
   latitude: 37.56, longitude: 126.97, timezone: 'Asia/Seoul',
@@ -168,11 +196,34 @@ const main = async () => {
    * 안내 자체는 rawNewContext 로 만든 깨끗한 컨텍스트에서 따로 검사합니다. (아래 1-b)
    */
   const rawNewContext = browser.newContext.bind(browser);
+  /** 컨텍스트 하나에 날씨 API 차단을 겁니다. (검사가 바깥 세상 속도에 흔들리면 안 됩니다) */
+  const blockWeather = async (ctx) => {
+    await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+    }));
+    await ctx.route('**/geocoding-api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_GEO),
+    }));
+  };
+
   browser.newContext = async (...args) => {
     const ctx = await rawNewContext(...args);
     await ctx.addInitScript(() => {
       try { localStorage.setItem('daily-kit:ui.intro', JSON.stringify({ v: 1, at: 0 })); } catch { /* 무시 */ }
     });
+    /*
+     * 날씨 API 를 컨텍스트 단위로 막습니다.
+     *
+     * 예전에는 페이지마다 route 를 걸었는데, 페이지가 25개인 반면 route 는 15곳이라
+     * 열 개는 뚫려 있었습니다. 그래도 지금까지 조용했던 것은 날씨 탭을 숨긴 페이지에서
+     * loadWeather 가 fetch 에 닿기 전에 던져 버려 요청 자체가 안 나갔기 때문입니다.
+     * 그 결함을 고치고 나니(오늘 탭 위젯이 '불러오는 중…' 에 멈추던 문제) 이제 진짜로 나갑니다.
+     *
+     * 인터넷이 없는 곳에서는 즉시 실패해 티가 안 나지만, 인터넷이 있는 CI 에서는
+     * 실제 요청이 나가 응답을 기다립니다. 검사가 바깥 세상의 속도에 흔들리면 안 됩니다.
+     * 페이지에 따로 건 route 는 컨텍스트보다 먼저 잡히므로 기존 검사는 그대로입니다.
+     */
+    await blockWeather(ctx);
     return ctx;
   };
 
@@ -229,6 +280,8 @@ const main = async () => {
   if (!IS_FILE) {
     console.log('\n▶ 첫 실행 안내');
     const freshCtx = await rawNewContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    // 몽키패치를 우회하는 자리입니다. (ui.intro 를 일부러 안 심습니다) 네트워크 차단은 따로 겁니다.
+    await blockWeather(freshCtx);
     const fp = await freshCtx.newPage();
     await fp.route('**/api.open-meteo.com/**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
@@ -327,6 +380,8 @@ const main = async () => {
      * 업데이트를 받았다고 안내가 튀어나오면 그건 방해입니다.
      */
     const usedCtx = await rawNewContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    // 몽키패치를 우회하는 자리입니다. (ui.intro 를 일부러 안 심습니다) 네트워크 차단은 따로 겁니다.
+    await blockWeather(usedCtx);
     await usedCtx.addInitScript(() => {
       // 안내 기록만 없고 다른 기록은 있는 상태 = 예전부터 쓰던 사람
       try { localStorage.setItem('daily-kit:ui.theme', '"dark"'); } catch { /* 무시 */ }
@@ -347,6 +402,23 @@ const main = async () => {
       })) === true);
     await usedCtx.close();
   }
+
+  // ---------- 0. 저장소가 진짜로 쓰이고 있는가 ----------
+  /*
+   * store.js 는 localStorage 가 막히면 조용히 메모리로 내려갑니다. (memoryFallback)
+   * 그러면 저장은 '성공' 하는데 새로고침하면 전부 사라집니다.
+   *
+   * 이게 file:// 모드에서 실제로 일어나면, 뒤의 검사 수백 개가 저마다 다른 곳에서
+   * '새로고침 후에 없어졌다' 로 깨집니다. 원인은 하나인데 증상만 흩어져
+   * 로그만 보고는 가릴 수가 없습니다. (CI 에서 두 번, 서로 다른 자리에서 깨졌습니다)
+   * 여기서 먼저 못을 박아 둡니다.
+   */
+  console.log('\n▶ 저장소');
+  const storeHealth = await storeState(page);
+  check('localStorage 를 실제로 쓸 수 있음', storeHealth.raw === 'ok', storeHealth.raw);
+  check('앱이 메모리 대체 저장소로 내려가지 않음 (내려가면 새로고침마다 전부 사라집니다)',
+    storeHealth.appKeys > 0, `${storeHealth.protocol} · daily-kit: 키 ${storeHealth.appKeys}개`);
+
 
   // ---------- 1. 계산기 ----------
   console.log('\n▶ 계산기');
@@ -3204,9 +3276,16 @@ export function isStamped() { return true; }`,
   await page.waitForTimeout(300);
   await page.click('#period-today');
   await page.waitForTimeout(250);
+  /*
+   * 여기서 어긋나면 '분류 저장' 이 아니라 '저장소 자체' 가 문제일 수 있습니다.
+   * 어느 쪽인지 로그만 보고 가릴 수 있게, 새로고침 직후의 저장소 상태를 함께 봅니다.
+   */
+  const afterReload = await storeState(page);
+  check('새로고침 뒤에도 저장소가 살아 있음', afterReload.raw === 'ok' && afterReload.appKeys > 0,
+    `${afterReload.raw} · 키 ${afterReload.appKeys}개`);
   check('새로고침 후에도 내 분류가 남아 있음',
     (await page.locator('#todo-cats .cat-chip').count()) === beforeChips + 1,
-    `${await page.locator('#todo-cats .cat-chip').count()}개`);
+    `${await page.locator('#todo-cats .cat-chip').count()}개 · 저장소 키 ${afterReload.appKeys}개`);
   check('새로고침 후에도 바꾼 이모지가 남아 있음',
     ((await page.locator(`.cal-day[data-day="${todayKey}"] .cal-marks`).textContent()) || '').includes('🏋️'));
 
