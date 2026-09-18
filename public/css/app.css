@@ -858,6 +858,96 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .today-date { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .today-swipe-hint { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
 
+/* ---------- 기능 바로가기 ----------
+ * 한 줄에 넉 장씩 감아 내립니다. 가로 스크롤로 하면 화면 밖의 것이 안 보이는데,
+ * 무엇이 있는지 보여 주는 것이 이 줄의 유일한 목적이라 그러면 뜻이 없습니다.
+ *
+ * 칩 높이는 44px 을 밑돌지 않게 잡았습니다.
+ * WCAG 2.5.8(AA)은 24x24 CSS px 이 최소이고, 2.5.5(AAA)와 통상 권장치가 44x44 입니다.
+ */
+.today-launcher {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.today-launch {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  min-height: 60px; padding: 8px 4px;
+  border: 0; border-radius: 12px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.today-launch:hover { background: var(--surface-3, var(--surface-2)); }
+.today-launch:active { transform: scale(.96); }
+.today-launch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.today-launch-icon { font-size: 21px; line-height: 1; }
+/*
+ * 이름은 줄이지 않습니다. 'TO DO' 나 '시계·타이머' 가 잘려 '시계…' 가 되면
+ * 이모지만 남는 셈이라, 이 줄을 둔 이유가 사라집니다. 대신 두 줄까지 내려갑니다.
+ */
+.today-launch-name {
+  font-size: 10.5px; line-height: 1.25; text-align: center;
+  color: var(--text-dim); overflow-wrap: anywhere; word-break: keep-all;
+}
+
+/* 화면이 아주 좁으면 석 장씩. 넉 장이면 '시계·타이머' 가 석 줄로 접힙니다. */
+@media (max-width: 340px) {
+  .today-launcher { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* 넓은 화면에서는 한 줄에 다 놓습니다. */
+@media (min-width: 620px) {
+  .today-launcher { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+
+/* ---------- 바로 적기 ---------- */
+.today-quick { grid-column: 1 / -1; }
+.today-quick-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+}
+.today-quick-row:first-of-type { margin-top: 0; }
+/*
+ * 이름 칸의 폭을 고정합니다. 셋이 세로로 줄을 맞춰야 입력칸 왼쪽 끝이 들쭉날쭉하지 않습니다.
+ * '할 일'(2자)과 'Calculate'(9자)의 폭이 크게 다르므로 글자 수로 맡기면 어긋납니다.
+ */
+.today-quick-label {
+  display: flex; align-items: center; gap: 5px;
+  flex: none; width: 66px;
+  font-size: 12.5px; color: var(--text-dim);
+}
+.today-quick-input {
+  flex: 1 1 auto; min-width: 0;
+  min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 14px;
+}
+.today-quick-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.today-quick-go {
+  flex: none; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 10px;
+  background: var(--accent); color: var(--accent-text);
+  font-size: 17px; cursor: pointer;
+  transition: transform .1s ease;
+}
+.today-quick-go:active { transform: scale(.94); }
+.today-quick-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 계산 결과. 비어 있을 때는 hidden 이라 자리를 차지하지 않습니다. */
+.today-quick-out {
+  display: block; margin: 6px 0 0 74px;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+  color: var(--text); overflow-wrap: anywhere;
+}
+.today-quick-out.is-error { color: var(--danger, #e0533d); }
+
+@media (prefers-reduced-motion: reduce) {
+  .today-launch, .today-launch:active,
+  .today-quick-go, .today-quick-go:active { transition: none; transform: none; }
+}
+
 /* 날씨 카드는 통째로 버튼입니다. button 기본 스타일을 지우고 카드처럼 보이게 합니다. */
 .today-card {
   display: block; width: 100%; text-align: left;

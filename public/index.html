@@ -101,11 +101,70 @@
     <section class="panel grid" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
       <div class="today-head">
         <div class="today-date" id="today-date">—</div>
-        <div class="today-swipe-hint" aria-hidden="true">← 좌우로 쓸어 탭 이동 →</div>
+        <div class="today-swipe-hint" aria-hidden="true" data-i18n="today.swipe">← 좌우로 쓸어 탭 이동 →</div>
       </div>
+
+      <!--
+        기능 바로가기.
+        이 앱에는 탭 막대가 없어서, 처음 켠 사람은 '오늘' 하나만 보고 앱이 그게 전부인 줄 압니다.
+        여기가 무엇이 있는지 보여 주는 유일한 자리라, 숨기거나 옮길 수 없게 고정해 둡니다.
+        칩은 today.js 가 실제로 보이는 탭만 그 순서대로 그립니다. (숨긴 탭은 빠집니다)
+      -->
+      <nav class="today-launcher" id="today-launcher"></nav>
 
       <!-- 위젯은 설정 탭에서 고른 것만, 고른 순서대로 today.js 가 그립니다. -->
       <div class="today-widgets grid grid-2" id="today-widgets"></div>
+
+      <!--
+        바로 적기.
+        할 일 하나 적으러 탭을 넘어갔다 돌아오는 것이 첫 사용에서 가장 많이 막히는 자리였습니다.
+        이모지는 전부 aria-hidden 이고, 입력칸의 이름은 옆의 글자(label)가 맡습니다.
+      -->
+      <div class="card today-quick" id="today-quick">
+        <div class="today-card-head">
+          <span class="card-title" data-i18n="today.quick.title">바로 적기</span>
+          <span class="card-sub" data-i18n="today.quick.hint">탭을 옮기지 않아도 됩니다</span>
+        </div>
+
+        <form class="today-quick-row" id="today-quick-todo-form">
+          <label class="today-quick-label" for="today-quick-todo">
+            <span aria-hidden="true">✅</span>
+            <span data-i18n="today.quick.todo">할 일</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-todo" type="text" autocomplete="off"
+                 enterkeyhint="done" data-i18n-placeholder="today.quick.todoPlaceholder"
+                 placeholder="오늘 할 일 한 줄">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.todoAdd"
+                  aria-label="할 일 추가"><span aria-hidden="true">＋</span></button>
+        </form>
+
+        <form class="today-quick-row" id="today-quick-calc-form">
+          <label class="today-quick-label" for="today-quick-calc">
+            <span aria-hidden="true">🧮</span>
+            <span data-i18n="today.quick.calc">계산</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-calc" type="text" autocomplete="off"
+                 inputmode="text" enterkeyhint="go" data-i18n-placeholder="today.quick.calcPlaceholder"
+                 placeholder="예: 12000*3">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.calcGo"
+                  aria-label="계산하기"><span aria-hidden="true">＝</span></button>
+        </form>
+        <!-- 계산 결과. 비어 있을 때는 자리를 차지하지 않습니다. -->
+        <output class="today-quick-out" id="today-quick-calc-out" for="today-quick-calc" hidden></output>
+
+        <form class="today-quick-row" id="today-quick-memo-form">
+          <label class="today-quick-label" for="today-quick-memo">
+            <span aria-hidden="true">✏️</span>
+            <span data-i18n="today.quick.memo">메모</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-memo" type="text" autocomplete="off"
+                 enterkeyhint="done" data-i18n-placeholder="today.quick.memoPlaceholder"
+                 placeholder="기억해 둘 것 한 줄">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.memoAdd"
+                  aria-label="메모 저장"><span aria-hidden="true">＋</span></button>
+        </form>
+      </div>
+
     </section>
 
     <!-- ================= 계산기 ================= -->

@@ -20,7 +20,7 @@ import { initArrange, startArrange, arrangeFollowTab } from './modules/arrange.j
 import { initUpdate, registerServiceWorker } from './modules/update.js';
 import { initIntro } from './modules/intro.js';
 import { initLang, t, onLangChange, applyStatic } from './lib/i18n.js';
-import { setNavigator, notifyTabChange } from './lib/nav.js';
+import { setNavigator, notifyTabChange, tabIcon } from './lib/nav.js';
 import { awayTooLong } from './lib/session.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
@@ -349,12 +349,6 @@ function unlockPager() {
   pagerIntent = null;
 }
 
-/** 탭 버튼 앞의 이모지. 목록이 HTML 한 군데에만 있도록 여기서 읽어 씁니다. */
-function iconOf(tab) {
-  const btn = document.querySelector(`.tab[data-tab="${tab}"] span`);
-  return btn ? btn.textContent.trim() : '';
-}
-
 /*
  * 지금 헤더에 쓰여 있는 탭. 스크롤 중에는 한 프레임에 한 번씩 부르는데,
  * 같은 글자를 다시 써도 그때마다 헤더(블러가 걸린 sticky 요소)가 다시 그려져 넘기기가 무거워집니다.
@@ -368,7 +362,7 @@ function showHeaderTab(tab) {
   const name = $('#header-now-name');
   const icon = $('#header-now-icon');
   if (name) name.textContent = t(`tab.${tab}`);
-  if (icon) icon.textContent = iconOf(tab);
+  if (icon) icon.textContent = tabIcon(tab);
 }
 
 /**

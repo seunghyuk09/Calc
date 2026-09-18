@@ -911,6 +911,210 @@ const main = async () => {
     (await page.locator('#today-rot .today-rot-item').count()) >= 1,
     `${await page.locator('#today-rot .today-rot-item').count()}건`);
 
+  // ---------- 3-b-2. 기능 바로가기 + 바로 적기 ----------
+  console.log('\n▶ 오늘 — 바로가기와 바로 적기');
+
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  /*
+   * 이 앱에는 탭 막대가 없습니다. 처음 켠 사람이 '무엇이 있는지' 를 아는 곳은 여기뿐이라,
+   * 칩이 하나라도 사라지면 그 기능은 스와이프를 아는 사람만 쓸 수 있게 됩니다.
+   */
+  const chipTabs = await page.$$eval('.today-launch', (ns) => ns.map((n) => n.dataset.tab));
+  check('바로가기가 오늘을 뺀 모든 탭을 보여 줌',
+    chipTabs.length === 8 && !chipTabs.includes('today')
+    && ['calc', 'weather', 'todo', 'time', 'memo', 'quote', 'ai', 'settings']
+      .every((name) => chipTabs.includes(name)),
+    chipTabs.join(', '));
+
+  /*
+   * 이모지만 남으면 화면 읽기 프로그램이 🗓️ 을 'spiral calendar' 로 읽습니다.
+   * 이름은 언제나 글자가 맡아야 하고, 이모지는 장식으로 빠져 있어야 합니다.
+   */
+  const chipNames = await page.$$eval('.today-launch', (ns) => ns.map((n) => ({
+    icon: n.querySelector('.today-launch-icon')?.getAttribute('aria-hidden'),
+    name: n.querySelector('.today-launch-name')?.textContent?.trim() || '',
+  })));
+  check('바로가기 이름은 글자가 맡고 이모지는 aria-hidden',
+    chipNames.every((c) => c.icon === 'true' && c.name.length > 0),
+    chipNames.map((c) => c.name).join(' / '));
+
+  // 이름이 잘리면 이모지만 남는 셈이라, 이 줄을 둔 이유가 사라집니다.
+  const chipClipped = await page.$$eval('.today-launch-name',
+    (ns) => ns.filter((n) => n.scrollWidth > n.clientWidth + 1).map((n) => n.textContent));
+  check('바로가기 이름이 잘리지 않음', chipClipped.length === 0, chipClipped.join(', ') || '전부 온전함');
+
+  /*
+   * 터치 목표 크기.
+   * WCAG 2.5.8(AA)의 최소는 24x24 CSS px 이고, 2.5.5(AAA)와 통상 권장치가 44x44 입니다.
+   * 손가락으로 쓰는 첫 화면이라 권장치를 기준으로 둡니다.
+   */
+  const touch = await page.evaluate(() => {
+    const box = (sel) => {
+      const n = document.querySelector(sel);
+      if (!n) return null;
+      const r = n.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    };
+    return { chip: box('.today-launch'), input: box('.today-quick-input'), go: box('.today-quick-go') };
+  });
+  check('바로가기와 바로 적기의 터치 목표가 44px 이상',
+    !!touch.chip && touch.chip.h >= 44 && touch.chip.w >= 44
+    && !!touch.input && touch.input.h >= 44
+    && !!touch.go && touch.go.h >= 44 && touch.go.w >= 44,
+    `칩 ${touch.chip?.w}x${touch.chip?.h} · 입력 높이 ${touch.input?.h} · 버튼 ${touch.go?.w}x${touch.go?.h}`);
+
+  await page.click('.today-launch[data-tab="quote"]');
+  await page.waitForTimeout(600);
+  check('바로가기를 누르면 그 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="quote"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  // --- 바로 적기: 할 일 ---
+  /*
+   * 먼저 계획표를 '오늘' 에서 멀리 떼어 놓습니다.
+   *
+   * 이걸 안 하면 이 검사는 아무것도 증명하지 못합니다. 계획표가 마침 오늘/일간을
+   * 보고 있으면, '언제나 오늘로 넣는' 구현과 '보고 있는 기간에 넣는' 구현이
+   * 똑같은 값을 내놓기 때문입니다. (실제로 한 번 이 상태로 통과해 버렸습니다)
+   * 월간으로 바꾸고 기간까지 앞으로 밀어 두면 둘이 갈라집니다.
+   */
+  await goTab(page, 'todo');
+  await page.click('.scope-tab[data-scope="month"]');
+  await page.waitForTimeout(150);
+  await page.click('#period-next');
+  await page.waitForTimeout(150);
+  const awayView = await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}'));
+  check('바로 적기 검사 준비: 계획표를 오늘에서 떼어 놓음',
+    awayView.scope === 'month' && typeof awayView.period === 'string',
+    `${awayView.scope}/${awayView.period}`);
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  const beforeAdd = await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]').length);
+  await page.fill('#today-quick-todo', '바로 적은 할 일');
+  await page.press('#today-quick-todo', 'Enter');
+  await page.waitForTimeout(400);
+  const added = await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+    .find((x) => x.text === '바로 적은 할 일'));
+  const quickDayKey = await page.evaluate(() => {
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  });
+  /*
+   * 계획표를 다음 달로 넘겨 둔 채 오늘 탭에서 적었다고 다음 달로 들어가면 적은 사람이 찾지 못합니다.
+   * 오늘 탭에서 적은 것은 언제나 오늘입니다.
+   */
+  check('바로 적기로 넣은 할 일이 오늘 날짜로 저장됨',
+    !!added && added.scope === 'day' && added.period === quickDayKey && added.done === false,
+    added ? `${added.scope}/${added.period}` : '저장되지 않음');
+  check('바로 적기 뒤 입력칸이 비워짐', (await page.inputValue('#today-quick-todo')) === '');
+  check('바로 적기가 기존 할 일을 건드리지 않음',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]').length))
+      === beforeAdd + 1);
+
+  // 빈 칸으로 눌러도 빈 항목이 생기면 안 됩니다.
+  await page.fill('#today-quick-todo', '   ');
+  await page.press('#today-quick-todo', 'Enter');
+  await page.waitForTimeout(250);
+  check('공백만 넣으면 아무것도 추가되지 않음',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]').length))
+      === beforeAdd + 1);
+  await page.fill('#today-quick-todo', '');
+
+  // --- 바로 적기: 계산 ---
+  await page.fill('#today-quick-calc', '12000*3');
+  await page.press('#today-quick-calc', 'Enter');
+  await page.waitForTimeout(350);
+  check('바로 계산이 결과를 보여 줌',
+    /12000\*3\s*=\s*36,?000/.test((await page.textContent('#today-quick-calc-out')) || ''),
+    await page.textContent('#today-quick-calc-out'));
+  check('바로 계산이 계산 기록에도 남음',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:calc.history') || '[]')
+      .some((h) => h.expr === '12000*3' && h.value === 36000))) === true);
+
+  await page.fill('#today-quick-calc', '((1+');
+  await page.press('#today-quick-calc', 'Enter');
+  await page.waitForTimeout(300);
+  check('잘못된 수식은 오류로 표시', (await page.locator('#today-quick-calc-out.is-error').count()) === 1,
+    await page.textContent('#today-quick-calc-out'));
+
+  /*
+   * 고쳐 치기 시작하면 앞선 판정을 지웁니다.
+   * 남겨 두면 다 고쳐 놓고도 빨간 '계산할 수 없습니다' 가 붙어 있어 고친 것이 틀린 줄 압니다.
+   */
+  await page.fill('#today-quick-calc', '(1+2)');
+  await page.waitForTimeout(200);
+  check('다시 치면 앞선 오류가 사라짐',
+    (await page.locator('#today-quick-calc-out').isHidden()) === true);
+  await page.fill('#today-quick-calc', '');
+
+  // --- 바로 적기: 메모 ---
+  await page.fill('#today-quick-memo', '주차 B3-127');
+  await page.press('#today-quick-memo', 'Enter');
+  await page.waitForTimeout(400);
+  check('바로 적기로 남긴 메모가 저장됨',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]')
+      .some((m) => m.text === '주차 B3-127'))) === true);
+  check('메모 탭에서도 같은 메모가 보임',
+    (await page.evaluate(async () => {
+      document.querySelector('.tab[data-tab="memo"]').click();
+      await new Promise((r) => setTimeout(r, 400));
+      return [...document.querySelectorAll('#memo-list li')].some((li) => li.textContent.includes('주차 B3-127'));
+    })) === true);
+
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  /*
+   * 카드마다 안내 문구가 달라야 합니다.
+   * 넷이 똑같이 '눌러서 해당 탭으로 이동' 이면 읽히지 않고 자리만 먹습니다.
+   */
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+    raw.widgets = ['weather', 'clock', 'timer', 'quote', 'memo', 'calc'];
+    localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(500);
+  const hints = await page.$$eval('#today-widgets .card-sub', (ns) => ns.map((n) => n.textContent.trim()));
+  check('위젯 카드의 안내 문구가 서로 다름',
+    hints.length >= 5 && new Set(hints).size === hints.length,
+    hints.join(' | '));
+
+  /*
+   * 위젯 구성과 이 절이 남긴 데이터를 치웁니다.
+   * 뒤의 검사들이 할 일과 메모의 '개수' 를 세기 때문에, 여기서 넣은 것이 남으면
+   * 엉뚱한 곳에서 하나씩 어긋납니다.
+   */
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+    raw.widgets = ['weather', 'todo'];
+    localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+
+    const todos = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .filter((x) => x.text !== '바로 적은 할 일');
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(todos));
+
+    const memos = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]')
+      .filter((m) => m.text !== '주차 B3-127');
+    localStorage.setItem('daily-kit:memo.items', JSON.stringify(memos));
+
+    // 위에서 월간으로 떼어 놓은 계획표도 되돌립니다. 뒤 검사들이 일간을 봅니다.
+    localStorage.removeItem('daily-kit:todo.view');
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(400);
+
   // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
   console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
 
@@ -3927,9 +4131,25 @@ export function isStamped() { return true; }`,
         (await tp.evaluate(() => !!document.querySelector('[data-arr-drag="on"]'))) === true);
 
       const s0 = await tScroll();
+      /*
+       * 목적지를 둘째 카드의 '아래끝' 이 아니라 '가운데' 로 잡습니다.
+       *
+       * arrange.js 는 손가락이 패널 가장자리 72px 안에 들어오면 일부러 화면을 밀어 줍니다.
+       * (자동 스크롤, EDGE/EDGE_SPEED) 예전에는 '오늘' 탭이 화면보다 짧아 밀 자리가 없어
+       * 그 기능이 드러나지 않았는데, 바로가기와 바로 적기가 생기면서 밀 자리가 생겼습니다.
+       * 아래끝을 그대로 두면 이 검사는 '일부러 미는 것' 을 붙잡게 되어,
+       * 원래 잡으려던 것(touchmove 를 막지 않아 브라우저가 드래그를 훔쳐 가는 일)과
+       * 구분하지 못합니다. 가장자리를 피하면 스크롤은 곧 그 버그뿐입니다.
+       */
       const to = await tp.evaluate(() => {
         const b = document.querySelectorAll('#today-widgets > [data-widget]')[1].getBoundingClientRect();
-        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.bottom - 12) };
+        const panel = document.querySelector('#panel-today').getBoundingClientRect();
+        // 가장자리 72px 은 자동 스크롤 구역입니다. 그 위로 8px 더 띄워 확실히 피합니다.
+        const safeBottom = panel.bottom - 80;
+        return {
+          x: Math.round(b.x + b.width / 2),
+          y: Math.round(Math.min(b.bottom - 12, safeBottom)),
+        };
       });
       for (let i = 1; i <= 12; i += 1) {
         await touch('touchMove', Math.round(from.x + (to.x - from.x) * i / 12),
@@ -3940,7 +4160,7 @@ export function isStamped() { return true; }`,
       const moved = await tp.evaluate(() => document.querySelector('[data-arr-drag="on"]')?.style.transform || '');
       const s1 = await tScroll();
       check('터치: 끄는 동안 카드가 손가락을 따라옴', moved.includes('translate'), moved || '(안 움직임)');
-      check('터치: 끄는 동안 화면이 같이 스크롤되지 않음', Math.abs(s1 - s0) < 20, `${s0} -> ${s1}`);
+      check('터치: 끄는 동안 화면이 브라우저에 끌려가지 않음', Math.abs(s1 - s0) < 20, `${s0} -> ${s1}`);
       await touch('touchEnd', to.x, to.y);
       await tp.waitForTimeout(700);
       const tAfter = await tOrder();
@@ -4200,15 +4420,22 @@ export function isStamped() { return true; }`,
   await desktop.waitForSelector('body[data-ready="true"]');
   await desktop.waitForTimeout(300);
 
+  /*
+   * 날짜 줄과 첫 카드 사이에는 이제 기능 바로가기가 들어갑니다.
+   * 그래서 '날짜 -> 카드' 가 아니라 이웃한 두 쌍을 각각 봅니다.
+   * 늘어남을 잡아내려던 원래 뜻은 그대로입니다. (한 군데라도 벌어지면 걸립니다)
+   */
   const headToCard = await desktop.evaluate(() => {
     const panel = document.querySelector('#panel-today');
     const head = panel.querySelector('.today-head');
+    const nav = panel.querySelector('#today-launcher');
     const card = panel.querySelector('#today-weather-card');
-    if (!head || !card) return -1;
-    return Math.round(card.getBoundingClientRect().top - head.getBoundingClientRect().bottom);
+    if (!head || !nav || !card) return -1;
+    const gap = (a, b) => Math.round(b.getBoundingClientRect().top - a.getBoundingClientRect().bottom);
+    return Math.max(gap(head, nav), gap(nav, card));
   });
   // gap 은 14px 입니다. 여유를 둬도 40px 을 넘으면 늘어난 것입니다.
-  check('넓은 화면 오늘 탭: 날짜 줄과 카드가 붙어 있음', headToCard >= 0 && headToCard <= 40,
+  check('넓은 화면 오늘 탭: 날짜 · 바로가기 · 카드가 붙어 있음', headToCard >= 0 && headToCard <= 40,
     `간격 ${headToCard}px (기대 <= 40)`);
 
   const stretched = await desktop.evaluate(() => [...document.querySelectorAll('.panel.grid')]

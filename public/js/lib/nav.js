@@ -36,3 +36,16 @@ export function notifyTabChange(name) {
     try { fn(name); } catch (err) { console.error('[nav] 구독자 오류', err); }
   });
 }
+
+/**
+ * 탭 앞에 붙는 이모지.
+ *
+ * 목록이 index.html 한 군데에만 있도록 사이드바 버튼에서 읽어 씁니다.
+ * 이모지는 aria-hidden 이라 '이름' 이 아니라 장식입니다.
+ * 화면 읽기 프로그램에 읽히는 이름은 언제나 옆에 있는 글자입니다.
+ * (이모지만 두면 🗓️ 이 'spiral calendar' 로, ⏱️ 가 'stopwatch' 로 읽힙니다)
+ */
+export function tabIcon(name) {
+  const span = document.querySelector(`.tab[data-tab="${name}"] span[aria-hidden="true"]`);
+  return span ? span.textContent.trim() : '';
+}

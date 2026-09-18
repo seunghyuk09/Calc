@@ -7,7 +7,7 @@ globalThis.window = {
   location: { protocol: 'http:' },
 };
 
-const { todayRows, maxRotateIndex } = await import('../public/js/modules/today.js');
+const { todayRows, maxRotateIndex, launcherTabs } = await import('../public/js/modules/today.js');
 const { keyOf } = await import('../public/js/lib/period.js');
 
 const item = (over = {}) => ({
@@ -71,4 +71,37 @@ test('순환 최대 위치: 넘치는 만큼만 굴린다', () => {
 
 test('순환 최대 위치: 음수가 나오지 않는다', () => {
   assert.equal(maxRotateIndex(-5, 3), 0);
+});
+
+/*
+ * 기능 바로가기.
+ *
+ * 이 앱에는 탭 막대가 없습니다. 처음 켠 사람이 '무엇이 있는지' 를 아는 곳은 여기뿐이라,
+ * 칩이 하나라도 빠지면 그 기능은 좌우로 쓸어 넘길 줄 아는 사람만 쓸 수 있게 됩니다.
+ */
+
+test('바로가기는 오늘을 뺀 나머지를 순서 그대로 준다', () => {
+  // 지금 보고 있는 화면이라 '오늘' 은 뺍니다. 자기 자신으로 가는 버튼은 뜻이 없습니다.
+  assert.deepEqual(
+    launcherTabs(['today', 'calc', 'weather', 'todo', 'settings']),
+    ['calc', 'weather', 'todo', 'settings'],
+  );
+});
+
+test('바로가기는 숨긴 탭을 되살리지 않는다', () => {
+  // 들어온 목록이 곧 '화면에 놓인 탭' 입니다. 여기서 더 채워 넣으면 숨긴 뜻을 뒤집습니다.
+  assert.deepEqual(launcherTabs(['today', 'settings']), ['settings']);
+});
+
+test('오늘 말고 전부 숨겨도 던지지 않는다', () => {
+  // 이때는 호출한 쪽이 줄 자체를 감춥니다. 여기서는 빈 배열만 돌려주면 됩니다.
+  assert.deepEqual(launcherTabs(['today']), []);
+});
+
+test('목록이 망가져 있어도 던지지 않는다', () => {
+  // prefs 는 사용자가 직접 고칠 수 있고 예전 버전이 남아 있을 수도 있습니다.
+  [undefined, null, 'today', 0, {}].forEach((bad) => {
+    assert.deepEqual(launcherTabs(bad), [], JSON.stringify(bad));
+  });
+  assert.deepEqual(launcherTabs(['today', null, '', 'calc']), ['calc'], '빈 값은 걸러집니다');
 });

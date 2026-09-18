@@ -9,17 +9,20 @@
  * 손을 올리거나 포커스가 들어오면 멈추고 일시정지 버튼도 따로 둡니다. (WCAG 2.2.2)
  * OS 의 '동작 줄이기' 설정이 켜져 있으면 자동 순환을 아예 하지 않습니다.
  */
-import { $, el } from '../lib/dom.js';
-import { t, getLang, onLangChange } from '../lib/i18n.js';
+import { $, el, toast } from '../lib/dom.js';
+import { t, getLang, onLangChange, applyStatic } from '../lib/i18n.js';
 import { isCurrent, SCOPES } from '../lib/period.js';
 import { load } from '../lib/store.js';
-import { getPrefs, onPrefsChange } from '../lib/prefs.js';
-import { getItems, onTodoChange, revealItem, setDone, renameItem } from './todo.js';
+import { getPrefs, onPrefsChange, visibleTabs } from '../lib/prefs.js';
+import { getItems, onTodoChange, revealItem, setDone, renameItem, addItem } from './todo.js';
 import { emojiOf, labelOf } from '../lib/categories.js';
 import { getWeather, onWeatherChange, describe } from './weather.js';
 import { arrangeBusy, onArrangeChange } from './arrange.js';
 import { getTimerState } from './time.js';
-import { goToTab, onTabChange } from '../lib/nav.js';
+import { goToTab, onTabChange, tabIcon } from '../lib/nav.js';
+import { addMemo } from './memo.js';
+import { recordCalc } from './calculator.js';
+import { evaluate, formatNumber } from '../lib/calc-engine.js';
 
 const ROTATE_MS = 3500;
 const VISIBLE_ROWS = 3; // 상자 안에 한 번에 보이는 할 일 개수
@@ -327,11 +330,11 @@ function calcBody() {
 const WIDGETS = {
   weather: { tab: 'weather', title: 'today.weather.title', hint: 'today.weather.hint', body: weatherBody },
   todo: { tab: 'todo', title: 'today.todo.title', hint: 'today.todo.hint', body: todoBody },
-  clock: { tab: 'time', title: 'today.clock.title', hint: 'today.widget.hint', body: clockBody },
-  timer: { tab: 'time', title: 'today.timer.title', hint: 'today.widget.hint', body: timerBody },
-  quote: { tab: 'quote', title: 'today.quote.title', hint: 'today.widget.hint', body: quoteBody },
-  memo: { tab: 'memo', title: 'today.memo.title', hint: 'today.widget.hint', body: memoBody },
-  calc: { tab: 'calc', title: 'today.calc.title', hint: 'today.widget.hint', body: calcBody },
+  clock: { tab: 'time', title: 'today.clock.title', hint: 'today.clock.hint', body: clockBody },
+  timer: { tab: 'time', title: 'today.timer.title', hint: 'today.timer.hint', body: timerBody },
+  quote: { tab: 'quote', title: 'today.quote.title', hint: 'today.quote.hint', body: quoteBody },
+  memo: { tab: 'memo', title: 'today.memo.title', hint: 'today.memo.hint', body: memoBody },
+  calc: { tab: 'calc', title: 'today.calc.title', hint: 'today.calc.hint', body: calcBody },
 };
 
 /**
@@ -487,11 +490,114 @@ function syncClock() {
   }
 }
 
+/* =========================================================
+   기능 바로가기 (런처)
+
+   이 앱에는 탭 막대가 없습니다. 좌우로 쓸거나 ••• 을 눌러야 다른 화면으로 가는데,
+   처음 켠 사람은 그 사실을 모르니 '오늘' 하나만 보고 앱이 그게 전부인 줄 압니다.
+   위젯을 늘리는 것으로는 이 문제가 풀리지 않습니다. 위젯은 '요약' 이라
+   기록이 없는 첫날에는 '없습니다' 만 적힌 빈 상자가 됩니다.
+
+   그래서 자리를 차지하되 절대 비지 않는 것을 둡니다.
+   이모지는 전부 aria-hidden 이고 이름은 옆의 글자가 맡습니다.
+   (이모지만 두면 🗓️ 이 'spiral calendar', ⏱️ 가 'stopwatch' 로 읽힙니다)
+   ========================================================= */
+
+/**
+ * 바로가기에 올릴 탭.
+ * 지금 보고 있는 화면이라 '오늘' 자신은 뺍니다. 숨긴 탭도 애초에 들어오지 않습니다.
+ */
+export function launcherTabs(tabs) {
+  return (Array.isArray(tabs) ? tabs : []).filter((name) => name && name !== 'today');
+}
+
+function renderLauncher() {
+  const host = $('#today-launcher');
+  if (!host) return;
+  const tabs = launcherTabs(visibleTabs());
+  /*
+   * '오늘' 말고 전부 숨겨 둔 사람도 있습니다. 그때 빈 nav 를 남겨 두면
+   * 위아래 여백만 벌어지고, 화면 읽기 프로그램에는 아무것도 없는 이정표가 읽힙니다.
+   */
+  host.hidden = tabs.length === 0;
+  if (host.hidden) { host.replaceChildren(); return; }
+  host.setAttribute('aria-label', t('today.launcher.label'));
+  host.replaceChildren(...tabs.map((name) => el('button', {
+    class: 'today-launch', type: 'button', dataset: { tab: name },
+  },
+  el('span', { class: 'today-launch-icon', 'aria-hidden': 'true' }, tabIcon(name)),
+  el('span', { class: 'today-launch-name' }, t(`tab.${name}`)))));
+}
+
+/* =========================================================
+   바로 적기
+
+   할 일 하나 적으러 탭을 넘어갔다 돌아오는 것이 첫 사용에서 가장 많이 막히는 자리였습니다.
+   저장은 각 모듈의 문(addItem / addMemo / recordCalc)을 통해서만 합니다.
+   여기서 localStorage 를 직접 건드리면 같은 데이터를 쓰는 곳이 둘로 갈라집니다.
+   ========================================================= */
+
+function quickTodo(e) {
+  e.preventDefault();
+  const input = $('#today-quick-todo');
+  const text = input?.value.trim();
+  if (!text) return;
+  if (!addItem(text)) return;
+  input.value = '';
+  toast(t('today.quick.todoDone', text));
+}
+
+function showCalcOut(message, isError) {
+  const out = $('#today-quick-calc-out');
+  if (!out) return;
+  out.hidden = false;
+  out.classList.toggle('is-error', isError === true);
+  out.textContent = message;
+}
+
+function quickCalc(e) {
+  e.preventDefault();
+  const input = $('#today-quick-calc');
+  const raw = input?.value.trim();
+  if (!raw) return;
+  try {
+    const value = evaluate(raw);
+    showCalcOut(`${raw} = ${formatNumber(value)}`, false);
+    // 기록에 남겨야 '최근 계산' 위젯과 계산기 탭에서 다시 꺼낼 수 있습니다.
+    recordCalc(raw, value);
+    // 결과를 이어서 계산할 수 있도록 남겨 둡니다. 계산기 탭과 같은 습관입니다.
+    input.value = String(value);
+  } catch {
+    /*
+     * 엔진이 주는 문구는 한국어로 박혀 있습니다. 영어로 쓰는 사람에게 한국어가
+     * 튀어나오는 것보다는, 짧아도 고른 언어로 말하는 편이 낫습니다.
+     */
+    showCalcOut(t('today.quick.calcError'), true);
+  }
+}
+
+function quickMemo(e) {
+  e.preventDefault();
+  const input = $('#today-quick-memo');
+  const text = input?.value.trim();
+  if (!text) return;
+  if (!addMemo(text)) return;
+  input.value = '';
+  toast(t('today.quick.memoDone'));
+}
+
 function renderAll() {
   const lang = getLang();
   $('#panel-today')?.setAttribute('lang', lang);
   const dateEl = $('#today-date');
   if (dateEl) dateEl.textContent = formatDate(lang);
+  /*
+   * 이 패널의 정적 문구(바로 적기 칸의 이름과 안내)는 여기서 언어를 맞춥니다.
+   * applyStatic 은 문서 전체에 한 번도 불리지 않아서, 부르지 않으면
+   * 영어로 바꿔도 한국어가 그대로 남습니다.
+   */
+  applyStatic($('#panel-today'));
+  renderLauncher();
   renderWidgets();
   syncTimer();
   syncClock();
@@ -500,6 +606,32 @@ function renderAll() {
 export function initToday() {
   const host = $('#today-widgets');
   if (!host) return;
+
+  /*
+   * 바로가기는 다시 그릴 때마다 칩이 새 노드가 되므로 컨테이너에 위임합니다.
+   * 칩 안의 이모지/글자를 눌러도 closest 로 버튼까지 올라갑니다.
+   */
+  $('#today-launcher')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.today-launch');
+    if (chip?.dataset.tab) goToTab(chip.dataset.tab);
+  });
+
+  // 바로 적기. form 이라 Enter 로도 넘어갑니다.
+  $('#today-quick-todo-form')?.addEventListener('submit', quickTodo);
+  $('#today-quick-calc-form')?.addEventListener('submit', quickCalc);
+  /*
+   * 다시 치기 시작하면 앞선 결과와 오류를 지웁니다.
+   * 남겨 두면 '((1+' 를 고쳐 '(1+2)' 로 만들어 놓고도 빨간 '계산할 수 없습니다' 가
+   * 그대로 붙어 있어, 고친 것이 틀린 줄 압니다.
+   */
+  $('#today-quick-calc')?.addEventListener('input', () => {
+    const out = $('#today-quick-calc-out');
+    if (!out || out.hidden) return;
+    out.hidden = true;
+    out.textContent = '';
+    out.classList.remove('is-error');
+  });
+  $('#today-quick-memo-form')?.addEventListener('submit', quickMemo);
 
   // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
   host.addEventListener('click', (e) => {

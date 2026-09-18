@@ -93,7 +93,10 @@ async function fetchJson(url, timeoutMs = 12000) {
 
 function showError(message) {
   setSnapshot({ status: 'error', message });
-  $('#wx-now').replaceChildren(
+  // setSnapshot 이 '오늘' 위젯에 알린 뒤입니다. 탭이 숨겨져 있으면 그릴 곳만 없습니다.
+  const now = $('#wx-now');
+  if (!now) return;
+  now.replaceChildren(
     el('p', { class: 'empty' }, `날씨를 불러오지 못했습니다. ${message}`),
     el('div', { class: 'row', style: 'justify-content:center' },
       el('button', { class: 'btn btn-sm', onclick: () => loadWeather(load(PLACE_KEY, DEFAULT_PLACE)) }, '다시 시도')),
@@ -102,6 +105,8 @@ function showError(message) {
 }
 
 function renderCurrent(place, data) {
+  // 날씨 탭을 숨기면 패널이 문서에 없습니다. 받아온 값은 이미 '오늘' 위젯으로 갔습니다.
+  if (!$('#wx-place')) return;
   const cur = data?.current || {};
   const [desc, icon] = describe(cur.weather_code);
   $('#wx-place').textContent = place.admin1 && place.admin1 !== place.name
@@ -128,6 +133,7 @@ function renderCurrent(place, data) {
 function renderWeek(data) {
   const daily = data?.daily;
   const weekEl = $('#wx-week');
+  if (!weekEl) return;
   if (!daily || !Array.isArray(daily.time) || !daily.time.length) {
     weekEl.replaceChildren(el('li', { class: 'empty' }, '주간 예보 데이터가 없습니다.'));
     return;
@@ -168,7 +174,13 @@ function renderWeek(data) {
 
 async function loadWeather(place) {
   setSnapshot({ status: 'loading' });
-  $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 불러오는 중…'));
+  /*
+   * 날씨 탭을 숨겨 두면 이 패널이 문서에서 빠집니다. (appearance.js 의 applyTabLayout)
+   * 그런데 '오늘' 탭의 날씨 위젯은 그대로 남아 있고, 그 위젯이 이 함수를 깨웁니다.
+   * 예전에는 여기서 바로 던져서 fetch 까지 가지도 못했고, 위젯은 '불러오는 중…' 에
+   * 영영 멈춰 있었습니다. 그릴 곳이 없어도 받아오는 일은 해야 합니다.
+   */
+  $('#wx-now')?.replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 불러오는 중…'));
   const params = new URLSearchParams({
     latitude: String(place.latitude),
     longitude: String(place.longitude),

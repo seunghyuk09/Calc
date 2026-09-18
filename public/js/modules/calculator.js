@@ -249,6 +249,27 @@ function equals() {
   }
 }
 
+/**
+ * 밖에서 계산 하나를 기록에 남깁니다. ('오늘' 탭의 빠른 계산이 씁니다)
+ *
+ * 남기지 않으면 오늘 탭에서 계산한 것이 어디에도 안 남아, 결과를 한 번 보고 나면
+ * 다시 꺼낼 길이 없습니다. '최근 계산' 위젯과 계산기 탭이 같은 기록을 봅니다.
+ *
+ * historyList 는 initCalculator 가 잡아 둔 노드입니다. 계산기 탭을 숨겨 두면
+ * 문서에서 빠지지만 노드 자체는 살아 있어, replaceChildren 은 그대로 동작합니다.
+ *
+ * @returns {boolean} 실제로 기록했으면 true
+ */
+export function recordCalc(expr, value) {
+  const raw = typeof expr === 'string' ? expr.trim() : '';
+  if (!raw || typeof value !== 'number' || !Number.isFinite(value)) return false;
+  history.unshift({ id: uid(), expr: raw, value, at: Date.now(), note: null });
+  history = history.slice(0, MAX_HISTORY);
+  save(HISTORY_KEY, history);
+  if (historyList) renderHistory();
+  return true;
+}
+
 export function initCalculator() {
   exprInput = $('#calc-expr');
   resultBox = $('#calc-result');

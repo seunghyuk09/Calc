@@ -16,6 +16,7 @@ import { $, $$, el, uid, toast } from '../lib/dom.js';
 import { load, save } from '../lib/store.js';
 import { t, getLang, onLangChange, applyStatic } from '../lib/i18n.js';
 import { keyOf, shift, label, isCurrent, dateOf, fromLegacyIsoWeek, SCOPES } from '../lib/period.js';
+import { onPrefsChange } from '../lib/prefs.js';
 import {
   allCategories, allCategoriesIncludingHidden, emojiOf, labelOf, isCategory,
   addCategory, removeCategory, setCategoryEmoji, hideCategory,
@@ -519,6 +520,14 @@ function syncDayView() {
 }
 
 function render() {
+  /*
+   * 탭을 숨겨 두면 이 패널은 #main 에서 빠져 나가 문서에 없습니다. (appearance.js 의 applyTabLayout)
+   * 그런데 '오늘' 탭의 할 일 위젯은 그대로 남아 있어서, 거기서 체크하거나 적으면
+   * 여기까지 내려옵니다. 그때 $('#todo-list') 는 null 이라 그리다가 던졌습니다.
+   * 저장은 이미 persist() 에서 끝났으므로, 그릴 곳이 없으면 조용히 돌아갑니다.
+   * 탭을 다시 켜면 아래 onPrefsChange 가 그때 한 번 그립니다.
+   */
+  if (!document.querySelector('#todo-list')) return;
   renderHeader();
   // 시간대 보기를 쓰는 중이면 그쪽을 그리고 끝냅니다.
   if (syncDayView()) { renderHours(); return; }
@@ -669,6 +678,34 @@ export function renameItem(id, text) {
   const target = items.find((item) => item.id === id);
   if (!target || target.text === next) return false;
   target.text = next;
+  persist();
+  render();
+  return true;
+}
+
+/**
+ * 밖에서 할 일을 하나 추가합니다. ('오늘' 탭의 빠른 입력이 씁니다)
+ *
+ * 계획표에서 보고 있는 기간이 아니라 언제나 '오늘' 로 들어갑니다.
+ * 오늘 탭에서 적는 것은 오늘 할 일이라는 뜻입니다. 계획표를 다음 달로 넘겨 둔 채
+ * 오늘 탭에서 적었다고 다음 달에 들어가 버리면 적은 사람이 찾지 못합니다.
+ *
+ * 분류는 계획표에서 마지막에 고른 것을 그대로 씁니다.
+ * 빠른 입력에는 분류 고르는 자리가 없는데, 여기서만 기본값으로 되돌리면
+ * 계획표에서 '건강' 을 골라 두고 온 사람의 뜻을 말없이 뒤집는 셈입니다.
+ *
+ * @param {string} text 할 일 내용
+ * @returns {boolean} 실제로 추가했으면 true (빈 글이면 false)
+ */
+export function addItem(text) {
+  const body = typeof text === 'string' ? text.trim() : '';
+  if (!body) return false;
+  items.unshift({
+    id: uid(), text: body, done: false,
+    scope: 'day', period: keyOf('day'),
+    category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
+    at: Date.now(), doneAt: null,
+  });
   persist();
   render();
   return true;
@@ -1019,6 +1056,13 @@ export function initTodo() {
     const removed = before - items.length;
     toast(removed ? t('todo.toast.cleared', removed) : t('todo.toast.nothingToClear'));
   });
+
+  /*
+   * 탭을 숨기면 이 패널이 문서에서 빠지고, 그동안의 render() 는 위 가드에 걸려 건너뜁니다.
+   * 다시 켜면 패널이 돌아오는데 안에는 숨기기 직전 화면이 그대로 남아 있어서,
+   * 그 사이 '오늘' 탭에서 적은 것이 안 보입니다. 배치가 바뀔 때 한 번 다시 그립니다.
+   */
+  onPrefsChange(() => { render(); });
 
   render();
   notifyView();
