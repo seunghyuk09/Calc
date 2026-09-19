@@ -120,6 +120,13 @@ async function settlePagerOf(pg) {
 const results = [];
 let consoleErrors = [];
 let pageErrors = [];
+/*
+ * store.js 는 저장 실패(용량 초과 등)를 console.warn 으로만 남깁니다 — 에러가 아닙니다.
+ * 그래서 '콘솔 에러 없음' 검사에 걸리지 않습니다. 저장이 조용히 실패하면 화면은
+ * 멀쩡한데 새로고침에서만 어긋나고, 엉뚱한 자리의 검사가 한꺼번에 흔들립니다.
+ * 따로 모아 둡니다.
+ */
+const storeWarnings = [];
 
 function check(name, ok, detail = '') {
   results.push({ name, ok, detail });
@@ -251,6 +258,11 @@ const main = async () => {
     const text = msg.text();
     if (IGNORED_CONSOLE.some((re) => re.test(text))) return;
     consoleErrors.push(text);
+  });
+  page.on('console', (msg) => {
+    if (msg.type() !== 'warning') return;
+    const text = msg.text();
+    if (text.includes('[store]')) storeWarnings.push(text);
   });
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
@@ -1555,7 +1567,15 @@ const main = async () => {
    * (예전 버전이 남긴 값이거나 손으로 넣은 값) 그때 조용히 자르면 안 됩니다.
    */
   {
-    const over = await context.newPage();
+    /*
+     * 제 컨텍스트에서 엽니다.
+     * context.newPage() 로 열면 page 와 저장소를 공유합니다. 이 페이지는 memo.items 를
+     * 통째로 덮어쓰는데, page 는 목록을 메모리에 들고 있어서 그 사실을 모릅니다.
+     * 그러면 page 의 화면과 저장소가 어긋난 채로 남고, 한참 뒤 '새로고침 후 메모 유지'
+     * 에서야 터집니다. 여기서 볼 것은 '긴 값 하나'뿐이라 저장소를 나눠도 그대로입니다.
+     */
+    const overCtx = await browser.newContext();
+    const over = await overCtx.newPage();
     await over.addInitScript(() => {
       const huge = Array.from({ length: 900 }, (_, i) => `${i + 1}. 아주 긴 줄입니다.`).join('\n');
       localStorage.setItem('daily-kit:memo.items',
@@ -1574,6 +1594,7 @@ const main = async () => {
       /\d+줄은 담지 못했습니다/.test(await over.textContent('#draw-status')),
       await over.textContent('#draw-status'));
     await over.close();
+    await overCtx.close();
   }
 
   /*
@@ -1584,8 +1605,9 @@ const main = async () => {
    * 전화기를 돌리기만 해도 회의록이 읽을 수 없게 됩니다.
    */
   {
-    const rot = await context.newPage();
-    await rot.setViewportSize({ width: 390, height: 844 });
+    // 위와 같은 이유로 제 컨텍스트에서 엽니다. 이 페이지도 메모를 새로 적습니다.
+    const rotCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const rot = await rotCtx.newPage();
     await rot.goto(BASE, { waitUntil: 'networkidle' });
     await rot.waitForSelector('body[data-ready="true"]');
     await goTab(rot, 'memo');
@@ -1621,7 +1643,27 @@ const main = async () => {
     check('창 크기가 바뀌면 판 폭도 따라감 (늘여 붙이지 않고 다시 그립니다)',
       turned.w !== placed.w, `${placed.w} -> ${turned.w}`);
     await rot.close();
+    await rotCtx.close();
   }
+
+  /*
+   * 위 두 블록(안전망 · 회전)이 본 화면의 저장소를 건드리지 않았는지 못을 박습니다.
+   * 예전에는 같은 컨텍스트에서 열어 memo.items 를 통째로 덮어썼습니다.
+   * page 는 목록을 메모리에 들고 있어 그 사실을 모르므로, 화면은 멀쩡한데
+   * 저장소만 남의 메모로 바뀌어 있었습니다.
+   */
+  const memoAfterSubPages = await page.evaluate(() => {
+    let items = [];
+    try { items = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]'); } catch { items = []; }
+    const head = (t) => String(t).trim().replace(/\s+/g, ' ').slice(0, 14);
+    return {
+      stored: items.map((m) => head(m.text)),
+      dom: [...document.querySelectorAll('#memo-list .memo-item .memo-body')].map((n) => head(n.textContent)),
+    };
+  });
+  check('메모 하위 검사들이 본 화면의 저장소를 건드리지 않음',
+    JSON.stringify(memoAfterSubPages.stored) === JSON.stringify(memoAfterSubPages.dom),
+    JSON.stringify(memoAfterSubPages));
 
   // 뒷 검사(영속성)가 메모 1개를 기대하므로 늘어난 메모를 지웁니다.
   await page.$$eval('#memo-list .memo-item button', (btns) => {
@@ -1631,6 +1673,23 @@ const main = async () => {
   await page.waitForTimeout(300);
   check('정리: 메모가 하나만 남음', (await page.locator('#memo-list .memo-item').count()) === 1,
     String(await page.locator('#memo-list .memo-item').count()));
+
+  /*
+   * 화면과 저장소가 같은 말을 하는지 봅니다.
+   * 메모 모듈은 목록을 메모리에 들고 있어서, 저장소를 밖에서 건드리면
+   * 화면은 멀쩡한데 저장소만 어긋날 수 있습니다. 그러면 뒤의 '새로고침 후 메모 유지'
+   * 에서야 터지고, 그 자리만 봐서는 원인을 알 수 없습니다.
+   */
+  const memoCleanup = await page.evaluate(() => {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]'); } catch { stored = null; }
+    return {
+      dom: document.querySelectorAll('#memo-list .memo-item').length,
+      stored: Array.isArray(stored) ? stored.length : 'parse 실패',
+      texts: Array.isArray(stored) ? stored.map((m) => String(m.text).slice(0, 10)) : [],
+    };
+  });
+  check('정리: 저장소에도 메모가 하나만 남음', memoCleanup.stored === 1, JSON.stringify(memoCleanup));
 
   // ---------- 6. 글귀 ----------
   console.log('\n▶ 글귀');
@@ -1726,7 +1785,16 @@ const main = async () => {
   await goTab(page, 'todo');
   await goTab(page, 'memo');
   await page.waitForTimeout(400);
-  check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);
+  const memoAfterReload = await page.evaluate(() => {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]'); } catch { stored = null; }
+    return {
+      dom: document.querySelectorAll('#memo-list .memo-item').length,
+      stored: Array.isArray(stored) ? stored.length : 'parse 실패',
+      texts: Array.isArray(stored) ? stored.map((m) => String(m.text).slice(0, 10)) : [],
+    };
+  });
+  check('새로고침 후 메모 유지', memoAfterReload.dom === 1, JSON.stringify(memoAfterReload));
   await goTab(page, 'todo');
   await page.waitForTimeout(200);
 
@@ -4676,6 +4744,8 @@ export function isStamped() { return true; }`,
     !e.includes('favicon') && !e.includes('net::ERR_') && !e.toLowerCase().includes('manifest'));
   check('페이지 JS 예외 없음', pageErrors.length === 0, pageErrors.join(' | ') || '없음');
   check('콘솔 에러 없음', realErrors.length === 0, realErrors.slice(0, 3).join(' | ') || '없음');
+  check('저장소가 조용히 실패한 적 없음', storeWarnings.length === 0,
+    storeWarnings.slice(0, 3).join(' | ') || '없음');
 
   await browser.close();
   if (httpServer) await new Promise((done) => httpServer.close(done));
