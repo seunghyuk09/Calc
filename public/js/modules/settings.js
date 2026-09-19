@@ -1,5 +1,6 @@
 /** 설정 모듈: 테마, 배너 편집, API 키 관리, 데이터 백업/복원/초기화 */
 import { $, toast } from '../lib/dom.js';
+import { openIntro } from './intro.js';
 import { load, save, remove, clearAll, exportAll, importAll, isPersistent,
   saveSecret, loadSecret, removeSecret, isSharedStorage } from '../lib/store.js';
 import { BANNER_KEY, parseBannerText, saveBanner } from './banner.js';
@@ -132,6 +133,9 @@ export function initSettings() {
     save(MODEL_KEY, modelSelect.value);
     refreshAiMode();
   });
+
+  // 처음 켰을 때 뜨는 안내를 다시 엽니다. 한 번 보고 나면 여기가 유일한 입구입니다.
+  $('#set-intro')?.addEventListener('click', () => openIntro());
 
   // --- 데이터 백업 / 복원 / 초기화 ---
   $('#set-export').addEventListener('click', () => {

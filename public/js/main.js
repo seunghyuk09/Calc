@@ -3,7 +3,7 @@
  * 탭 전환, 각 모듈 초기화, 서비스 워커 등록을 담당합니다.
  */
 import { $, $$, toast, initToastRegion } from './lib/dom.js';
-import { load, save } from './lib/store.js';
+import { load, save, hasAnyData } from './lib/store.js';
 import { initToday } from './modules/today.js';
 import { initCalculator } from './modules/calculator.js';
 import { initWeather } from './modules/weather.js';
@@ -18,8 +18,9 @@ import { initTheme, initSettings } from './modules/settings.js';
 import { initAppearance, refreshAppearance, applyTabLayout } from './modules/appearance.js';
 import { initArrange, startArrange, arrangeFollowTab } from './modules/arrange.js';
 import { initUpdate, registerServiceWorker } from './modules/update.js';
+import { initIntro } from './modules/intro.js';
 import { initLang, t, onLangChange, applyStatic } from './lib/i18n.js';
-import { setNavigator, notifyTabChange } from './lib/nav.js';
+import { setNavigator, notifyTabChange, tabIcon } from './lib/nav.js';
 import { awayTooLong } from './lib/session.js';
 import { ALL_TABS, onPrefsChange } from './lib/prefs.js';
 
@@ -348,12 +349,6 @@ function unlockPager() {
   pagerIntent = null;
 }
 
-/** 탭 버튼 앞의 이모지. 목록이 HTML 한 군데에만 있도록 여기서 읽어 씁니다. */
-function iconOf(tab) {
-  const btn = document.querySelector(`.tab[data-tab="${tab}"] span`);
-  return btn ? btn.textContent.trim() : '';
-}
-
 /*
  * 지금 헤더에 쓰여 있는 탭. 스크롤 중에는 한 프레임에 한 번씩 부르는데,
  * 같은 글자를 다시 써도 그때마다 헤더(블러가 걸린 sticky 요소)가 다시 그려져 넘기기가 무거워집니다.
@@ -367,7 +362,7 @@ function showHeaderTab(tab) {
   const name = $('#header-now-name');
   const icon = $('#header-now-icon');
   if (name) name.textContent = t(`tab.${tab}`);
-  if (icon) icon.textContent = iconOf(tab);
+  if (icon) icon.textContent = tabIcon(tab);
 }
 
 /**
@@ -494,6 +489,12 @@ function safeInit(name, fn) {
 
 
 function boot() {
+  /*
+   * '첫 접속인가' 는 아무것도 초기화하기 전에 재야 합니다.
+   * 부팅이 시작되면 모듈들이 저장을 시작해서, 그 뒤에 재면 언제나 '쓰던 사람' 이 됩니다.
+   */
+  const firstRun = !hasAnyData();
+
   safeInit('알림영역', initToastRegion);
   safeInit('언어', initLang);
   safeInit('테마', initTheme);
@@ -515,6 +516,8 @@ function boot() {
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);
+  // 안내는 맨 마지막입니다. 뒤에 있는 화면이 다 준비된 뒤에 덮어야 합니다.
+  safeInit('사용 안내', () => initIntro({ firstRun }));
   registerServiceWorker();
   document.body.dataset.ready = 'true'; // 자동화 테스트용 준비 완료 신호
   dismissSplash();

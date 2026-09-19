@@ -33,6 +33,12 @@ import {
 
 const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
 
+/**
+ * 연간 미니 달력 한 장의 칸 수. 6줄 x 7칸입니다.
+ * 어떤 달도 6주를 넘지 않으므로(monthGrid 와 같은 근거) 이 수로 고르게 맞출 수 있습니다.
+ */
+const MINI_CELLS = 42;
+
 /** 화면에 쓸 요일 머리글 순서. 일요일 시작입니다. */
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -267,7 +273,8 @@ function monthShape(ctx) {
  */
 function miniMonth(monthStart, ctx) {
   const month = monthStart.getMonth();
-  const cells = monthGrid(monthStart).map((d) => {
+  const days = monthGrid(monthStart);
+  const cells = days.map((d) => {
     // 옆 달 날짜는 자리만 지킵니다. 숫자를 흐리게 놔두면 작은 판에서 지저분합니다.
     if (d.getMonth() !== month) return el('span', { class: 'cal-mini-day is-blank' }, '');
     const key = dayKey(d);
@@ -278,8 +285,18 @@ function miniMonth(monthStart, ctx) {
     return el('span', { class: classes.join(' ') }, String(d.getDate()));
   });
 
+  /*
+   * 여섯 줄로 맞춥니다.
+   *
+   * 달마다 다섯 줄이었다 여섯 줄이었다 해서, 열두 장을 늘어놓으면 카드 안이
+   * 들쭉날쭉해 보였습니다. 빈 칸으로 채워 줄 수를 고르게 합니다.
+   *
+   * 전체 높이는 늘지 않습니다. 격자가 stretch 라 어차피 가장 긴 달이 높이를 정합니다.
+   */
+  while (cells.length < MINI_CELLS) cells.push(el('span', { class: 'cal-mini-day is-blank' }, ''));
+
   const monthKey = `${monthStart.getFullYear()}-${pad(month + 1)}`;
-  const count = monthGrid(monthStart)
+  const count = days
     .filter((d) => d.getMonth() === month)
     .reduce((n, d) => n + (ctx.byDay.get(dayKey(d))?.length || 0), 0);
 
@@ -312,6 +329,26 @@ function yearShape(ctx) {
 
 const SHAPES = { day: dayShape, week: weekShape, month: monthShape, year: yearShape };
 
+/* 마지막으로 그린 모양. 모양이 '바뀐 순간' 에만 나타나는 동작을 붙이려고 둡니다. */
+let lastShape = null;
+
+/**
+ * 모양이 달라졌을 때만 살짝 올라오며 나타나게 합니다.
+ *
+ * 달력은 할 일을 체크하기만 해도 다시 그려집니다. 그릴 때마다 애니메이션을 걸면
+ * 체크 한 번에 달력이 깜빡여서 도리어 거슬립니다.
+ *
+ * 클래스를 뗐다 붙이는 것만으로는 애니메이션이 다시 시작되지 않습니다.
+ * 사이에 리플로를 한 번 일으켜야 브라우저가 '새 애니메이션' 으로 봅니다.
+ */
+function playShapeEnter(grid, shape) {
+  if (shape === lastShape) return;
+  lastShape = shape;
+  grid.classList.remove('is-enter');
+  void grid.offsetWidth;
+  grid.classList.add('is-enter');
+}
+
 function render() {
   const grid = $('#cal-grid');
   if (!grid) return;
@@ -332,6 +369,7 @@ function render() {
   grid.dataset.shape = shape;
   grid.setAttribute('aria-label', t(`cal.aria.${shape}`));
   grid.replaceChildren(...SHAPES[shape](ctx));
+  playShapeEnter(grid, shape);
 }
 
 /* ---------- 일정(Schedule) 보기 ----------

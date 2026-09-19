@@ -97,6 +97,22 @@
  */
 html, body { height: 100%; overscroll-behavior: none; }
 
+/*
+ * iOS 사파리에서 앱 위쪽이 주소창(검색창) 뒤로 가려지던 문제입니다.
+ * html/body 의 height:100% 는 '주소창이 접혔을 때'의 큰 뷰포트를 기준으로 잡히는데,
+ * 아래 .app 은 100dvh — 지금 실제로 보이는 높이 — 를 씁니다.
+ * 그래서 주소창 높이만큼 문서 자체가 스크롤 가능해지고,
+ * 한 번 밀려 올라가면 앱 셸이 통째로 올라가 헤더가 주소창 뒤로 숨습니다.
+ * 손으로 쓸지 않아도 scrollIntoView 한 번이면 같은 일이 벌어집니다.
+ * dvh 를 아는 브라우저에서는 문서 높이를 '보이는 높이'에 맞추고 문서 스크롤을 막습니다.
+ * dvh 를 모르는 옛 브라우저(iOS 15 등)는 예전 그대로 둡니다 — 거기서는 .app 이
+ * 100vh(큰 뷰포트)로 잡혀 화면 밖까지 내려가므로, 문서 스크롤마저 막으면
+ * 앱 아래쪽에 아예 닿을 수 없게 됩니다.
+ */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; overflow: hidden; }
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -858,6 +874,96 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .today-date { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .today-swipe-hint { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
 
+/* ---------- 기능 바로가기 ----------
+ * 한 줄에 넉 장씩 감아 내립니다. 가로 스크롤로 하면 화면 밖의 것이 안 보이는데,
+ * 무엇이 있는지 보여 주는 것이 이 줄의 유일한 목적이라 그러면 뜻이 없습니다.
+ *
+ * 칩 높이는 44px 을 밑돌지 않게 잡았습니다.
+ * WCAG 2.5.8(AA)은 24x24 CSS px 이 최소이고, 2.5.5(AAA)와 통상 권장치가 44x44 입니다.
+ */
+.today-launcher {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.today-launch {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  min-height: 60px; padding: 8px 4px;
+  border: 0; border-radius: 12px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.today-launch:hover { background: var(--surface-3, var(--surface-2)); }
+.today-launch:active { transform: scale(.96); }
+.today-launch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.today-launch-icon { font-size: 21px; line-height: 1; }
+/*
+ * 이름은 줄이지 않습니다. 'TO DO' 나 '시계·타이머' 가 잘려 '시계…' 가 되면
+ * 이모지만 남는 셈이라, 이 줄을 둔 이유가 사라집니다. 대신 두 줄까지 내려갑니다.
+ */
+.today-launch-name {
+  font-size: 10.5px; line-height: 1.25; text-align: center;
+  color: var(--text-dim); overflow-wrap: anywhere; word-break: keep-all;
+}
+
+/* 화면이 아주 좁으면 석 장씩. 넉 장이면 '시계·타이머' 가 석 줄로 접힙니다. */
+@media (max-width: 340px) {
+  .today-launcher { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* 넓은 화면에서는 한 줄에 다 놓습니다. */
+@media (min-width: 620px) {
+  .today-launcher { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+
+/* ---------- 바로 적기 ---------- */
+.today-quick { grid-column: 1 / -1; }
+.today-quick-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+}
+.today-quick-row:first-of-type { margin-top: 0; }
+/*
+ * 이름 칸의 폭을 고정합니다. 셋이 세로로 줄을 맞춰야 입력칸 왼쪽 끝이 들쭉날쭉하지 않습니다.
+ * '할 일'(2자)과 'Calculate'(9자)의 폭이 크게 다르므로 글자 수로 맡기면 어긋납니다.
+ */
+.today-quick-label {
+  display: flex; align-items: center; gap: 5px;
+  flex: none; width: 66px;
+  font-size: 12.5px; color: var(--text-dim);
+}
+.today-quick-input {
+  flex: 1 1 auto; min-width: 0;
+  min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 14px;
+}
+.today-quick-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.today-quick-go {
+  flex: none; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 10px;
+  background: var(--accent); color: var(--accent-text);
+  font-size: 17px; cursor: pointer;
+  transition: transform .1s ease;
+}
+.today-quick-go:active { transform: scale(.94); }
+.today-quick-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 계산 결과. 비어 있을 때는 hidden 이라 자리를 차지하지 않습니다. */
+.today-quick-out {
+  display: block; margin: 6px 0 0 74px;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+  color: var(--text); overflow-wrap: anywhere;
+}
+.today-quick-out.is-error { color: var(--danger, #e0533d); }
+
+@media (prefers-reduced-motion: reduce) {
+  .today-launch, .today-launch:active,
+  .today-quick-go, .today-quick-go:active { transition: none; transform: none; }
+}
+
 /* 날씨 카드는 통째로 버튼입니다. button 기본 스타일을 지우고 카드처럼 보이게 합니다. */
 .today-card {
   display: block; width: 100%; text-align: left;
@@ -1572,6 +1678,26 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 /* 하루짜리와 한 해짜리는 일곱 칸 격자가 아닙니다. */
 .cal-grid[data-shape="day"],
 .cal-grid[data-shape="year"] { display: block; }
+
+/*
+ * 모양이 바뀔 때만 살짝 올라오며 나타납니다.
+ *
+ * 달력은 할 일을 체크하기만 해도 다시 그려집니다. 그릴 때마다 애니메이션을 걸면
+ * 체크 한 번에 달력이 깜빡여서 더 거슬립니다. 그래서 calendar.js 가 '모양이 달라진
+ * 순간' 에만 .is-enter 를 다시 붙입니다.
+ *
+ * 길이는 --motion 을 씁니다. 스킨이 정한 속도를 따르고, 동작 줄이기를 켠 기기에서는
+ * 0s 가 되어 저절로 꺼집니다.
+ */
+@keyframes cal-shape-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+.cal-grid.is-enter { animation: cal-shape-in var(--motion) var(--ease) both; }
+@media (prefers-reduced-motion: reduce) {
+  .cal-grid.is-enter { animation: none; }
+  .cal-mini { transition: none; }
+}
 .cal-wd {
   text-align: center; font-size: 11px; font-weight: 700; color: var(--text-faint);
   padding: 4px 0 2px;
@@ -1671,42 +1797,87 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 .cal-one-count { margin-left: auto; font-size: 12px; color: var(--text-dim); }
 .cal-one-up { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
 
-/* ---------- 연간 — 열두 달을 작게 ---------- */
+/* ---------- 연간 — 열두 달을 작게 ----------
+ *
+ * 처음에는 상자 열두 개에 테두리를 두르고, 일이 있는 날을 굵게, 오늘을 꽉 찬 사각으로
+ * 칠했습니다. 7px 글자 위에서는 그 전부가 세게 보여 화면이 딱딱했습니다.
+ * 테두리는 면으로, 굵기는 색으로, 사각은 원으로 바꿔 힘을 뺐습니다.
+ */
+/*
+ * 바로 위 기간 줄에도 '2026년' 이 있어 글자가 겹칩니다.
+ * 요청대로 달력 맨 위에 연도를 두되, 세기는 낮춰 안내 글처럼 보이게 합니다.
+ */
 .cal-year-head {
-  text-align: center; font-size: 15px; font-weight: 700;
-  color: var(--accent); padding: 2px 0 8px;
+  text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--text-dim); letter-spacing: .04em;
+  padding: 2px 0 9px;
 }
 /*
  * 넉 장씩 석 줄.
  * 한 해가 한 화면에 들어와야 '스크롤에 힘쓰지 않는다' 는 말이 성립합니다.
  */
 .cal-year-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+/*
+ * 테두리를 두르지 않습니다.
+ * 열두 개에 선을 두르면 그 선들이 또 하나의 격자를 만들어 답답해집니다.
+ * 옅은 면만으로 경계는 충분히 읽힙니다.
+ */
 .cal-mini {
-  display: block; padding: 4px 3px 5px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text);
+  display: block; padding: 4px 2px 5px;
+  border: 1px solid transparent; border-radius: 10px;
+  background: var(--surface-2); color: var(--text);
   font: inherit; cursor: pointer;
+  transition: background var(--motion) var(--ease), border-color var(--motion) var(--ease);
 }
-.cal-mini:hover { border-color: var(--accent); }
+.cal-mini:hover { background: var(--surface-3); }
 .cal-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* 오늘이 든 달은 테두리로만 알립니다. 고른 기간과 헷갈리면 안 됩니다. */
-.cal-mini.is-now { border-color: var(--accent); background: var(--accent-soft); }
+/* 오늘이 든 달. 테두리로 가두지 않고 옅은 면으로만 알립니다. */
+.cal-mini.is-now { background: var(--accent-soft); }
 .cal-mini-head {
   display: block; text-align: center;
-  font-size: 10.5px; font-weight: 700; color: var(--text-dim); padding-bottom: 2px;
+  font-size: 10.5px; font-weight: 600; color: var(--text-dim);
+  padding-bottom: 3px; letter-spacing: -.01em;
 }
-.cal-mini.is-now .cal-mini-head { color: var(--accent); }
-/* 칸을 딱 붙이면 '1011121314' 처럼 숫자가 한 덩어리로 읽힙니다. 아주 조금 띄웁니다. */
-.cal-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px 1px; }
+.cal-mini.is-now .cal-mini-head { color: var(--accent); font-weight: 700; }
+.cal-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px 0; }
 .cal-mini-day {
-  /* 아주 작은 판이라 날짜는 보여 주기만 합니다. 누르는 것은 달 한 장 전체입니다. */
-  text-align: center; font-size: 7px; line-height: 1.6;
+  /*
+   * 아주 작은 판이라 날짜는 보여 주기만 합니다. 누르는 것은 달 한 장 전체입니다.
+   *
+   * 칸 하나가 9.5px 남짓인데 두 자리 숫자가 그 폭을 거의 다 먹어서,
+   * '1011121314' 처럼 옆 날짜와 한 덩어리로 읽혔습니다.
+   * 자간을 좁혀 숫자를 모으고, 그만큼 칸 사이에 숨 쉴 틈을 냅니다.
+   */
+  text-align: center; font-size: 7px; line-height: 1.62;
+  letter-spacing: -.045em;
   color: var(--text-faint); font-variant-numeric: tabular-nums;
+  /*
+   * 빈 칸도 제 높이를 갖게 합니다.
+   *
+   * 글자가 없는 칸은 줄 상자가 만들어지지 않아 높이가 0이 됩니다. 그러면 빈 줄로
+   * 채운 여섯째 줄이 통째로 납작해져서, 달마다 카드 높이가 또 달라졌습니다.
+   * (실측: 99px 과 111px 로 갈렸습니다)
+   */
+  min-height: 1.62em;
 }
 .cal-mini-day.is-blank { visibility: hidden; }
-/* 일이 있는 날만 진하게. 작은 판에서는 이모지를 놓을 자리가 없습니다. */
-.cal-mini-day.has-items { color: var(--text); font-weight: 700; }
-.cal-mini-day.is-today { color: var(--accent-text); background: var(--accent-fill); border-radius: 2px; font-weight: 700; }
+/*
+ * 일이 있는 날.
+ * 굵게 하면 가뜩이나 좁은 칸에서 옆 숫자와 더 붙어 보입니다. 색으로만 알립니다.
+ */
+.cal-mini-day.has-items { color: var(--accent); }
+/*
+ * 오늘.
+ *
+ * 처음에는 꽉 찬 사각, 다음에는 꽉 찬 원으로 칠했습니다. 둘 다 7px 두 자리 숫자를
+ * 덮어 버려서 며칠인지 읽히지 않았습니다. 면 대신 얇은 링으로 두릅니다.
+ * 글자는 그대로 두고 테두리만 돌기 때문에 숫자가 살아 있습니다.
+ */
+.cal-mini-day.is-today {
+  color: var(--accent); font-weight: 700;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 
 /* ---------- 년·월 고르기 판 ----------
  * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
@@ -1942,6 +2113,75 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
  * 화면 아래에 고정합니다. 카드를 끌다 보면 화면이 스크롤되는데,
  * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
  */
+/* =========================================================
+   처음 켰을 때 보여 주는 사용 안내
+   -----------------------------------------------------
+   .arr-dock 과 같은 이유로 position: absolute 입니다. fixed 는 안드로이드
+   WebView 에서 '보이는 화면' 과 기준이 어긋나 화면 밖으로 밀려납니다.
+   ========================================================= */
+.intro-scrim {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(16, 24, 40, .48);
+}
+.intro {
+  position: absolute; z-index: 61;
+  left: calc(16px + var(--sa-left)); right: calc(16px + var(--sa-right));
+  bottom: calc(16px + var(--sa-bottom));
+  /* 화면이 아주 낮을 때도 위로 넘치지 않게. 넘치면 카드 안이 스크롤됩니다. */
+  max-height: calc(100% - 32px - var(--sa-top) - var(--sa-bottom));
+  display: flex; align-items: flex-end;
+}
+/*
+ * 넓은 화면에서는 가운데 띄웁니다.
+ * 좁은 화면에서는 아래에 붙입니다. 손가락이 닿는 자리가 아래쪽입니다.
+ */
+@media (min-width: 760px) {
+  .intro { align-items: center; justify-content: center; top: 0; }
+  .intro-card { max-width: 420px; }
+}
+.intro-card {
+  width: 100%;
+  padding: 22px 20px 18px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 10px 34px rgba(16, 24, 40, .26);
+  overflow-y: auto;
+  animation: intro-in var(--motion) var(--ease) both;
+}
+/* 초점을 받기만 하는 카드라 테두리를 그리지 않습니다. 버튼들은 제 초점 표시를 그대로 씁니다. */
+.intro-card:focus { outline: none; }
+@keyframes intro-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.intro-icon { display: block; font-size: 34px; line-height: 1; margin-bottom: 12px; }
+.intro-title { margin: 0 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.intro-text { margin: 0; font-size: 14px; line-height: 1.65; color: var(--text-dim); }
+
+/* 몇 번째 장인지. 보여 주기만 하고 누르는 곳은 아닙니다. */
+.intro-dots { display: flex; gap: 6px; margin: 18px 0 16px; }
+.intro-dot {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--surface-3);
+  transition: background var(--motion) var(--ease), width var(--motion) var(--ease);
+}
+.intro-dot.is-on { width: 18px; background: var(--accent-fill); }
+
+.intro-actions { display: flex; align-items: center; gap: 8px; }
+/* '건너뛰기' 는 왼쪽 끝, 나머지는 오른쪽으로 몰아 둡니다. */
+#intro-skip { margin-right: auto; }
+#intro-prev + #intro-next, #intro-skip + #intro-next { margin-left: 0; }
+/* 건너뛰기가 숨으면 '이전' 이 왼쪽 끝을 맡습니다. */
+#intro-skip[hidden] + #intro-prev { margin-right: auto; }
+
+/* 안내가 떠 있는 동안에는 떠 있는 버튼을 감춥니다. 겹쳐 보이면 지저분합니다. */
+body[data-intro="open"] .home-fab { opacity: 0; visibility: hidden; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-card { animation: none; }
+  .intro-dot { transition: none; }
+}
+
 /* =========================================================
    어느 탭에 있든 한 번에 '오늘' 로
    -----------------------------------------------------

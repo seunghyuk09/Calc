@@ -120,10 +120,45 @@ async function settlePagerOf(pg) {
 const results = [];
 let consoleErrors = [];
 let pageErrors = [];
+/*
+ * store.js 는 저장 실패(용량 초과 등)를 console.warn 으로만 남깁니다 — 에러가 아닙니다.
+ * 그래서 '콘솔 에러 없음' 검사에 걸리지 않습니다. 저장이 조용히 실패하면 화면은
+ * 멀쩡한데 새로고침에서만 어긋나고, 엉뚱한 자리의 검사가 한꺼번에 흔들립니다.
+ * 따로 모아 둡니다.
+ */
+const storeWarnings = [];
 
 function check(name, ok, detail = '') {
   results.push({ name, ok, detail });
   console.log(`${ok ? '  ✅' : '  ❌'} ${name}${detail ? ` — ${detail}` : ''}`);
+}
+
+/**
+ * 저장소가 진짜로 쓰이고 있는지 봅니다.
+ *
+ * store.js 는 localStorage 가 막히면 조용히 메모리로 내려갑니다. (memoryFallback)
+ * 그러면 저장은 '성공' 하는데 새로고침하면 전부 사라져서, 뒤의 검사 수백 개가
+ * 저마다 다른 곳에서 '새로고침 후에 없어졌다' 로 깨집니다.
+ * 원인은 하나인데 증상만 흩어져 로그만 보고는 가릴 수가 없습니다.
+ */
+async function storeState(target) {
+  return target.evaluate(() => {
+    let raw = 'ok';
+    try {
+      localStorage.setItem('__e2e_probe__', '1');
+      if (localStorage.getItem('__e2e_probe__') !== '1') raw = '읽기 불일치';
+      localStorage.removeItem('__e2e_probe__');
+    } catch (e) { raw = `막힘: ${e?.name || e}`; }
+    // 앱은 부팅 때 ui.lastSeen 을 남깁니다. 진짜 localStorage 에 없으면 메모리로 내려간 것입니다.
+    let appKeys = -1;
+    let keys = '';
+    try {
+      const all = Object.keys(localStorage).filter((k) => k.startsWith('daily-kit:'));
+      appKeys = all.length;
+      keys = all.sort().join(',');
+    } catch { appKeys = -1; }
+    return { raw, appKeys, keys, protocol: location.protocol };
+  });
 }
 
 // Open-Meteo 공식 문서 스키마에 맞춘 모의 응답 (컨테이너 네트워크가 차단되어 실호출 불가)
@@ -158,6 +193,47 @@ const main = async () => {
   const launchOptions = { args: ['--no-sandbox'] };
   if (CHROME) launchOptions.executablePath = CHROME;
   const browser = await chromium.launch(launchOptions);
+
+  /*
+   * 처음 켠 사람에게는 사용 안내가 화면을 덮습니다.
+   * 그대로 두면 아래 검사 오백여 개가 전부 그 판에 막힙니다.
+   *
+   * 그래서 컨텍스트를 만들 때마다 '이미 봤음' 을 심어 둡니다.
+   * newContext 를 한 곳에서 감싸 두면, 나중에 컨텍스트를 새로 추가해도 빠뜨리지 않습니다.
+   * 안내 자체는 rawNewContext 로 만든 깨끗한 컨텍스트에서 따로 검사합니다. (아래 1-b)
+   */
+  const rawNewContext = browser.newContext.bind(browser);
+  /** 컨텍스트 하나에 날씨 API 차단을 겁니다. (검사가 바깥 세상 속도에 흔들리면 안 됩니다) */
+  const blockWeather = async (ctx) => {
+    await ctx.route('**/api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
+    }));
+    await ctx.route('**/geocoding-api.open-meteo.com/**', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_GEO),
+    }));
+  };
+
+  browser.newContext = async (...args) => {
+    const ctx = await rawNewContext(...args);
+    await ctx.addInitScript(() => {
+      try { localStorage.setItem('daily-kit:ui.intro', JSON.stringify({ v: 1, at: 0 })); } catch { /* 무시 */ }
+    });
+    /*
+     * 날씨 API 를 컨텍스트 단위로 막습니다.
+     *
+     * 예전에는 페이지마다 route 를 걸었는데, 페이지가 25개인 반면 route 는 15곳이라
+     * 열 개는 뚫려 있었습니다. 그래도 지금까지 조용했던 것은 날씨 탭을 숨긴 페이지에서
+     * loadWeather 가 fetch 에 닿기 전에 던져 버려 요청 자체가 안 나갔기 때문입니다.
+     * 그 결함을 고치고 나니(오늘 탭 위젯이 '불러오는 중…' 에 멈추던 문제) 이제 진짜로 나갑니다.
+     *
+     * 인터넷이 없는 곳에서는 즉시 실패해 티가 안 나지만, 인터넷이 있는 CI 에서는
+     * 실제 요청이 나가 응답을 기다립니다. 검사가 바깥 세상의 속도에 흔들리면 안 됩니다.
+     * 페이지에 따로 건 route 는 컨텍스트보다 먼저 잡히므로 기존 검사는 그대로입니다.
+     */
+    await blockWeather(ctx);
+    return ctx;
+  };
+
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     locale: 'ko-KR',
@@ -183,6 +259,11 @@ const main = async () => {
     if (IGNORED_CONSOLE.some((re) => re.test(text))) return;
     consoleErrors.push(text);
   });
+  page.on('console', (msg) => {
+    if (msg.type() !== 'warning') return;
+    const text = msg.text();
+    if (text.includes('[store]')) storeWarnings.push(text);
+  });
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
   // 외부 API 를 모의 응답으로 가로챕니다.
@@ -202,6 +283,154 @@ const main = async () => {
     `실제 선택 탭: ${await page.getAttribute('.tab[data-tab="today"]', 'aria-selected')}`);
   check('오늘 탭에 날짜 표시', ((await page.textContent('#today-date')) || '').length > 4,
     `실제: ${await page.textContent('#today-date')}`);
+
+  /* ---------- 1-b. 처음 켰을 때의 사용 안내 ----------
+   *
+   * 이 앱에는 탭 막대가 없어서 좌우로 쓸어 넘긴다는 것부터 알려 줘야 합니다.
+   * 깨끗한 컨텍스트에서만 검사합니다. 다른 검사들은 위에서 '이미 봤음' 을 심어 둡니다.
+   */
+  if (!IS_FILE) {
+    console.log('\n▶ 첫 실행 안내');
+    const freshCtx = await rawNewContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    // 몽키패치를 우회하는 자리입니다. (ui.intro 를 일부러 안 심습니다) 네트워크 차단은 따로 겁니다.
+    await blockWeather(freshCtx);
+    const fp = await freshCtx.newPage();
+    await fp.route('**/api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+    await fp.route('**/geocoding-api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_GEO) }));
+    await fp.goto(BASE, { waitUntil: 'networkidle' });
+    await fp.waitForSelector('body[data-ready="true"]');
+    await fp.waitForTimeout(600);
+
+    const introOpen = () => fp.evaluate(() => document.body.dataset.intro === 'open');
+    const introTitle = () => fp.textContent('#intro-title');
+
+    check('처음 켜면 사용 안내가 뜬다', (await introOpen()) === true);
+    check('안내가 다섯 장이다',
+      (await fp.locator('#intro-dots .intro-dot').count()) === 5,
+      `${await fp.locator('#intro-dots .intro-dot').count()}장`);
+    check('첫 장에는 이전 버튼이 없다',
+      (await fp.evaluate(() => document.querySelector('#intro-prev').hidden)) === true);
+    check('첫 장은 탭 이동을 알려 준다',
+      ((await introTitle()) || '').includes('쓸어'), await introTitle());
+    /*
+     * 뒤에 있는 화면은 눌리면 안 됩니다.
+     * 안내를 덮어 놓고 그 아래가 눌리면 무엇을 누른 건지 알 수 없습니다.
+     */
+    check('안내가 떠 있으면 뒤 화면이 가려진다',
+      (await fp.evaluate(() => {
+        const box = document.querySelector('#today-widgets .today-card, #today-widgets [data-widget]');
+        if (!box) return false;
+        const r = box.getBoundingClientRect();
+        const hit = document.elementFromPoint(Math.round(r.x + r.width / 2), Math.round(r.y + 10));
+        return !!hit?.closest('#intro-scrim, #intro');
+      })) === true);
+
+    const first = await introTitle();
+    await fp.click('#intro-next');
+    await fp.waitForTimeout(300);
+    check('다음을 누르면 장이 넘어간다', (await introTitle()) !== first,
+      `${first} -> ${await introTitle()}`);
+    check('둘째 장부터는 이전 버튼이 보인다',
+      (await fp.evaluate(() => document.querySelector('#intro-prev').hidden)) === false);
+    await fp.click('#intro-prev');
+    await fp.waitForTimeout(300);
+    check('이전을 누르면 첫 장으로 돌아온다', (await introTitle()) === first);
+
+    // 키보드로도 넘깁니다. 슬라이드니까 좌우 키가 자연스럽습니다.
+    await fp.keyboard.press('ArrowRight');
+    await fp.waitForTimeout(250);
+    check('오른쪽 키로도 넘어간다', (await introTitle()) !== first, await introTitle());
+
+    /*
+     * 마지막 장까지 갑니다.
+     *
+     * 횟수를 세어 누르지 않습니다. 한 번 더 누르면 안내가 닫혀 버리는데, 닫힌 판도
+     * 마지막으로 그린 글자를 그대로 달고 있어서 아래 두 검사가 거짓으로 통과했습니다.
+     * 장 수를 늘리거나 줄여도 깨지지 않게 '시작하기' 가 뜰 때까지만 누릅니다.
+     */
+    for (let i = 0; i < 12; i += 1) {
+      if (((await fp.textContent('#intro-next')) || '').includes('시작')) break;
+      await fp.click('#intro-next');
+      await fp.waitForTimeout(150);
+    }
+    check('마지막 장에서도 안내는 아직 열려 있다 (닫힌 판을 보고 통과하지 않게)',
+      (await introOpen()) === true);
+    check('마지막 장에서는 건너뛰기가 사라진다',
+      (await fp.evaluate(() => document.querySelector('#intro-skip').hidden)) === true);
+    check('마지막 장 버튼은 시작하기다',
+      ((await fp.textContent('#intro-next')) || '').includes('시작'),
+      await fp.textContent('#intro-next'));
+
+    await fp.click('#intro-next');
+    await fp.waitForTimeout(350);
+    check('시작하기를 누르면 닫힌다', (await introOpen()) === false);
+    check('봤다는 기록이 남는다',
+      (await fp.evaluate(() => {
+        try { return JSON.parse(localStorage.getItem('daily-kit:ui.intro') || 'null')?.v >= 1; } catch { return false; }
+      })) === true);
+
+    await fp.reload({ waitUntil: 'networkidle' });
+    await fp.waitForSelector('body[data-ready="true"]');
+    await fp.waitForTimeout(500);
+    check('새로고침해도 다시 뜨지 않는다', (await introOpen()) === false);
+
+    // 한 번 보고 나면 설정 탭이 유일한 입구입니다.
+    await goTab(fp, 'settings');
+    await fp.waitForTimeout(300);
+    await fp.click('#set-intro');
+    await fp.waitForTimeout(400);
+    check('설정 탭에서 다시 열 수 있다', (await introOpen()) === true);
+    await fp.keyboard.press('Escape');
+    await fp.waitForTimeout(300);
+    check('Esc 로 닫힌다', (await introOpen()) === false);
+    await freshCtx.close();
+
+    /*
+     * 쓰던 사람에게는 뜨지 않아야 합니다.
+     * 업데이트를 받았다고 안내가 튀어나오면 그건 방해입니다.
+     */
+    const usedCtx = await rawNewContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    // 몽키패치를 우회하는 자리입니다. (ui.intro 를 일부러 안 심습니다) 네트워크 차단은 따로 겁니다.
+    await blockWeather(usedCtx);
+    await usedCtx.addInitScript(() => {
+      // 안내 기록만 없고 다른 기록은 있는 상태 = 예전부터 쓰던 사람
+      try { localStorage.setItem('daily-kit:ui.theme', '"dark"'); } catch { /* 무시 */ }
+    });
+    const up = await usedCtx.newPage();
+    await up.route('**/api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST) }));
+    await up.route('**/geocoding-api.open-meteo.com/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_GEO) }));
+    await up.goto(BASE, { waitUntil: 'networkidle' });
+    await up.waitForSelector('body[data-ready="true"]');
+    await up.waitForTimeout(600);
+    check('쓰던 사람에게는 안내가 뜨지 않는다',
+      (await up.evaluate(() => document.body.dataset.intro === 'open')) === false);
+    check('쓰던 사람에게도 봤다고 기록해 둔다 (나중에 불쑥 뜨지 않게)',
+      (await up.evaluate(() => {
+        try { return JSON.parse(localStorage.getItem('daily-kit:ui.intro') || 'null')?.v >= 1; } catch { return false; }
+      })) === true);
+    await usedCtx.close();
+  }
+
+  // ---------- 0. 저장소가 진짜로 쓰이고 있는가 ----------
+  /*
+   * store.js 는 localStorage 가 막히면 조용히 메모리로 내려갑니다. (memoryFallback)
+   * 그러면 저장은 '성공' 하는데 새로고침하면 전부 사라집니다.
+   *
+   * 이게 file:// 모드에서 실제로 일어나면, 뒤의 검사 수백 개가 저마다 다른 곳에서
+   * '새로고침 후에 없어졌다' 로 깨집니다. 원인은 하나인데 증상만 흩어져
+   * 로그만 보고는 가릴 수가 없습니다. (CI 에서 두 번, 서로 다른 자리에서 깨졌습니다)
+   * 여기서 먼저 못을 박아 둡니다.
+   */
+  console.log('\n▶ 저장소');
+  const storeHealth = await storeState(page);
+  check('localStorage 를 실제로 쓸 수 있음', storeHealth.raw === 'ok', storeHealth.raw);
+  check('앱이 메모리 대체 저장소로 내려가지 않음 (내려가면 새로고침마다 전부 사라집니다)',
+    storeHealth.appKeys > 0, `${storeHealth.protocol} · daily-kit: 키 ${storeHealth.appKeys}개`);
+
 
   // ---------- 1. 계산기 ----------
   console.log('\n▶ 계산기');
@@ -766,6 +995,210 @@ const main = async () => {
     (await page.locator('#today-rot .today-rot-item').count()) >= 1,
     `${await page.locator('#today-rot .today-rot-item').count()}건`);
 
+  // ---------- 3-b-2. 기능 바로가기 + 바로 적기 ----------
+  console.log('\n▶ 오늘 — 바로가기와 바로 적기');
+
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  /*
+   * 이 앱에는 탭 막대가 없습니다. 처음 켠 사람이 '무엇이 있는지' 를 아는 곳은 여기뿐이라,
+   * 칩이 하나라도 사라지면 그 기능은 스와이프를 아는 사람만 쓸 수 있게 됩니다.
+   */
+  const chipTabs = await page.$$eval('.today-launch', (ns) => ns.map((n) => n.dataset.tab));
+  check('바로가기가 오늘을 뺀 모든 탭을 보여 줌',
+    chipTabs.length === 8 && !chipTabs.includes('today')
+    && ['calc', 'weather', 'todo', 'time', 'memo', 'quote', 'ai', 'settings']
+      .every((name) => chipTabs.includes(name)),
+    chipTabs.join(', '));
+
+  /*
+   * 이모지만 남으면 화면 읽기 프로그램이 🗓️ 을 'spiral calendar' 로 읽습니다.
+   * 이름은 언제나 글자가 맡아야 하고, 이모지는 장식으로 빠져 있어야 합니다.
+   */
+  const chipNames = await page.$$eval('.today-launch', (ns) => ns.map((n) => ({
+    icon: n.querySelector('.today-launch-icon')?.getAttribute('aria-hidden'),
+    name: n.querySelector('.today-launch-name')?.textContent?.trim() || '',
+  })));
+  check('바로가기 이름은 글자가 맡고 이모지는 aria-hidden',
+    chipNames.every((c) => c.icon === 'true' && c.name.length > 0),
+    chipNames.map((c) => c.name).join(' / '));
+
+  // 이름이 잘리면 이모지만 남는 셈이라, 이 줄을 둔 이유가 사라집니다.
+  const chipClipped = await page.$$eval('.today-launch-name',
+    (ns) => ns.filter((n) => n.scrollWidth > n.clientWidth + 1).map((n) => n.textContent));
+  check('바로가기 이름이 잘리지 않음', chipClipped.length === 0, chipClipped.join(', ') || '전부 온전함');
+
+  /*
+   * 터치 목표 크기.
+   * WCAG 2.5.8(AA)의 최소는 24x24 CSS px 이고, 2.5.5(AAA)와 통상 권장치가 44x44 입니다.
+   * 손가락으로 쓰는 첫 화면이라 권장치를 기준으로 둡니다.
+   */
+  const touch = await page.evaluate(() => {
+    const box = (sel) => {
+      const n = document.querySelector(sel);
+      if (!n) return null;
+      const r = n.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    };
+    return { chip: box('.today-launch'), input: box('.today-quick-input'), go: box('.today-quick-go') };
+  });
+  check('바로가기와 바로 적기의 터치 목표가 44px 이상',
+    !!touch.chip && touch.chip.h >= 44 && touch.chip.w >= 44
+    && !!touch.input && touch.input.h >= 44
+    && !!touch.go && touch.go.h >= 44 && touch.go.w >= 44,
+    `칩 ${touch.chip?.w}x${touch.chip?.h} · 입력 높이 ${touch.input?.h} · 버튼 ${touch.go?.w}x${touch.go?.h}`);
+
+  await page.click('.today-launch[data-tab="quote"]');
+  await page.waitForTimeout(600);
+  check('바로가기를 누르면 그 탭으로 이동',
+    (await page.getAttribute('.tab[data-tab="quote"]', 'aria-selected')) === 'true',
+    `실제 활성 탭: ${await page.evaluate(() => document.querySelector('.tab[aria-selected="true"]')?.dataset.tab)}`);
+
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  // --- 바로 적기: 할 일 ---
+  /*
+   * 먼저 계획표를 '오늘' 에서 멀리 떼어 놓습니다.
+   *
+   * 이걸 안 하면 이 검사는 아무것도 증명하지 못합니다. 계획표가 마침 오늘/일간을
+   * 보고 있으면, '언제나 오늘로 넣는' 구현과 '보고 있는 기간에 넣는' 구현이
+   * 똑같은 값을 내놓기 때문입니다. (실제로 한 번 이 상태로 통과해 버렸습니다)
+   * 월간으로 바꾸고 기간까지 앞으로 밀어 두면 둘이 갈라집니다.
+   */
+  await goTab(page, 'todo');
+  await page.click('.scope-tab[data-scope="month"]');
+  await page.waitForTimeout(150);
+  await page.click('#period-next');
+  await page.waitForTimeout(150);
+  const awayView = await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.view') || '{}'));
+  check('바로 적기 검사 준비: 계획표를 오늘에서 떼어 놓음',
+    awayView.scope === 'month' && typeof awayView.period === 'string',
+    `${awayView.scope}/${awayView.period}`);
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  const beforeAdd = await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]').length);
+  await page.fill('#today-quick-todo', '바로 적은 할 일');
+  await page.press('#today-quick-todo', 'Enter');
+  await page.waitForTimeout(400);
+  const added = await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+    .find((x) => x.text === '바로 적은 할 일'));
+  const quickDayKey = await page.evaluate(() => {
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  });
+  /*
+   * 계획표를 다음 달로 넘겨 둔 채 오늘 탭에서 적었다고 다음 달로 들어가면 적은 사람이 찾지 못합니다.
+   * 오늘 탭에서 적은 것은 언제나 오늘입니다.
+   */
+  check('바로 적기로 넣은 할 일이 오늘 날짜로 저장됨',
+    !!added && added.scope === 'day' && added.period === quickDayKey && added.done === false,
+    added ? `${added.scope}/${added.period}` : '저장되지 않음');
+  check('바로 적기 뒤 입력칸이 비워짐', (await page.inputValue('#today-quick-todo')) === '');
+  check('바로 적기가 기존 할 일을 건드리지 않음',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]').length))
+      === beforeAdd + 1);
+
+  // 빈 칸으로 눌러도 빈 항목이 생기면 안 됩니다.
+  await page.fill('#today-quick-todo', '   ');
+  await page.press('#today-quick-todo', 'Enter');
+  await page.waitForTimeout(250);
+  check('공백만 넣으면 아무것도 추가되지 않음',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]').length))
+      === beforeAdd + 1);
+  await page.fill('#today-quick-todo', '');
+
+  // --- 바로 적기: 계산 ---
+  await page.fill('#today-quick-calc', '12000*3');
+  await page.press('#today-quick-calc', 'Enter');
+  await page.waitForTimeout(350);
+  check('바로 계산이 결과를 보여 줌',
+    /12000\*3\s*=\s*36,?000/.test((await page.textContent('#today-quick-calc-out')) || ''),
+    await page.textContent('#today-quick-calc-out'));
+  check('바로 계산이 계산 기록에도 남음',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:calc.history') || '[]')
+      .some((h) => h.expr === '12000*3' && h.value === 36000))) === true);
+
+  await page.fill('#today-quick-calc', '((1+');
+  await page.press('#today-quick-calc', 'Enter');
+  await page.waitForTimeout(300);
+  check('잘못된 수식은 오류로 표시', (await page.locator('#today-quick-calc-out.is-error').count()) === 1,
+    await page.textContent('#today-quick-calc-out'));
+
+  /*
+   * 고쳐 치기 시작하면 앞선 판정을 지웁니다.
+   * 남겨 두면 다 고쳐 놓고도 빨간 '계산할 수 없습니다' 가 붙어 있어 고친 것이 틀린 줄 압니다.
+   */
+  await page.fill('#today-quick-calc', '(1+2)');
+  await page.waitForTimeout(200);
+  check('다시 치면 앞선 오류가 사라짐',
+    (await page.locator('#today-quick-calc-out').isHidden()) === true);
+  await page.fill('#today-quick-calc', '');
+
+  // --- 바로 적기: 메모 ---
+  await page.fill('#today-quick-memo', '주차 B3-127');
+  await page.press('#today-quick-memo', 'Enter');
+  await page.waitForTimeout(400);
+  check('바로 적기로 남긴 메모가 저장됨',
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]')
+      .some((m) => m.text === '주차 B3-127'))) === true);
+  check('메모 탭에서도 같은 메모가 보임',
+    (await page.evaluate(async () => {
+      document.querySelector('.tab[data-tab="memo"]').click();
+      await new Promise((r) => setTimeout(r, 400));
+      return [...document.querySelectorAll('#memo-list li')].some((li) => li.textContent.includes('주차 B3-127'));
+    })) === true);
+
+  await goTab(page, 'today');
+  await page.waitForTimeout(250);
+
+  /*
+   * 카드마다 안내 문구가 달라야 합니다.
+   * 넷이 똑같이 '눌러서 해당 탭으로 이동' 이면 읽히지 않고 자리만 먹습니다.
+   */
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+    raw.widgets = ['weather', 'clock', 'timer', 'quote', 'memo', 'calc'];
+    localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(500);
+  const hints = await page.$$eval('#today-widgets .card-sub', (ns) => ns.map((n) => n.textContent.trim()));
+  check('위젯 카드의 안내 문구가 서로 다름',
+    hints.length >= 5 && new Set(hints).size === hints.length,
+    hints.join(' | '));
+
+  /*
+   * 위젯 구성과 이 절이 남긴 데이터를 치웁니다.
+   * 뒤의 검사들이 할 일과 메모의 '개수' 를 세기 때문에, 여기서 넣은 것이 남으면
+   * 엉뚱한 곳에서 하나씩 어긋납니다.
+   */
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+    raw.widgets = ['weather', 'todo'];
+    localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+
+    const todos = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]')
+      .filter((x) => x.text !== '바로 적은 할 일');
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(todos));
+
+    const memos = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]')
+      .filter((m) => m.text !== '주차 B3-127');
+    localStorage.setItem('daily-kit:memo.items', JSON.stringify(memos));
+
+    // 위에서 월간으로 떼어 놓은 계획표도 되돌립니다. 뒤 검사들이 일간을 봅니다.
+    localStorage.removeItem('daily-kit:todo.view');
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('body[data-ready="true"]');
+  await goTab(page, 'today');
+  await page.waitForTimeout(400);
+
   // ---------- 3-c. 좌우 스와이프로 페이지 넘기기 ----------
   console.log('\n▶ 스와이프 (모바일 에뮬레이션)');
 
@@ -785,6 +1218,71 @@ const main = async () => {
   await sp.goto(BASE, { waitUntil: 'networkidle' });
   await sp.waitForSelector('body[data-ready="true"]');
   await sp.waitForTimeout(400);
+
+  /*
+   * iOS 사파리에서 앱 위쪽이 주소창 뒤로 숨던 문제를 막는 규칙을 지킵니다.
+   *
+   * 원인: html/body 의 height:100% 는 '주소창이 접혔을 때'의 큰 뷰포트를 기준으로
+   * 잡히는데 .app 은 100dvh(지금 보이는 높이)를 씁니다. 그 차이만큼 문서 자체가
+   * 스크롤 가능해지고, 한 번 밀리면 앱 셸이 통째로 올라가 헤더가 주소창 뒤로 갑니다.
+   *
+   * 헤드리스 크로미움에는 접히는 주소창이 없어 현상 자체는 재현할 수 없습니다.
+   * 그래서 증상 대신 원인을 봅니다 — 문서 높이를 dvh 로 잡았는지, 문서 스크롤을
+   * 막았는지, 그리고 지금 실제로 문서가 스크롤될 여지가 없는지.
+   */
+  const shellCss = await sp.evaluate(() => {
+    const found = { dvh: false, hidden: false };
+    const walk = (rules) => {
+      for (const rule of rules) {
+        if (rule.cssRules) walk(rule.cssRules);
+        const sel = rule.selectorText || '';
+        if (!/(^|,\s*)(html|body)\b/.test(sel)) continue;
+        const style = rule.style;
+        if (!style) continue;
+        if ((style.getPropertyValue('height') || '').includes('dvh')) found.dvh = true;
+        if ((style.getPropertyValue('overflow') || '') === 'hidden') found.hidden = true;
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try { walk(sheet.cssRules); } catch { /* 읽을 수 없는 시트는 건너뜁니다 */ }
+    }
+    return found;
+  });
+  check('문서 높이를 dvh 로 잡는다 (iOS 주소창 가림 방지)', shellCss.dvh, JSON.stringify(shellCss));
+  check('문서 스크롤을 막아 둔다', shellCss.hidden, JSON.stringify(shellCss));
+
+  const shellBox = await sp.evaluate(() => {
+    const cs = getComputedStyle;
+    const se = document.scrollingElement;
+    return {
+      slack: se.scrollHeight - se.clientHeight,
+      htmlH: cs(document.documentElement).height,
+      bodyH: cs(document.body).height,
+      appH: cs(document.querySelector('.app')).height,
+      htmlOverflow: cs(document.documentElement).overflowY,
+      bodyOverflow: cs(document.body).overflowY,
+      viewH: window.innerHeight,
+    };
+  });
+  check('html·body 의 overflow 가 실제로 hidden 으로 적용된다',
+    shellBox.htmlOverflow === 'hidden' && shellBox.bodyOverflow === 'hidden', JSON.stringify(shellBox));
+  check('html·body·.app 높이가 보이는 화면과 같다',
+    shellBox.htmlH === `${shellBox.viewH}px`
+    && shellBox.bodyH === `${shellBox.viewH}px`
+    && shellBox.appH === `${shellBox.viewH}px`, JSON.stringify(shellBox));
+  check('문서가 스크롤될 여지가 없다', shellBox.slack === 0, JSON.stringify(shellBox));
+
+  // 사파리가 입력칸을 보이려고 문서를 미는 경로까지 막혔는지 봅니다.
+  // (스크롤이 반영될 틈을 준 뒤에 재야 실제 위치를 읽습니다)
+  await sp.evaluate(() => { window.scrollTo(0, 120); });
+  await sp.waitForTimeout(120);
+  const shellPush = await sp.evaluate(() => ({
+    scrollY: Math.round(window.scrollY),
+    headerTop: Math.round(document.querySelector('.app-header').getBoundingClientRect().top),
+  }));
+  await sp.evaluate(() => { window.scrollTo(0, 0); });
+  check('문서를 강제로 밀어도 헤더가 화면 위로 안 밀린다',
+    shellPush.headerTop === 0 && shellPush.scrollY === 0, JSON.stringify(shellPush));
 
   // 뒤로가기 제스처로 앱을 벗어나면 #main 자체가 사라집니다.
   // 그때 예외로 죽지 않고 검사 실패로 보이도록 -1 을 돌려줍니다.
@@ -1069,7 +1567,15 @@ const main = async () => {
    * (예전 버전이 남긴 값이거나 손으로 넣은 값) 그때 조용히 자르면 안 됩니다.
    */
   {
-    const over = await context.newPage();
+    /*
+     * 제 컨텍스트에서 엽니다.
+     * context.newPage() 로 열면 page 와 저장소를 공유합니다. 이 페이지는 memo.items 를
+     * 통째로 덮어쓰는데, page 는 목록을 메모리에 들고 있어서 그 사실을 모릅니다.
+     * 그러면 page 의 화면과 저장소가 어긋난 채로 남고, 한참 뒤 '새로고침 후 메모 유지'
+     * 에서야 터집니다. 여기서 볼 것은 '긴 값 하나'뿐이라 저장소를 나눠도 그대로입니다.
+     */
+    const overCtx = await browser.newContext();
+    const over = await overCtx.newPage();
     await over.addInitScript(() => {
       const huge = Array.from({ length: 900 }, (_, i) => `${i + 1}. 아주 긴 줄입니다.`).join('\n');
       localStorage.setItem('daily-kit:memo.items',
@@ -1088,6 +1594,7 @@ const main = async () => {
       /\d+줄은 담지 못했습니다/.test(await over.textContent('#draw-status')),
       await over.textContent('#draw-status'));
     await over.close();
+    await overCtx.close();
   }
 
   /*
@@ -1098,8 +1605,9 @@ const main = async () => {
    * 전화기를 돌리기만 해도 회의록이 읽을 수 없게 됩니다.
    */
   {
-    const rot = await context.newPage();
-    await rot.setViewportSize({ width: 390, height: 844 });
+    // 위와 같은 이유로 제 컨텍스트에서 엽니다. 이 페이지도 메모를 새로 적습니다.
+    const rotCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const rot = await rotCtx.newPage();
     await rot.goto(BASE, { waitUntil: 'networkidle' });
     await rot.waitForSelector('body[data-ready="true"]');
     await goTab(rot, 'memo');
@@ -1135,7 +1643,27 @@ const main = async () => {
     check('창 크기가 바뀌면 판 폭도 따라감 (늘여 붙이지 않고 다시 그립니다)',
       turned.w !== placed.w, `${placed.w} -> ${turned.w}`);
     await rot.close();
+    await rotCtx.close();
   }
+
+  /*
+   * 위 두 블록(안전망 · 회전)이 본 화면의 저장소를 건드리지 않았는지 못을 박습니다.
+   * 예전에는 같은 컨텍스트에서 열어 memo.items 를 통째로 덮어썼습니다.
+   * page 는 목록을 메모리에 들고 있어 그 사실을 모르므로, 화면은 멀쩡한데
+   * 저장소만 남의 메모로 바뀌어 있었습니다.
+   */
+  const memoAfterSubPages = await page.evaluate(() => {
+    let items = [];
+    try { items = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]'); } catch { items = []; }
+    const head = (t) => String(t).trim().replace(/\s+/g, ' ').slice(0, 14);
+    return {
+      stored: items.map((m) => head(m.text)),
+      dom: [...document.querySelectorAll('#memo-list .memo-item .memo-body')].map((n) => head(n.textContent)),
+    };
+  });
+  check('메모 하위 검사들이 본 화면의 저장소를 건드리지 않음',
+    JSON.stringify(memoAfterSubPages.stored) === JSON.stringify(memoAfterSubPages.dom),
+    JSON.stringify(memoAfterSubPages));
 
   // 뒷 검사(영속성)가 메모 1개를 기대하므로 늘어난 메모를 지웁니다.
   await page.$$eval('#memo-list .memo-item button', (btns) => {
@@ -1145,6 +1673,23 @@ const main = async () => {
   await page.waitForTimeout(300);
   check('정리: 메모가 하나만 남음', (await page.locator('#memo-list .memo-item').count()) === 1,
     String(await page.locator('#memo-list .memo-item').count()));
+
+  /*
+   * 화면과 저장소가 같은 말을 하는지 봅니다.
+   * 메모 모듈은 목록을 메모리에 들고 있어서, 저장소를 밖에서 건드리면
+   * 화면은 멀쩡한데 저장소만 어긋날 수 있습니다. 그러면 뒤의 '새로고침 후 메모 유지'
+   * 에서야 터지고, 그 자리만 봐서는 원인을 알 수 없습니다.
+   */
+  const memoCleanup = await page.evaluate(() => {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]'); } catch { stored = null; }
+    return {
+      dom: document.querySelectorAll('#memo-list .memo-item').length,
+      stored: Array.isArray(stored) ? stored.length : 'parse 실패',
+      texts: Array.isArray(stored) ? stored.map((m) => String(m.text).slice(0, 10)) : [],
+    };
+  });
+  check('정리: 저장소에도 메모가 하나만 남음', memoCleanup.stored === 1, JSON.stringify(memoCleanup));
 
   // ---------- 6. 글귀 ----------
   console.log('\n▶ 글귀');
@@ -1240,7 +1785,16 @@ const main = async () => {
   await goTab(page, 'todo');
   await goTab(page, 'memo');
   await page.waitForTimeout(400);
-  check('새로고침 후 메모 유지', (await page.locator('#memo-list .memo-item').count()) === 1);
+  const memoAfterReload = await page.evaluate(() => {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem('daily-kit:memo.items') || '[]'); } catch { stored = null; }
+    return {
+      dom: document.querySelectorAll('#memo-list .memo-item').length,
+      stored: Array.isArray(stored) ? stored.length : 'parse 실패',
+      texts: Array.isArray(stored) ? stored.map((m) => String(m.text).slice(0, 10)) : [],
+    };
+  });
+  check('새로고침 후 메모 유지', memoAfterReload.dom === 1, JSON.stringify(memoAfterReload));
   await goTab(page, 'todo');
   await page.waitForTimeout(200);
 
@@ -2269,6 +2823,50 @@ export function isStamped() { return true; }`,
       const grid = document.querySelector('#cal-grid');
       return grid.scrollWidth <= grid.clientWidth + 1;
     }));
+
+  /*
+   * 달마다 줄 수가 다르면(2월 넉 줄, 8월 여섯 줄) 열두 장을 늘어놓았을 때
+   * 카드 안이 들쭉날쭉해 보입니다. 빈 칸으로 채워 여섯 줄로 맞춥니다.
+   */
+  const miniCells = await page.evaluate(() => (
+    [...document.querySelectorAll('#cal-grid .cal-mini')]
+      .map((n) => n.querySelectorAll('.cal-mini-day').length)));
+  check('연간 — 열두 달 모두 여섯 줄(42칸)로 고르다',
+    miniCells.length === 12 && miniCells.every((n) => n === 42),
+    [...new Set(miniCells)].join(','));
+  const miniHeights = await page.evaluate(() => (
+    [...document.querySelectorAll('#cal-grid .cal-mini')]
+      .map((n) => Math.round(n.getBoundingClientRect().height))));
+  check('연간 — 달 카드 높이가 모두 같다',
+    new Set(miniHeights).size === 1, [...new Set(miniHeights)].join(','));
+
+  /*
+   * 모양이 바뀔 때만 살짝 나타납니다.
+   * 달력은 할 일을 체크하기만 해도 다시 그려집니다. 그때마다 애니메이션이 돌면
+   * 체크 한 번에 달력이 깜빡여서 도리어 거슬립니다.
+   */
+  const enterStart = () => page.evaluate(() => {
+    const g = document.querySelector('#cal-grid');
+    const a = g.getAnimations?.()[0];
+    return { has: g.classList.contains('is-enter'), start: a ? Math.round(a.startTime || 0) : null };
+  });
+  check('연간 — 모양이 바뀌면 나타나는 동작이 붙는다', (await enterStart()).has);
+  const beforeRerender = await enterStart();
+  // 같은 모양으로 다시 그리게 만듭니다. (저장값을 건드리면 onTodoChange 가 돌아갑니다)
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('daily-kit:todo.items') || '[]');
+    localStorage.setItem('daily-kit:todo.items', JSON.stringify(raw));
+    document.querySelector('#cal-grid').dispatchEvent(new Event('x-noop'));
+  });
+  await page.click('#period-next');
+  await page.waitForTimeout(300);
+  await page.click('#period-prev');
+  await page.waitForTimeout(300);
+  const afterRerender = await enterStart();
+  check('연간 — 같은 모양으로 다시 그려도 동작이 다시 시작되지 않는다',
+    afterRerender.start === beforeRerender.start,
+    `${beforeRerender.start} -> ${afterRerender.start}`);
+
   // 달 한 장을 누르면 그 달의 월간으로 내려갑니다. (연간 -> 월간 -> 일간)
   await page.click('#cal-grid .cal-mini[data-mini-month$="-03"]');
   await page.waitForTimeout(300);
@@ -2811,9 +3409,16 @@ export function isStamped() { return true; }`,
   await page.waitForTimeout(300);
   await page.click('#period-today');
   await page.waitForTimeout(250);
+  /*
+   * 여기서 어긋나면 '분류 저장' 이 아니라 '저장소 자체' 가 문제일 수 있습니다.
+   * 어느 쪽인지 로그만 보고 가릴 수 있게, 새로고침 직후의 저장소 상태를 함께 봅니다.
+   */
+  const afterReload = await storeState(page);
+  check('새로고침 뒤에도 저장소가 살아 있음', afterReload.raw === 'ok' && afterReload.appKeys > 0,
+    `${afterReload.raw} · 키 ${afterReload.appKeys}개`);
   check('새로고침 후에도 내 분류가 남아 있음',
     (await page.locator('#todo-cats .cat-chip').count()) === beforeChips + 1,
-    `${await page.locator('#todo-cats .cat-chip').count()}개`);
+    `${await page.locator('#todo-cats .cat-chip').count()}개 · 저장소 키 ${afterReload.appKeys}개`);
   check('새로고침 후에도 바꾼 이모지가 남아 있음',
     ((await page.locator(`.cal-day[data-day="${todayKey}"] .cal-marks`).textContent()) || '').includes('🏋️'));
 
@@ -3473,29 +4078,45 @@ export function isStamped() { return true; }`,
     await phone.route('**/api.open-meteo.com/**', (route) => route.fulfill({
       status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_FORECAST),
     }));
-    await phone.setViewportSize({ width: 390, height: 844 });
-    await phone.goto(BASE, { waitUntil: 'networkidle' });
-    await phone.waitForSelector('body[data-ready="true"]');
     /*
      * 저장소는 창끼리 같습니다. 앞 검사가 이미 순서를 뒤집고 카드를 '작게'로 줄여 놨습니다.
      * 그대로 두면 '바뀌었는지' 보는 검사가 처음부터 목표 상태라 무엇을 해도 통과합니다.
      * 깨끗한 자리에서 다시 시작합니다.
+     *
+     * 되돌리기는 페이지가 열리기 '전에' 걸어 둡니다.
+     * 예전에는 열고 나서 고치고 새로고침했는데, 새로고침 직후의 waitForSelector 는
+     * 아직 갈리지 않은 예전 문서에 걸릴 수 있습니다. 그러면 되돌리기 전 순서를 그대로
+     * 읽어 놓고 통과한 것처럼 지나갑니다. (CI 에서 실제로 여기서 어긋났습니다)
+     * 열리기 전에 걸면 새로고침이 아예 필요 없어 그 틈이 사라집니다.
      */
-    await phone.evaluate(() => {
-      const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
-      delete raw.cardOrder;
-      raw.cards = {};
-      localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+    await phone.addInitScript(() => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}');
+        delete raw.cardOrder;
+        raw.cards = {};
+        localStorage.setItem('daily-kit:ui.prefs', JSON.stringify(raw));
+      } catch { /* 저장소를 못 쓰면 기본 순서라 그대로 진행하면 됩니다 */ }
     });
-    await phone.reload({ waitUntil: 'networkidle' });
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.goto(BASE, { waitUntil: 'networkidle' });
     await phone.waitForSelector('body[data-ready="true"]');
     await goTab(phone, 'quote');
     await phone.waitForTimeout(500);
 
     const phoneCards = () => phone.evaluate(() => (
       [...document.querySelectorAll('#panel-quote > [data-card]')].map((n) => n.dataset.card)));
+    /*
+     * 어긋났을 때 '무엇이 저장돼 있었는지' 까지 남깁니다.
+     * 예전에는 순서만 찍혀서, CI 에서만 어긋났을 때 되돌리기가 안 먹은 것인지
+     * 다른 창이 덮어쓴 것인지 로그만 보고는 가릴 수가 없었습니다.
+     */
+    const phoneStored = await phone.evaluate(() => {
+      try { return JSON.stringify(JSON.parse(localStorage.getItem('daily-kit:ui.prefs') || '{}').cardOrder ?? null); }
+      catch { return '(읽지 못함)'; }
+    });
     check('전화기 폭: 기본 순서에서 시작 (여기가 어긋나면 아래 검사가 헛돕니다)',
-      (await phoneCards()).join(',') === 'quote.today,quote.mine', (await phoneCards()).join(','));
+      (await phoneCards()).join(',') === 'quote.today,quote.mine',
+      `${(await phoneCards()).join(',')} · 저장된 cardOrder=${phoneStored}`);
 
     await phone.$eval('#arr-start', (n) => n.click());
     await phone.waitForTimeout(400);
@@ -3738,9 +4359,25 @@ export function isStamped() { return true; }`,
         (await tp.evaluate(() => !!document.querySelector('[data-arr-drag="on"]'))) === true);
 
       const s0 = await tScroll();
+      /*
+       * 목적지를 둘째 카드의 '아래끝' 이 아니라 '가운데' 로 잡습니다.
+       *
+       * arrange.js 는 손가락이 패널 가장자리 72px 안에 들어오면 일부러 화면을 밀어 줍니다.
+       * (자동 스크롤, EDGE/EDGE_SPEED) 예전에는 '오늘' 탭이 화면보다 짧아 밀 자리가 없어
+       * 그 기능이 드러나지 않았는데, 바로가기와 바로 적기가 생기면서 밀 자리가 생겼습니다.
+       * 아래끝을 그대로 두면 이 검사는 '일부러 미는 것' 을 붙잡게 되어,
+       * 원래 잡으려던 것(touchmove 를 막지 않아 브라우저가 드래그를 훔쳐 가는 일)과
+       * 구분하지 못합니다. 가장자리를 피하면 스크롤은 곧 그 버그뿐입니다.
+       */
       const to = await tp.evaluate(() => {
         const b = document.querySelectorAll('#today-widgets > [data-widget]')[1].getBoundingClientRect();
-        return { x: Math.round(b.x + b.width / 2), y: Math.round(b.bottom - 12) };
+        const panel = document.querySelector('#panel-today').getBoundingClientRect();
+        // 가장자리 72px 은 자동 스크롤 구역입니다. 그 위로 8px 더 띄워 확실히 피합니다.
+        const safeBottom = panel.bottom - 80;
+        return {
+          x: Math.round(b.x + b.width / 2),
+          y: Math.round(Math.min(b.bottom - 12, safeBottom)),
+        };
       });
       for (let i = 1; i <= 12; i += 1) {
         await touch('touchMove', Math.round(from.x + (to.x - from.x) * i / 12),
@@ -3751,7 +4388,7 @@ export function isStamped() { return true; }`,
       const moved = await tp.evaluate(() => document.querySelector('[data-arr-drag="on"]')?.style.transform || '');
       const s1 = await tScroll();
       check('터치: 끄는 동안 카드가 손가락을 따라옴', moved.includes('translate'), moved || '(안 움직임)');
-      check('터치: 끄는 동안 화면이 같이 스크롤되지 않음', Math.abs(s1 - s0) < 20, `${s0} -> ${s1}`);
+      check('터치: 끄는 동안 화면이 브라우저에 끌려가지 않음', Math.abs(s1 - s0) < 20, `${s0} -> ${s1}`);
       await touch('touchEnd', to.x, to.y);
       await tp.waitForTimeout(700);
       const tAfter = await tOrder();
@@ -4011,15 +4648,22 @@ export function isStamped() { return true; }`,
   await desktop.waitForSelector('body[data-ready="true"]');
   await desktop.waitForTimeout(300);
 
+  /*
+   * 날짜 줄과 첫 카드 사이에는 이제 기능 바로가기가 들어갑니다.
+   * 그래서 '날짜 -> 카드' 가 아니라 이웃한 두 쌍을 각각 봅니다.
+   * 늘어남을 잡아내려던 원래 뜻은 그대로입니다. (한 군데라도 벌어지면 걸립니다)
+   */
   const headToCard = await desktop.evaluate(() => {
     const panel = document.querySelector('#panel-today');
     const head = panel.querySelector('.today-head');
+    const nav = panel.querySelector('#today-launcher');
     const card = panel.querySelector('#today-weather-card');
-    if (!head || !card) return -1;
-    return Math.round(card.getBoundingClientRect().top - head.getBoundingClientRect().bottom);
+    if (!head || !nav || !card) return -1;
+    const gap = (a, b) => Math.round(b.getBoundingClientRect().top - a.getBoundingClientRect().bottom);
+    return Math.max(gap(head, nav), gap(nav, card));
   });
   // gap 은 14px 입니다. 여유를 둬도 40px 을 넘으면 늘어난 것입니다.
-  check('넓은 화면 오늘 탭: 날짜 줄과 카드가 붙어 있음', headToCard >= 0 && headToCard <= 40,
+  check('넓은 화면 오늘 탭: 날짜 · 바로가기 · 카드가 붙어 있음', headToCard >= 0 && headToCard <= 40,
     `간격 ${headToCard}px (기대 <= 40)`);
 
   const stretched = await desktop.evaluate(() => [...document.querySelectorAll('.panel.grid')]
@@ -4100,6 +4744,8 @@ export function isStamped() { return true; }`,
     !e.includes('favicon') && !e.includes('net::ERR_') && !e.toLowerCase().includes('manifest'));
   check('페이지 JS 예외 없음', pageErrors.length === 0, pageErrors.join(' | ') || '없음');
   check('콘솔 에러 없음', realErrors.length === 0, realErrors.slice(0, 3).join(' | ') || '없음');
+  check('저장소가 조용히 실패한 적 없음', storeWarnings.length === 0,
+    storeWarnings.slice(0, 3).join(' | ') || '없음');
 
   await browser.close();
   if (httpServer) await new Promise((done) => httpServer.close(done));

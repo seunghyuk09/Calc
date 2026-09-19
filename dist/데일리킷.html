@@ -106,6 +106,22 @@
  */
 html, body { height: 100%; overscroll-behavior: none; }
 
+/*
+ * iOS 사파리에서 앱 위쪽이 주소창(검색창) 뒤로 가려지던 문제입니다.
+ * html/body 의 height:100% 는 '주소창이 접혔을 때'의 큰 뷰포트를 기준으로 잡히는데,
+ * 아래 .app 은 100dvh — 지금 실제로 보이는 높이 — 를 씁니다.
+ * 그래서 주소창 높이만큼 문서 자체가 스크롤 가능해지고,
+ * 한 번 밀려 올라가면 앱 셸이 통째로 올라가 헤더가 주소창 뒤로 숨습니다.
+ * 손으로 쓸지 않아도 scrollIntoView 한 번이면 같은 일이 벌어집니다.
+ * dvh 를 아는 브라우저에서는 문서 높이를 '보이는 높이'에 맞추고 문서 스크롤을 막습니다.
+ * dvh 를 모르는 옛 브라우저(iOS 15 등)는 예전 그대로 둡니다 — 거기서는 .app 이
+ * 100vh(큰 뷰포트)로 잡혀 화면 밖까지 내려가므로, 문서 스크롤마저 막으면
+ * 앱 아래쪽에 아예 닿을 수 없게 됩니다.
+ */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; overflow: hidden; }
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -867,6 +883,96 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 .today-date { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .today-swipe-hint { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
 
+/* ---------- 기능 바로가기 ----------
+ * 한 줄에 넉 장씩 감아 내립니다. 가로 스크롤로 하면 화면 밖의 것이 안 보이는데,
+ * 무엇이 있는지 보여 주는 것이 이 줄의 유일한 목적이라 그러면 뜻이 없습니다.
+ *
+ * 칩 높이는 44px 을 밑돌지 않게 잡았습니다.
+ * WCAG 2.5.8(AA)은 24x24 CSS px 이 최소이고, 2.5.5(AAA)와 통상 권장치가 44x44 입니다.
+ */
+.today-launcher {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.today-launch {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  min-height: 60px; padding: 8px 4px;
+  border: 0; border-radius: 12px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.today-launch:hover { background: var(--surface-3, var(--surface-2)); }
+.today-launch:active { transform: scale(.96); }
+.today-launch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.today-launch-icon { font-size: 21px; line-height: 1; }
+/*
+ * 이름은 줄이지 않습니다. 'TO DO' 나 '시계·타이머' 가 잘려 '시계…' 가 되면
+ * 이모지만 남는 셈이라, 이 줄을 둔 이유가 사라집니다. 대신 두 줄까지 내려갑니다.
+ */
+.today-launch-name {
+  font-size: 10.5px; line-height: 1.25; text-align: center;
+  color: var(--text-dim); overflow-wrap: anywhere; word-break: keep-all;
+}
+
+/* 화면이 아주 좁으면 석 장씩. 넉 장이면 '시계·타이머' 가 석 줄로 접힙니다. */
+@media (max-width: 340px) {
+  .today-launcher { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* 넓은 화면에서는 한 줄에 다 놓습니다. */
+@media (min-width: 620px) {
+  .today-launcher { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+
+/* ---------- 바로 적기 ---------- */
+.today-quick { grid-column: 1 / -1; }
+.today-quick-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+}
+.today-quick-row:first-of-type { margin-top: 0; }
+/*
+ * 이름 칸의 폭을 고정합니다. 셋이 세로로 줄을 맞춰야 입력칸 왼쪽 끝이 들쭉날쭉하지 않습니다.
+ * '할 일'(2자)과 'Calculate'(9자)의 폭이 크게 다르므로 글자 수로 맡기면 어긋납니다.
+ */
+.today-quick-label {
+  display: flex; align-items: center; gap: 5px;
+  flex: none; width: 66px;
+  font-size: 12.5px; color: var(--text-dim);
+}
+.today-quick-input {
+  flex: 1 1 auto; min-width: 0;
+  min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 14px;
+}
+.today-quick-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.today-quick-go {
+  flex: none; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 10px;
+  background: var(--accent); color: var(--accent-text);
+  font-size: 17px; cursor: pointer;
+  transition: transform .1s ease;
+}
+.today-quick-go:active { transform: scale(.94); }
+.today-quick-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 계산 결과. 비어 있을 때는 hidden 이라 자리를 차지하지 않습니다. */
+.today-quick-out {
+  display: block; margin: 6px 0 0 74px;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+  color: var(--text); overflow-wrap: anywhere;
+}
+.today-quick-out.is-error { color: var(--danger, #e0533d); }
+
+@media (prefers-reduced-motion: reduce) {
+  .today-launch, .today-launch:active,
+  .today-quick-go, .today-quick-go:active { transition: none; transform: none; }
+}
+
 /* 날씨 카드는 통째로 버튼입니다. button 기본 스타일을 지우고 카드처럼 보이게 합니다. */
 .today-card {
   display: block; width: 100%; text-align: left;
@@ -1581,6 +1687,26 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.55; }
 /* 하루짜리와 한 해짜리는 일곱 칸 격자가 아닙니다. */
 .cal-grid[data-shape="day"],
 .cal-grid[data-shape="year"] { display: block; }
+
+/*
+ * 모양이 바뀔 때만 살짝 올라오며 나타납니다.
+ *
+ * 달력은 할 일을 체크하기만 해도 다시 그려집니다. 그릴 때마다 애니메이션을 걸면
+ * 체크 한 번에 달력이 깜빡여서 더 거슬립니다. 그래서 calendar.js 가 '모양이 달라진
+ * 순간' 에만 .is-enter 를 다시 붙입니다.
+ *
+ * 길이는 --motion 을 씁니다. 스킨이 정한 속도를 따르고, 동작 줄이기를 켠 기기에서는
+ * 0s 가 되어 저절로 꺼집니다.
+ */
+@keyframes cal-shape-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+.cal-grid.is-enter { animation: cal-shape-in var(--motion) var(--ease) both; }
+@media (prefers-reduced-motion: reduce) {
+  .cal-grid.is-enter { animation: none; }
+  .cal-mini { transition: none; }
+}
 .cal-wd {
   text-align: center; font-size: 11px; font-weight: 700; color: var(--text-faint);
   padding: 4px 0 2px;
@@ -1680,42 +1806,87 @@ body[data-has-update="true"] .tab[data-tab="settings"]::after {
 .cal-one-count { margin-left: auto; font-size: 12px; color: var(--text-dim); }
 .cal-one-up { flex: none; font-size: 12px; color: var(--text-faint); line-height: 1; }
 
-/* ---------- 연간 — 열두 달을 작게 ---------- */
+/* ---------- 연간 — 열두 달을 작게 ----------
+ *
+ * 처음에는 상자 열두 개에 테두리를 두르고, 일이 있는 날을 굵게, 오늘을 꽉 찬 사각으로
+ * 칠했습니다. 7px 글자 위에서는 그 전부가 세게 보여 화면이 딱딱했습니다.
+ * 테두리는 면으로, 굵기는 색으로, 사각은 원으로 바꿔 힘을 뺐습니다.
+ */
+/*
+ * 바로 위 기간 줄에도 '2026년' 이 있어 글자가 겹칩니다.
+ * 요청대로 달력 맨 위에 연도를 두되, 세기는 낮춰 안내 글처럼 보이게 합니다.
+ */
 .cal-year-head {
-  text-align: center; font-size: 15px; font-weight: 700;
-  color: var(--accent); padding: 2px 0 8px;
+  text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--text-dim); letter-spacing: .04em;
+  padding: 2px 0 9px;
 }
 /*
  * 넉 장씩 석 줄.
  * 한 해가 한 화면에 들어와야 '스크롤에 힘쓰지 않는다' 는 말이 성립합니다.
  */
 .cal-year-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+/*
+ * 테두리를 두르지 않습니다.
+ * 열두 개에 선을 두르면 그 선들이 또 하나의 격자를 만들어 답답해집니다.
+ * 옅은 면만으로 경계는 충분히 읽힙니다.
+ */
 .cal-mini {
-  display: block; padding: 4px 3px 5px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text);
+  display: block; padding: 4px 2px 5px;
+  border: 1px solid transparent; border-radius: 10px;
+  background: var(--surface-2); color: var(--text);
   font: inherit; cursor: pointer;
+  transition: background var(--motion) var(--ease), border-color var(--motion) var(--ease);
 }
-.cal-mini:hover { border-color: var(--accent); }
+.cal-mini:hover { background: var(--surface-3); }
 .cal-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* 오늘이 든 달은 테두리로만 알립니다. 고른 기간과 헷갈리면 안 됩니다. */
-.cal-mini.is-now { border-color: var(--accent); background: var(--accent-soft); }
+/* 오늘이 든 달. 테두리로 가두지 않고 옅은 면으로만 알립니다. */
+.cal-mini.is-now { background: var(--accent-soft); }
 .cal-mini-head {
   display: block; text-align: center;
-  font-size: 10.5px; font-weight: 700; color: var(--text-dim); padding-bottom: 2px;
+  font-size: 10.5px; font-weight: 600; color: var(--text-dim);
+  padding-bottom: 3px; letter-spacing: -.01em;
 }
-.cal-mini.is-now .cal-mini-head { color: var(--accent); }
-/* 칸을 딱 붙이면 '1011121314' 처럼 숫자가 한 덩어리로 읽힙니다. 아주 조금 띄웁니다. */
-.cal-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px 1px; }
+.cal-mini.is-now .cal-mini-head { color: var(--accent); font-weight: 700; }
+.cal-mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px 0; }
 .cal-mini-day {
-  /* 아주 작은 판이라 날짜는 보여 주기만 합니다. 누르는 것은 달 한 장 전체입니다. */
-  text-align: center; font-size: 7px; line-height: 1.6;
+  /*
+   * 아주 작은 판이라 날짜는 보여 주기만 합니다. 누르는 것은 달 한 장 전체입니다.
+   *
+   * 칸 하나가 9.5px 남짓인데 두 자리 숫자가 그 폭을 거의 다 먹어서,
+   * '1011121314' 처럼 옆 날짜와 한 덩어리로 읽혔습니다.
+   * 자간을 좁혀 숫자를 모으고, 그만큼 칸 사이에 숨 쉴 틈을 냅니다.
+   */
+  text-align: center; font-size: 7px; line-height: 1.62;
+  letter-spacing: -.045em;
   color: var(--text-faint); font-variant-numeric: tabular-nums;
+  /*
+   * 빈 칸도 제 높이를 갖게 합니다.
+   *
+   * 글자가 없는 칸은 줄 상자가 만들어지지 않아 높이가 0이 됩니다. 그러면 빈 줄로
+   * 채운 여섯째 줄이 통째로 납작해져서, 달마다 카드 높이가 또 달라졌습니다.
+   * (실측: 99px 과 111px 로 갈렸습니다)
+   */
+  min-height: 1.62em;
 }
 .cal-mini-day.is-blank { visibility: hidden; }
-/* 일이 있는 날만 진하게. 작은 판에서는 이모지를 놓을 자리가 없습니다. */
-.cal-mini-day.has-items { color: var(--text); font-weight: 700; }
-.cal-mini-day.is-today { color: var(--accent-text); background: var(--accent-fill); border-radius: 2px; font-weight: 700; }
+/*
+ * 일이 있는 날.
+ * 굵게 하면 가뜩이나 좁은 칸에서 옆 숫자와 더 붙어 보입니다. 색으로만 알립니다.
+ */
+.cal-mini-day.has-items { color: var(--accent); }
+/*
+ * 오늘.
+ *
+ * 처음에는 꽉 찬 사각, 다음에는 꽉 찬 원으로 칠했습니다. 둘 다 7px 두 자리 숫자를
+ * 덮어 버려서 며칠인지 읽히지 않았습니다. 면 대신 얇은 링으로 두릅니다.
+ * 글자는 그대로 두고 테두리만 돌기 때문에 숫자가 살아 있습니다.
+ */
+.cal-mini-day.is-today {
+  color: var(--accent); font-weight: 700;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 
 /* ---------- 년·월 고르기 판 ----------
  * ‹ › 만으로는 한 해 전으로 가려면 열두 번을 눌러야 합니다.
@@ -1951,6 +2122,75 @@ button.todo-group-head:focus-visible { outline: 2px solid var(--accent); outline
  * 화면 아래에 고정합니다. 카드를 끌다 보면 화면이 스크롤되는데,
  * 흐름에 같이 태우면 '완료'가 화면 밖으로 사라져 빠져나갈 길이 안 보입니다.
  */
+/* =========================================================
+   처음 켰을 때 보여 주는 사용 안내
+   -----------------------------------------------------
+   .arr-dock 과 같은 이유로 position: absolute 입니다. fixed 는 안드로이드
+   WebView 에서 '보이는 화면' 과 기준이 어긋나 화면 밖으로 밀려납니다.
+   ========================================================= */
+.intro-scrim {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(16, 24, 40, .48);
+}
+.intro {
+  position: absolute; z-index: 61;
+  left: calc(16px + var(--sa-left)); right: calc(16px + var(--sa-right));
+  bottom: calc(16px + var(--sa-bottom));
+  /* 화면이 아주 낮을 때도 위로 넘치지 않게. 넘치면 카드 안이 스크롤됩니다. */
+  max-height: calc(100% - 32px - var(--sa-top) - var(--sa-bottom));
+  display: flex; align-items: flex-end;
+}
+/*
+ * 넓은 화면에서는 가운데 띄웁니다.
+ * 좁은 화면에서는 아래에 붙입니다. 손가락이 닿는 자리가 아래쪽입니다.
+ */
+@media (min-width: 760px) {
+  .intro { align-items: center; justify-content: center; top: 0; }
+  .intro-card { max-width: 420px; }
+}
+.intro-card {
+  width: 100%;
+  padding: 22px 20px 18px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 10px 34px rgba(16, 24, 40, .26);
+  overflow-y: auto;
+  animation: intro-in var(--motion) var(--ease) both;
+}
+/* 초점을 받기만 하는 카드라 테두리를 그리지 않습니다. 버튼들은 제 초점 표시를 그대로 씁니다. */
+.intro-card:focus { outline: none; }
+@keyframes intro-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.intro-icon { display: block; font-size: 34px; line-height: 1; margin-bottom: 12px; }
+.intro-title { margin: 0 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.intro-text { margin: 0; font-size: 14px; line-height: 1.65; color: var(--text-dim); }
+
+/* 몇 번째 장인지. 보여 주기만 하고 누르는 곳은 아닙니다. */
+.intro-dots { display: flex; gap: 6px; margin: 18px 0 16px; }
+.intro-dot {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--surface-3);
+  transition: background var(--motion) var(--ease), width var(--motion) var(--ease);
+}
+.intro-dot.is-on { width: 18px; background: var(--accent-fill); }
+
+.intro-actions { display: flex; align-items: center; gap: 8px; }
+/* '건너뛰기' 는 왼쪽 끝, 나머지는 오른쪽으로 몰아 둡니다. */
+#intro-skip { margin-right: auto; }
+#intro-prev + #intro-next, #intro-skip + #intro-next { margin-left: 0; }
+/* 건너뛰기가 숨으면 '이전' 이 왼쪽 끝을 맡습니다. */
+#intro-skip[hidden] + #intro-prev { margin-right: auto; }
+
+/* 안내가 떠 있는 동안에는 떠 있는 버튼을 감춥니다. 겹쳐 보이면 지저분합니다. */
+body[data-intro="open"] .home-fab { opacity: 0; visibility: hidden; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-card { animation: none; }
+  .intro-dot { transition: none; }
+}
+
 /* =========================================================
    어느 탭에 있든 한 번에 '오늘' 로
    -----------------------------------------------------
@@ -2248,11 +2488,70 @@ body:not([data-tab="today"]) #panel-todo > [data-card="todo.plan"] { padding-bot
     <section class="panel grid" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
       <div class="today-head">
         <div class="today-date" id="today-date">—</div>
-        <div class="today-swipe-hint" aria-hidden="true">← 좌우로 쓸어 탭 이동 →</div>
+        <div class="today-swipe-hint" aria-hidden="true" data-i18n="today.swipe">← 좌우로 쓸어 탭 이동 →</div>
       </div>
+
+      <!--
+        기능 바로가기.
+        이 앱에는 탭 막대가 없어서, 처음 켠 사람은 '오늘' 하나만 보고 앱이 그게 전부인 줄 압니다.
+        여기가 무엇이 있는지 보여 주는 유일한 자리라, 숨기거나 옮길 수 없게 고정해 둡니다.
+        칩은 today.js 가 실제로 보이는 탭만 그 순서대로 그립니다. (숨긴 탭은 빠집니다)
+      -->
+      <nav class="today-launcher" id="today-launcher"></nav>
 
       <!-- 위젯은 설정 탭에서 고른 것만, 고른 순서대로 today.js 가 그립니다. -->
       <div class="today-widgets grid grid-2" id="today-widgets"></div>
+
+      <!--
+        바로 적기.
+        할 일 하나 적으러 탭을 넘어갔다 돌아오는 것이 첫 사용에서 가장 많이 막히는 자리였습니다.
+        이모지는 전부 aria-hidden 이고, 입력칸의 이름은 옆의 글자(label)가 맡습니다.
+      -->
+      <div class="card today-quick" id="today-quick">
+        <div class="today-card-head">
+          <span class="card-title" data-i18n="today.quick.title">바로 적기</span>
+          <span class="card-sub" data-i18n="today.quick.hint">탭을 옮기지 않아도 됩니다</span>
+        </div>
+
+        <form class="today-quick-row" id="today-quick-todo-form">
+          <label class="today-quick-label" for="today-quick-todo">
+            <span aria-hidden="true">✅</span>
+            <span data-i18n="today.quick.todo">할 일</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-todo" type="text" autocomplete="off"
+                 enterkeyhint="done" data-i18n-placeholder="today.quick.todoPlaceholder"
+                 placeholder="오늘 할 일 한 줄">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.todoAdd"
+                  aria-label="할 일 추가"><span aria-hidden="true">＋</span></button>
+        </form>
+
+        <form class="today-quick-row" id="today-quick-calc-form">
+          <label class="today-quick-label" for="today-quick-calc">
+            <span aria-hidden="true">🧮</span>
+            <span data-i18n="today.quick.calc">계산</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-calc" type="text" autocomplete="off"
+                 inputmode="text" enterkeyhint="go" data-i18n-placeholder="today.quick.calcPlaceholder"
+                 placeholder="예: 12000*3">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.calcGo"
+                  aria-label="계산하기"><span aria-hidden="true">＝</span></button>
+        </form>
+        <!-- 계산 결과. 비어 있을 때는 자리를 차지하지 않습니다. -->
+        <output class="today-quick-out" id="today-quick-calc-out" for="today-quick-calc" hidden></output>
+
+        <form class="today-quick-row" id="today-quick-memo-form">
+          <label class="today-quick-label" for="today-quick-memo">
+            <span aria-hidden="true">✏️</span>
+            <span data-i18n="today.quick.memo">메모</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-memo" type="text" autocomplete="off"
+                 enterkeyhint="done" data-i18n-placeholder="today.quick.memoPlaceholder"
+                 placeholder="기억해 둘 것 한 줄">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.memoAdd"
+                  aria-label="메모 저장"><span aria-hidden="true">＋</span></button>
+        </form>
+      </div>
+
     </section>
 
     <!-- ================= 계산기 ================= -->
@@ -2612,6 +2911,10 @@ body:not([data-tab="today"]) #panel-todo > [data-card="todo.plan"] { padding-bot
           </div>
         </div>
         <p class="card-sub" style="margin:-6px 0 14px">TO DO 탭의 버튼과 날짜 표기 언어입니다. 입력한 계획 내용은 바뀌지 않습니다.</p>
+        <!-- 처음 켰을 때 뜨는 안내를 다시 엽니다. 한 번 보고 나면 여기가 유일한 입구입니다. -->
+        <div class="row" style="margin-bottom:14px">
+          <button class="btn btn-sm" id="set-intro" type="button" data-i18n="intro.again">사용법 다시 보기</button>
+        </div>
         <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
         <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
         <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>
@@ -2690,6 +2993,35 @@ body:not([data-tab="today"]) #panel-todo > [data-card="todo.plan"] { padding-bot
     (실제로 재현됨: 화면 높이 844px 인데 막대가 3311px 위치에 놓였습니다)
     .app 은 딱 보이는 만큼의 높이라, 그 안에 붙이면 어떤 환경에서도 화면 안에 있습니다.
   -->
+  <!--
+    처음 켰을 때 한 번 보여 주는 사용 안내.
+
+    이 앱에는 탭 막대가 없어서, 좌우로 쓸어 넘긴다는 것부터 알려 줘야 합니다.
+    카드를 꾹 눌러 옮기는 것도, 데이터가 이 기기에만 남는다는 것도 화면만 봐서는 모릅니다.
+
+    .arr-dock 과 같은 이유로 .app 안에 둡니다. body 바로 밑에서 position: fixed 로
+    띄우면 안드로이드 WebView 에서 화면 밖으로 밀려납니다.
+
+    쓰던 사람에게는 뜨지 않습니다. 기록이 하나도 없을 때만 뜨고,
+    그 뒤에는 설정 탭의 '사용법 다시 보기' 로 엽니다.
+  -->
+  <div class="intro-scrim" id="intro-scrim" hidden></div>
+  <div class="intro" id="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" hidden>
+    <!-- 초점은 버튼이 아니라 이 카드가 받습니다. 열자마자 버튼에 두꺼운 초점 링이
+         걸리면 손으로 쓰는 사람에게는 그리다 만 것처럼 보입니다. -->
+    <div class="intro-card" id="intro-card" tabindex="-1">
+      <span class="intro-icon" id="intro-icon" aria-hidden="true">↔</span>
+      <h2 class="intro-title" id="intro-title">—</h2>
+      <p class="intro-text" id="intro-text">—</p>
+      <div class="intro-dots" id="intro-dots" role="img"></div>
+      <div class="intro-actions">
+        <button class="btn btn-sm btn-ghost" id="intro-skip" type="button" data-i18n="intro.skip">건너뛰기</button>
+        <button class="btn btn-sm" id="intro-prev" type="button" data-i18n="intro.prev" hidden>이전</button>
+        <button class="btn btn-sm btn-primary" id="intro-next" type="button" data-i18n="intro.next">다음</button>
+      </div>
+    </div>
+  </div>
+
   <!--
     어느 탭에 있든 한 번에 '오늘' 로 돌아오는 버튼.
 
@@ -2863,6 +3195,27 @@ function remove(key) {
   } catch { /* 무시 */ }
 }
 
+/**
+ * 이 앱이 저장한 것이 하나라도 있는지.
+ *
+ * '첫 접속' 판정에 씁니다. exportAll() 은 값을 전부 JSON 으로 풀어 내므로
+ * 있는지만 보려고 부르기에는 무겁습니다. 키 하나만 찾으면 바로 끝냅니다.
+ */
+function hasAnyData() {
+  try {
+    if (checkStorage()) {
+      for (let i = 0; i < window.localStorage.length; i += 1) {
+        if (String(window.localStorage.key(i)).startsWith(PREFIX)) return true;
+      }
+      return false;
+    }
+    return memoryFallback.size > 0;
+  } catch {
+    // 저장소를 못 읽으면 '모른다' 입니다. 안내를 띄우지 않는 쪽으로 기웁니다.
+    return true;
+  }
+}
+
 /** 이 앱이 저장한 모든 키를 삭제합니다. */
 function clearAll() {
   try {
@@ -2941,7 +3294,7 @@ function removeSecret(key) {
   secretMemory.delete(key);
   remove(key);
 }
-  return { load, save, remove, clearAll, exportAll, importAll, isPersistent, isSharedStorage, saveSecret, loadSecret, removeSecret };
+  return { load, save, remove, hasAnyData, clearAll, exportAll, importAll, isPersistent, isSharedStorage, saveSecret, loadSecret, removeSecret };
 })();
 
 /* ===== js/lib/i18n.js ===== */
@@ -2965,6 +3318,23 @@ const DICT = {
     // 시작 화면(스플래시)이 스크린리더에 읽히는 문구
     'app.loading': '불러오는 중',
     'app.backToToday': '오늘 탭으로 돌아가기',
+    // ---- 처음 켰을 때 보여 주는 사용 안내 ----
+    'intro.skip': '건너뛰기',
+    'intro.prev': '이전',
+    'intro.next': '다음',
+    'intro.start': '시작하기',
+    'intro.again': '사용법 다시 보기',
+    'intro.progress': (i, n) => `${n}장 중 ${i}장`,
+    'intro.move.title': '좌우로 쓸어서 옮겨 다닙니다',
+    'intro.move.text': '이 앱에는 탭 막대가 없습니다. 화면을 좌우로 쓸면 다음 기능으로 넘어가고, 왼쪽 위 ••• 을 누르면 전체 목록이 열립니다.',
+    'intro.today.title': "'오늘' 이 첫 화면입니다",
+    'intro.today.text': '날씨와 오늘 할 일을 한눈에 봅니다. 어느 탭에 있든 오른쪽 아래 오늘 버튼을 누르면 바로 돌아옵니다.',
+    'intro.plan.title': '계획은 네 가지 단위로',
+    'intro.plan.text': 'TO DO 탭에서 일간·주간·월간·연간을 골라 적습니다. 달력 모양도 고른 단위를 그대로 따라갑니다.',
+    'intro.arrange.title': '카드를 꾹 눌러 옮깁니다',
+    'intro.arrange.text': '아무 카드나 길게 누르면 편집이 켜집니다. 끌어서 순서를 바꾸고 크기를 고를 수 있습니다. 테마와 탭 구성은 설정 탭에서 바꿉니다.',
+    'intro.data.title': '기록은 이 기기에만 남습니다',
+    'intro.data.text': '서버로 올라가지 않습니다. 앱을 지우거나 기기를 바꾸면 사라지므로, 설정 탭에서 가끔 백업해 두세요.',
     'today.weather.title': '현재 날씨',
     'today.weather.loading': '날씨를 불러오는 중…',
     'today.weather.error': '날씨를 불러오지 못했습니다',
@@ -2998,7 +3368,27 @@ const DICT = {
     'today.memo.more': (n) => `외 ${n}건`,
     'today.calc.title': '최근 계산',
     'today.calc.empty': '계산 기록이 없습니다',
-    'today.widget.hint': '눌러서 해당 탭으로 이동',
+    'today.swipe': '← 좌우로 쓸어 탭 이동 →',
+    'today.launcher.label': '기능 바로가기',
+    'today.quick.title': '바로 적기',
+    'today.quick.hint': '탭을 옮기지 않아도 됩니다',
+    'today.quick.todo': '할 일',
+    'today.quick.todoPlaceholder': '오늘 할 일 한 줄',
+    'today.quick.todoAdd': '할 일 추가',
+    'today.quick.todoDone': (text) => `오늘 할 일에 넣었습니다 — ${text}`,
+    'today.quick.calc': '계산',
+    'today.quick.calcPlaceholder': '예: 12000*3',
+    'today.quick.calcGo': '계산하기',
+    'today.quick.calcError': '계산할 수 없습니다',
+    'today.quick.memo': '메모',
+    'today.quick.memoPlaceholder': '기억해 둘 것 한 줄',
+    'today.quick.memoAdd': '메모 저장',
+    'today.quick.memoDone': '메모에 저장했습니다',
+    'today.clock.hint': '눌러서 스톱워치 열기',
+    'today.timer.hint': '눌러서 타이머 맞추기',
+    'today.quote.hint': '눌러서 글귀 더 보기',
+    'today.memo.hint': '눌러서 메모장 열기',
+    'today.calc.hint': '눌러서 계산기 열기',
     'today.empty': '표시할 위젯이 없습니다. 설정 탭에서 골라 주세요.',
     // ---- 커스터마이즈 ----
     'cz.title': '화면 커스터마이즈',
@@ -3175,6 +3565,23 @@ const DICT = {
   en: {
     'app.loading': 'Loading',
     'app.backToToday': 'Back to the Today tab',
+    // ---- First-run guide ----
+    'intro.skip': 'Skip',
+    'intro.prev': 'Back',
+    'intro.next': 'Next',
+    'intro.start': 'Get started',
+    'intro.again': 'Show the guide again',
+    'intro.progress': (i, n) => `Step ${i} of ${n}`,
+    'intro.move.title': 'Swipe left and right to move',
+    'intro.move.text': 'There is no tab bar. Swipe sideways to reach the next tool, or tap ••• at the top left for the full list.',
+    'intro.today.title': 'Today is your home screen',
+    'intro.today.text': 'It shows the weather and what you planned for today. Wherever you are, the Today button at the bottom right brings you straight back.',
+    'intro.plan.title': 'Plan by day, week, month or year',
+    'intro.plan.text': 'Pick a scope in the TO DO tab and write there. The calendar changes shape to match the scope you picked.',
+    'intro.arrange.title': 'Press and hold a card to move it',
+    'intro.arrange.text': 'Long-press any card to turn on editing. Drag to reorder and choose a size. Themes and which tabs to show live in Settings.',
+    'intro.data.title': 'Everything stays on this device',
+    'intro.data.text': 'Nothing is uploaded to a server. Deleting the app or changing devices loses it, so export a backup from Settings now and then.',
     'today.weather.title': 'Current weather',
     'today.weather.loading': 'Loading weather…',
     'today.weather.error': "Couldn't load the weather",
@@ -3208,7 +3615,27 @@ const DICT = {
     'today.memo.more': (n) => `+${n} more`,
     'today.calc.title': 'Recent calculation',
     'today.calc.empty': 'No calculations yet',
-    'today.widget.hint': 'Tap to open that tab',
+    'today.swipe': '← swipe to switch tools →',
+    'today.launcher.label': 'Jump to a tool',
+    'today.quick.title': 'Quick add',
+    'today.quick.hint': 'No need to switch tabs',
+    'today.quick.todo': 'Task',
+    'today.quick.todoPlaceholder': "One line for today's task",
+    'today.quick.todoAdd': 'Add task',
+    'today.quick.todoDone': (text) => `Added to today — ${text}`,
+    'today.quick.calc': 'Calculate',
+    'today.quick.calcPlaceholder': 'e.g. 12000*3',
+    'today.quick.calcGo': 'Calculate',
+    'today.quick.calcError': "Can't calculate that",
+    'today.quick.memo': 'Note',
+    'today.quick.memoPlaceholder': 'One line to remember',
+    'today.quick.memoAdd': 'Save note',
+    'today.quick.memoDone': 'Saved to your notes',
+    'today.clock.hint': 'Tap for the stopwatch',
+    'today.timer.hint': 'Tap to set a timer',
+    'today.quote.hint': 'Tap for more quotes',
+    'today.memo.hint': 'Tap to open notes',
+    'today.calc.hint': 'Tap to open the calculator',
     'today.empty': 'No widgets selected. Pick some in Settings.',
     // ---- Customize ----
     'cz.title': 'Customize',
@@ -4187,6 +4614,7 @@ const __m_js_modules_todo_js = (function () {
   const { load, save } = __m_js_lib_store_js;
   const { t, getLang, onLangChange, applyStatic } = __m_js_lib_i18n_js;
   const { keyOf, shift, label, isCurrent, dateOf, fromLegacyIsoWeek, SCOPES } = __m_js_lib_period_js;
+  const { onPrefsChange } = __m_js_lib_prefs_js;
   const { allCategories, allCategoriesIncludingHidden, emojiOf, labelOf, isCategory,
   addCategory, removeCategory, setCategoryEmoji, hideCategory,
   onCategoryChange, EMOJI_CHOICES, DEFAULT_CATEGORY, } = __m_js_lib_categories_js;
@@ -4204,6 +4632,7 @@ const __m_js_modules_todo_js = (function () {
  *   주간 : 그 주의 주간 목표 + 그 주 7일의 일간 계획을 날짜별로 묶어 보여 줍니다.
  *   월/연 : 그 단위로 적은 것만 보여 줍니다. (일간까지 합치면 수백 줄이 됩니다)
  */
+
 
 
 
@@ -4706,6 +5135,14 @@ function syncDayView() {
 }
 
 function render() {
+  /*
+   * 탭을 숨겨 두면 이 패널은 #main 에서 빠져 나가 문서에 없습니다. (appearance.js 의 applyTabLayout)
+   * 그런데 '오늘' 탭의 할 일 위젯은 그대로 남아 있어서, 거기서 체크하거나 적으면
+   * 여기까지 내려옵니다. 그때 $('#todo-list') 는 null 이라 그리다가 던졌습니다.
+   * 저장은 이미 persist() 에서 끝났으므로, 그릴 곳이 없으면 조용히 돌아갑니다.
+   * 탭을 다시 켜면 아래 onPrefsChange 가 그때 한 번 그립니다.
+   */
+  if (!document.querySelector('#todo-list')) return;
   renderHeader();
   // 시간대 보기를 쓰는 중이면 그쪽을 그리고 끝냅니다.
   if (syncDayView()) { renderHours(); return; }
@@ -4856,6 +5293,34 @@ function renameItem(id, text) {
   const target = items.find((item) => item.id === id);
   if (!target || target.text === next) return false;
   target.text = next;
+  persist();
+  render();
+  return true;
+}
+
+/**
+ * 밖에서 할 일을 하나 추가합니다. ('오늘' 탭의 빠른 입력이 씁니다)
+ *
+ * 계획표에서 보고 있는 기간이 아니라 언제나 '오늘' 로 들어갑니다.
+ * 오늘 탭에서 적는 것은 오늘 할 일이라는 뜻입니다. 계획표를 다음 달로 넘겨 둔 채
+ * 오늘 탭에서 적었다고 다음 달에 들어가 버리면 적은 사람이 찾지 못합니다.
+ *
+ * 분류는 계획표에서 마지막에 고른 것을 그대로 씁니다.
+ * 빠른 입력에는 분류 고르는 자리가 없는데, 여기서만 기본값으로 되돌리면
+ * 계획표에서 '건강' 을 골라 두고 온 사람의 뜻을 말없이 뒤집는 셈입니다.
+ *
+ * @param {string} text 할 일 내용
+ * @returns {boolean} 실제로 추가했으면 true (빈 글이면 false)
+ */
+function addItem(text) {
+  const body = typeof text === 'string' ? text.trim() : '';
+  if (!body) return false;
+  items.unshift({
+    id: uid(), text: body, done: false,
+    scope: 'day', period: keyOf('day'),
+    category: isCategory(picked) ? picked : DEFAULT_CATEGORY,
+    at: Date.now(), doneAt: null,
+  });
   persist();
   render();
   return true;
@@ -5207,10 +5672,17 @@ function initTodo() {
     toast(removed ? t('todo.toast.cleared', removed) : t('todo.toast.nothingToClear'));
   });
 
+  /*
+   * 탭을 숨기면 이 패널이 문서에서 빠지고, 그동안의 render() 는 위 가드에 걸려 건너뜁니다.
+   * 다시 켜면 패널이 돌아오는데 안에는 숨기기 직전 화면이 그대로 남아 있어서,
+   * 그 사이 '오늘' 탭에서 적은 것이 안 보입니다. 배치가 바뀔 때 한 번 다시 그립니다.
+   */
+  onPrefsChange(() => { render(); });
+
   render();
   notifyView();
 }
-  return { onTodoChange, onViewChange, getItems, getView, normalizeTime, minutesOf, sortDayRows, daysOfWeek, hoursToShow, setDone, renameItem, revealItem, openDate, gotoDate, openPeriod, initTodo };
+  return { onTodoChange, onViewChange, getItems, getView, normalizeTime, minutesOf, sortDayRows, daysOfWeek, hoursToShow, setDone, renameItem, addItem, revealItem, openDate, gotoDate, openPeriod, initTodo };
 })();
 
 /* ===== js/modules/weather.js ===== */
@@ -5311,7 +5783,10 @@ async function fetchJson(url, timeoutMs = 12000) {
 
 function showError(message) {
   setSnapshot({ status: 'error', message });
-  $('#wx-now').replaceChildren(
+  // setSnapshot 이 '오늘' 위젯에 알린 뒤입니다. 탭이 숨겨져 있으면 그릴 곳만 없습니다.
+  const now = $('#wx-now');
+  if (!now) return;
+  now.replaceChildren(
     el('p', { class: 'empty' }, `날씨를 불러오지 못했습니다. ${message}`),
     el('div', { class: 'row', style: 'justify-content:center' },
       el('button', { class: 'btn btn-sm', onclick: () => loadWeather(load(PLACE_KEY, DEFAULT_PLACE)) }, '다시 시도')),
@@ -5320,6 +5795,8 @@ function showError(message) {
 }
 
 function renderCurrent(place, data) {
+  // 날씨 탭을 숨기면 패널이 문서에 없습니다. 받아온 값은 이미 '오늘' 위젯으로 갔습니다.
+  if (!$('#wx-place')) return;
   const cur = data?.current || {};
   const [desc, icon] = describe(cur.weather_code);
   $('#wx-place').textContent = place.admin1 && place.admin1 !== place.name
@@ -5346,6 +5823,7 @@ function renderCurrent(place, data) {
 function renderWeek(data) {
   const daily = data?.daily;
   const weekEl = $('#wx-week');
+  if (!weekEl) return;
   if (!daily || !Array.isArray(daily.time) || !daily.time.length) {
     weekEl.replaceChildren(el('li', { class: 'empty' }, '주간 예보 데이터가 없습니다.'));
     return;
@@ -5386,7 +5864,13 @@ function renderWeek(data) {
 
 async function loadWeather(place) {
   setSnapshot({ status: 'loading' });
-  $('#wx-now').replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 불러오는 중…'));
+  /*
+   * 날씨 탭을 숨겨 두면 이 패널이 문서에서 빠집니다. (appearance.js 의 applyTabLayout)
+   * 그런데 '오늘' 탭의 날씨 위젯은 그대로 남아 있고, 그 위젯이 이 함수를 깨웁니다.
+   * 예전에는 여기서 바로 던져서 fetch 까지 가지도 못했고, 위젯은 '불러오는 중…' 에
+   * 영영 멈춰 있었습니다. 그릴 곳이 없어도 받아오는 일은 해야 합니다.
+   */
+  $('#wx-now')?.replaceChildren(el('p', { class: 'empty' }, el('span', { class: 'spinner' }), ' 불러오는 중…'));
   const params = new URLSearchParams({
     latitude: String(place.latitude),
     longitude: String(place.longitude),
@@ -6303,7 +6787,13 @@ function initTime() {
   let wasHidden = true;
   let lastSecond = -1;
   setInterval(() => {
-    const hidden = $('#panel-time').hidden;
+    /*
+     * 시계 탭을 숨기면 이 패널이 문서에서 빠져 null 이 됩니다.
+     * 예전에는 여기서 250ms 마다 던져서 그 아래 tickAlarm() 까지 내려가지 못했고,
+     * 탭을 숨긴 사람은 알람이 영영 울리지 않았습니다.
+     * 문서에 없으면 '안 보이는 것' 으로 봅니다. 그리기만 건너뛰고 알람은 그대로 돕니다.
+     */
+    const hidden = $('#panel-time')?.hidden ?? true;
     const second = new Date().getSeconds();
     if (second !== lastSecond) {
       lastSecond = second;
@@ -6405,600 +6895,532 @@ function notifyTabChange(name) {
     try { fn(name); } catch (err) { console.error('[nav] 구독자 오류', err); }
   });
 }
-  return { setNavigator, goToTab, onTabChange, notifyTabChange };
+
+/**
+ * 탭 앞에 붙는 이모지.
+ *
+ * 목록이 index.html 한 군데에만 있도록 사이드바 버튼에서 읽어 씁니다.
+ * 이모지는 aria-hidden 이라 '이름' 이 아니라 장식입니다.
+ * 화면 읽기 프로그램에 읽히는 이름은 언제나 옆에 있는 글자입니다.
+ * (이모지만 두면 🗓️ 이 'spiral calendar' 로, ⏱️ 가 'stopwatch' 로 읽힙니다)
+ */
+function tabIcon(name) {
+  const span = document.querySelector(`.tab[data-tab="${name}"] span[aria-hidden="true"]`);
+  return span ? span.textContent.trim() : '';
+}
+  return { setNavigator, goToTab, onTabChange, notifyTabChange, tabIcon };
 })();
 
-/* ===== js/modules/today.js ===== */
-const __m_js_modules_today_js = (function () {
-  const { $, el } = __m_js_lib_dom_js;
-  const { t, getLang, onLangChange } = __m_js_lib_i18n_js;
-  const { isCurrent, SCOPES } = __m_js_lib_period_js;
-  const { load } = __m_js_lib_store_js;
-  const { getPrefs, onPrefsChange } = __m_js_lib_prefs_js;
-  const { getItems, onTodoChange, revealItem, setDone, renameItem } = __m_js_modules_todo_js;
-  const { emojiOf, labelOf } = __m_js_lib_categories_js;
-  const { getWeather, onWeatherChange, describe } = __m_js_modules_weather_js;
-  const { arrangeBusy, onArrangeChange } = __m_js_modules_arrange_js;
-  const { getTimerState } = __m_js_modules_time_js;
-  const { goToTab, onTabChange } = __m_js_lib_nav_js;
+/* ===== js/modules/memo.js ===== */
+const __m_js_modules_memo_js = (function () {
+  const { $, el, toast, uid } = __m_js_lib_dom_js;
+  const { load, save } = __m_js_lib_store_js;
 /**
- * '오늘' 탭 — 플래너의 첫 페이지
- *
- * 앱을 열면 가장 먼저 보이는 화면입니다.
- * 어떤 요약 카드를 어떤 순서로 놓을지는 설정 탭에서 고릅니다. (lib/prefs.js 의 widgets)
- * 카드는 전부 버튼이고, 누르면 그 기능의 탭으로 넘어갑니다.
- *
- * 자동으로 움직이는 화면은 읽으려는 순간 지나가버리므로,
- * 손을 올리거나 포커스가 들어오면 멈추고 일시정지 버튼도 따로 둡니다. (WCAG 2.2.2)
- * OS 의 '동작 줄이기' 설정이 켜져 있으면 자동 순환을 아예 하지 않습니다.
+ * 메모 · 낙서판 모듈
+ * 낙서판은 Pointer Events 로 마우스/터치/펜을 동일하게 처리합니다.
  */
 
 
-
-
-
-
-
-
-
-
-
-const ROTATE_MS = 3500;
-const VISIBLE_ROWS = 3; // 상자 안에 한 번에 보이는 할 일 개수
-const TICK_MS = 1000;   // 시계·타이머 위젯 갱신 주기
-
-// 다른 모듈이 localStorage 에 쓰는 키입니다.
-// 모듈마다 구독 훅을 새로 만드는 대신, 요약만 필요하므로 저장된 값을 직접 읽습니다.
-const QUOTE_KEY = 'quote.items';
 const MEMO_KEY = 'memo.items';
-const CALC_HISTORY_KEY = 'calc.history';
+const DRAW_KEY = 'memo.drawing';
+const COLORS = ['#1a1d21', '#e0533d', '#3b6ef6', '#1a8f5a', '#c47b12', '#8b5cf6'];
+const MAX_UNDO = 12;
 
-let rotateTimer = null;
-let clockTimer = null;
-let rotateIndex = 0;
-let paused = false;      // 사용자가 버튼으로 멈춘 상태
-let hovering = false;    // 손/포인터가 올라가 있거나, 글자를 고치는 중
-
-/**
- * 순환을 멈출지 여부. 손이 올라가 있거나 글을 고치는 중이면 멈춥니다.
- * initToday 안에만 두면 글자 고치기에서 부를 수가 없어 모듈 범위로 올렸습니다.
- */
-function setHover(on) {
-  if (hovering === on) return;
-  hovering = on;
-  syncTimer();
-}
-let tabActive = false;   // '오늘' 탭이 보이는 동안만 타이머를 돌립니다
-let rows = [];           // 현재 보여주는 미완료 항목
-
-/** OS 의 '동작 줄이기' 설정. 켜져 있으면 자동 순환을 하지 않습니다. */
-function prefersReducedMotion() {
-  try {
-    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 오늘 해야 할 미완료 항목.
- * 일간은 오늘, 주간은 이번 주, 월간은 이번 달, 연간은 올해 것까지 포함합니다.
- * (주간 계획만 쓰는 사용자에게 빈 화면을 보여주지 않기 위해서입니다)
- * 짧은 주기가 먼저 오도록 정렬합니다.
- */
-const SCOPE_ORDER = { day: 0, week: 1, month: 2, year: 3 };
-
-/**
- * localStorage 가 손상되면 scope 가 없거나 이상한 값인 항목이 섞여 들어옵니다.
- * isCurrent() 는 모르는 단위에 예외를 던지므로, 여기서 먼저 걸러야
- * 항목 하나 때문에 '오늘' 탭 전체가 죽지 않습니다.
- */
-const usable = (item) => (
-  item != null
-  && !item.done
-  && typeof item.text === 'string'
-  && SCOPES.includes(item.scope)
-  && typeof item.period === 'string'
-);
-
-function todayRows(items = getItems()) {
-  return items
-    .filter((item) => usable(item) && isCurrent(item.scope, item.period))
-    .sort((a, b) => (SCOPE_ORDER[a.scope] ?? 9) - (SCOPE_ORDER[b.scope] ?? 9));
-}
-
-/** 순환 위치의 최댓값. 보이는 개수만큼은 끝에 남겨 둬야 빈 칸이 생기지 않습니다. */
-function maxRotateIndex(count, visible = VISIBLE_ROWS) {
-  return Math.max(0, count - visible);
-}
-
-/** 저장된 배열을 읽습니다. 값이 망가져 있으면 빈 배열로 취급합니다. */
-function listOf(key) {
-  const raw = load(key, []);
-  return Array.isArray(raw) ? raw : [];
-}
-
-function formatDate(lang) {
-  const locale = lang === 'en' ? 'en-US' : 'ko-KR';
-  try {
-    return new Date().toLocaleDateString(locale, {
-      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
-    });
-  } catch {
-    // 로케일 데이터가 없는 환경(축소 빌드 등)에서도 날짜는 보여야 합니다.
-    const d = new Date();
-    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-  }
-}
-
-const numOr = (value, digits = 0) => (
-  typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—'
-);
-
-const pad2 = (n) => String(n).padStart(2, '0');
-
-/** 초를 mm:ss 로. 한 시간이 넘으면 h:mm:ss 로 늘립니다. */
-function clock(totalSeconds) {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${pad2(m)}:${pad2(s % 60)}`;
-}
-
-/* =========================================================
-   위젯
-   각 위젯은 { title, tab, body } 를 돌려줍니다.
-   body 는 카드 안에 들어갈 요소이고, tab 은 눌렀을 때 이동할 탭입니다.
-   ========================================================= */
-
-function weatherBody() {
-  const wx = getWeather();
-  const lang = getLang();
-
-  if (wx.status === 'loading') {
-    return el('div', { class: 'today-wx', id: 'today-weather' },
-      el('div', { class: 'today-wx-icon' }, el('span', { class: 'spinner' })),
-      el('div', { class: 'today-wx-body' },
-        el('div', { class: 'today-wx-desc' }, t('today.weather.loading'))));
-  }
-  if (wx.status === 'error') {
-    return el('div', { class: 'today-wx', id: 'today-weather' },
-      el('div', { class: 'today-wx-icon' }, '🌡️'),
-      el('div', { class: 'today-wx-body' },
-        el('div', { class: 'today-wx-desc' }, t('today.weather.error')),
-        el('div', { class: 'today-wx-sub' }, t('today.weather.hint'))));
-  }
-
-  const [desc, icon] = describe(wx.code, lang);
-  return el('div', { class: 'today-wx', id: 'today-weather' },
-    el('div', { class: 'today-wx-icon', 'aria-hidden': 'true' }, icon),
-    el('div', { class: 'today-wx-body' },
-      el('div', { class: 'today-wx-temp' }, `${numOr(wx.temperature, 1)}°`),
-      el('div', { class: 'today-wx-desc' }, desc),
-      el('div', { class: 'today-wx-sub' },
-        `${wx.place?.name || ''} · ${numOr(wx.low)}° / ${numOr(wx.high)}°`)),
-    el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'));
-}
-
-/**
- * '오늘 할 일' 한 줄.
+let memos = [];
+let canvas, ctx;
+let drawing = false;
+let penColor = COLORS[0];
+let penSize = 3;
+let eraser = false;
+let undoStack = [];
+/*
+ * 판에 깔아 둔 메모와 그때 잡은 판 높이.
  *
- * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
- * 요약을 보다가 체크하려고 탭을 옮겨야 하면 요약을 보는 의미가 없습니다.
- * 이제 한 줄에 체크칸 · 분류 이모지 · 글 · 고치기가 같이 있습니다.
+ * 창 크기가 바뀌면 캔버스를 다시 만드는데, 그냥 두면 메모를 올려 길어진 판이
+ * 기본 높이로 줄면서 글씨가 세로로 뭉갭니다. (1142px -> 225px 로 찌그러졌습니다)
+ * 아직 그 위에 그리지 않았으면 새 폭에 맞춰 메모를 다시 그리고,
+ * 이미 그렸으면 그림을 지킬 수 없으므로 높이만이라도 유지합니다.
+ */
+let placedMemo = null;
+let boardCssHeight = 0;
+
+/**
+ * 메모를 낙서판으로 보냅니다.
  *
- * 글을 누르면 예전처럼 계획표로 갑니다. 고치기는 그 자리에서 글자만 바꿉니다.
+ * 그림으로 바꿔 판에 깔고, 낙서판이 화면에 오도록 옮겨 줍니다.
+ * 원본 메모는 목록에 그대로 남습니다.
  */
-function todoRow(item, index, total) {
-  const check = el('input', {
-    type: 'checkbox',
-    class: 'today-rot-check',
-    checked: item.done === true,
-    'aria-label': t('today.todo.check', item.text),
-  });
-  // 체크하면 목록에서 빠집니다. 순환 위치가 목록 밖을 가리키지 않게 renderAll 이 다시 맞춥니다.
-  check.addEventListener('change', () => setDone(item.id, check.checked));
-
-  const text = el('button', {
-    class: 'today-rot-text', type: 'button',
-    dataset: { id: item.id },
-    'aria-label': `${t('today.todo.open', item.text)}. ${t('today.aria.position', index + 1, total)}`,
-  }, item.text);
-
-  const edit = el('button', {
-    class: 'today-rot-edit icon-btn', type: 'button',
-    'aria-label': t('today.todo.edit', item.text),
-    title: t('today.todo.edit', item.text),
-  }, '✎');
-
-  const row = el('div', {
-    class: `today-rot-item scope-${item.scope}`,
-    dataset: { id: item.id },
-  },
-  check,
-  el('span', { class: 'today-rot-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
-  text,
-  edit);
-
-  edit.addEventListener('click', () => startEdit(row, item));
-  return row;
+function sendMemoToBoard(memo) {
+  const placed = placeMemoOnCanvas(memo);
+  if (!placed) { toast('낙서판을 찾지 못했습니다', 'error'); return; }
+  $('#draw-status').textContent = placed.cut
+    ? `메모를 올렸습니다 · ${placed.cut}줄은 담지 못했습니다`
+    : '메모를 올렸습니다 · 위에 바로 그릴 수 있습니다';
+  // 바로 그릴 수 있게 낙서판을 보여 줍니다. 목록 아래에 있으면 올려 준 걸 못 봅니다.
+  $('[data-card="memo.draw"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  toast(placed.cut
+    ? `메모를 낙서판에 올렸습니다 (${placed.cut}줄은 잘렸습니다)`
+    : '메모를 낙서판에 올렸습니다');
 }
 
-/**
- * 그 자리에서 글자 고치기.
- * Enter 로 저장, Esc 로 취소, 다른 곳을 누르면 저장합니다.
- * 고치는 동안에는 순환이 돌면 안 됩니다. 글자가 흘러가면 고칠 수가 없습니다.
- */
-function startEdit(row, item) {
-  if (row.querySelector('.today-rot-input')) return;
-  const textBtn = row.querySelector('.today-rot-text');
-  if (!textBtn) return;
-
-  const input = el('input', {
-    type: 'text',
-    class: 'field today-rot-input',
-    value: item.text,
-    'aria-label': t('today.todo.edit', item.text),
-    title: t('today.todo.editHint'),
-    maxlength: '200',
-  });
-
-  let closed = false;
-  const close = (save) => {
-    if (closed) return;
-    closed = true;
-    setHover(false);
-    // 저장하면 목록이 다시 그려지므로 되돌릴 필요가 없습니다. 취소면 원래 버튼을 되돌립니다.
-    if (save && renameItem(item.id, input.value)) return;
-    input.replaceWith(textBtn);
-  };
-
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); close(true); }
-    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
-  });
-  input.addEventListener('blur', () => close(true));
-
-  textBtn.replaceWith(input);
-  setHover(true);   // 고치는 동안 순환을 멈춥니다
-  input.focus();
-  input.select();
-}
-
-function todoBody() {
-  rows = todayRows();
-  const track = el('div', {
-    class: 'today-rot', id: 'today-rot', tabindex: '0',
-    'aria-label': t('today.aria.rotation'),
-  });
-
-  if (!rows.length) {
-    const items = getItems();
-    // 항목 자체가 없는 것과 '전부 끝낸 것'은 다른 상황이라 문구를 나눕니다.
-    const finishedToday = items.some((item) => (
-      item?.done && SCOPES.includes(item.scope) && typeof item.period === 'string'
-      && isCurrent(item.scope, item.period)
-    ));
-    /*
-     * 버튼입니다. 문구가 '눌러서 계획표를 여세요' 라고 말하고 있습니다.
-     *
-     * div 로 두었더니 눌러도 아무 일이 없었습니다. 할 일 위젯만 카드가 button 이 아니라
-     * div(.today-card-static) 여서, 카드 단위 위임이 잡는 선택자에 걸리지 않았습니다.
-     * 여기를 버튼으로 두면 키보드로도 갈 수 있습니다. (div 는 초점이 가지 않습니다)
-     */
-    track.append(el('button', {
-      class: 'today-rot-empty', type: 'button',
-      onclick: () => goToTab('todo'),
-    }, t(finishedToday ? 'today.todo.allDone' : 'today.todo.empty')));
-    return track;
-  }
-
-  rows.forEach((item, i) => track.append(todoRow(item, i, rows.length)));
-
-  if (rotateIndex > maxRotateIndex(rows.length)) rotateIndex = 0;
-  return track;
-}
-
-function clockBody() {
-  const now = new Date();
-  return el('div', { class: 'today-line' },
-    el('div', { class: 'today-big', id: 'today-clock' },
-      `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`));
-}
-
-function timerBody() {
-  const state = getTimerState();
-  if (!state.running && state.remain === state.total) {
-    return el('div', { class: 'today-line' },
-      el('div', { class: 'today-sub', id: 'today-timer' }, t('today.timer.idle')));
-  }
-  return el('div', { class: 'today-line' },
-    el('div', { class: 'today-big', id: 'today-timer' }, clock(state.remain)),
-    el('div', { class: 'today-sub' },
-      state.running ? t('today.timer.running') : t('today.rotate.pause')));
-}
-
-function quoteBody() {
-  const items = listOf(QUOTE_KEY);
-  const first = items.find((q) => q && typeof q.text === 'string' && q.text.trim());
-  if (!first) return el('div', { class: 'today-sub' }, t('today.quote.empty'));
-  return el('div', { class: 'today-quote' },
-    el('div', { class: 'today-quote-text' }, first.text),
-    first.author ? el('div', { class: 'today-sub' }, `— ${first.author}`) : '');
-}
-
-function memoBody() {
-  const items = listOf(MEMO_KEY);
-  const first = items.find((m) => m && typeof m.text === 'string' && m.text.trim());
-  if (!first) return el('div', { class: 'today-sub' }, t('today.memo.empty'));
-  return el('div', {},
-    el('div', { class: 'today-clip' }, first.text),
-    items.length > 1 ? el('div', { class: 'today-sub' }, t('today.memo.more', items.length - 1)) : '');
-}
-
-function calcBody() {
-  const items = listOf(CALC_HISTORY_KEY);
-  const first = items.find((h) => h && typeof h.expr === 'string');
-  if (!first) return el('div', { class: 'today-sub' }, t('today.calc.empty'));
-  return el('div', {},
-    el('div', { class: 'today-sub today-clip' }, first.expr),
-    el('div', { class: 'today-big today-big-sm' }, String(first.value ?? '')),
-    first.note ? el('div', { class: 'today-sub today-clip' }, `📝 ${first.note}`) : '');
-}
-
-const WIDGETS = {
-  weather: { tab: 'weather', title: 'today.weather.title', hint: 'today.weather.hint', body: weatherBody },
-  todo: { tab: 'todo', title: 'today.todo.title', hint: 'today.todo.hint', body: todoBody },
-  clock: { tab: 'time', title: 'today.clock.title', hint: 'today.widget.hint', body: clockBody },
-  timer: { tab: 'time', title: 'today.timer.title', hint: 'today.widget.hint', body: timerBody },
-  quote: { tab: 'quote', title: 'today.quote.title', hint: 'today.widget.hint', body: quoteBody },
-  memo: { tab: 'memo', title: 'today.memo.title', hint: 'today.widget.hint', body: memoBody },
-  calc: { tab: 'calc', title: 'today.calc.title', hint: 'today.widget.hint', body: calcBody },
-};
-
-/**
- * 카드 하나를 만듭니다.
- * 할 일 위젯만 버튼이 아니라 div 입니다. 안에 항목 버튼과 일시정지 버튼이 들어가는데,
- * 버튼 안에 버튼을 넣으면 HTML 규칙 위반이고 클릭이 엉킵니다.
- */
-function widgetCard(name) {
-  const spec = WIDGETS[name];
-  if (!spec) return null;
-  const interactive = name !== 'todo';
-
-  const head = el('div', { class: 'today-card-head' },
-    el('span', { class: 'card-title' }, t(spec.title)),
-    el('span', { class: 'card-sub', ...(name === 'todo' ? { id: 'today-todo-count' } : {}) },
-      name === 'todo' ? '' : t(spec.hint)));
-
-  if (name === 'todo') {
-    const toggle = el('button', {
-      class: 'icon-btn today-rot-toggle', id: 'today-rot-toggle', type: 'button',
-      'aria-pressed': String(paused),
-    }, paused ? '▶' : '⏸');
-    head.append(toggle);
-  }
-
-  const card = el(interactive ? 'button' : 'div', {
-    class: `card today-card${interactive ? '' : '-static'}`,
-    dataset: { widget: name, goto: spec.tab },
-    ...(interactive ? { type: 'button', id: `today-${name}-card` } : {}),
-  }, head, spec.body());
-
-  return card;
-}
-
-/* 편집 중에 그리지 못하고 미뤄 둔 것이 있는지. 편집이 끝나면 한 번 그립니다. */
-let renderHeld = false;
-
-function renderWidgets() {
-  const host = $('#today-widgets');
-  if (!host) return;
+// --- 메모 ---
+function renderMemos() {
+  const list = $('#memo-list');
   /*
-   * 손가락이 카드에 걸려 있는 동안에는 위젯을 다시 그리지 않습니다.
-   *
-   * 아래 replaceChildren 은 위젯 노드를 통째로 갈아치웁니다. 그런데 이 함수는
-   * 날씨가 도착하거나, 할 일이 하나 바뀌거나, 설정이 바뀌기만 해도 불립니다.
-   * 그 순간 손가락 밑의 노드가 DOM 에서 빠지면 브라우저가 pointercancel 을 쏘고,
-   * 한 번 취소된 손가락으로는 그 뒤에 무엇을 해도 끌 수 없습니다.
-   *
-   * 편집 모드만 보면 늦습니다. 꾹 누르고 있는 0.5초 사이가 그대로 뚫립니다.
-   * 앱을 열자마자 날씨가 도착하므로 하필 그때 잘 걸렸습니다. 그래서 '누르는 중'
-   * 까지 포함해서 봅니다.
+   * 메모 탭을 숨겨 두면 이 패널이 문서에서 빠집니다. (appearance.js 의 applyTabLayout)
+   * '오늘' 탭에서 메모를 적으면 여기까지 내려오는데, 그때 두 요소가 모두 null 입니다.
+   * 저장은 이미 끝났으므로 그릴 곳이 없으면 조용히 돌아갑니다.
    */
-  if (arrangeBusy()) { renderHeld = true; return; }
-  const { widgets } = getPrefs();
-  if (!widgets.length) {
-    /*
-     * 이쪽도 버튼입니다. 문구가 '설정 탭에서 골라 주세요' 라고 말하는데
-     * 누를 수 없으면 읽은 사람이 직접 탭을 찾아가야 합니다.
-     */
-    host.replaceChildren(el('button', {
-      class: 'today-rot-empty', type: 'button',
-      onclick: () => goToTab('settings'),
-    }, t('today.empty')));
-    rows = [];
+  if (!list) return;
+  const count = $('#memo-count');
+  if (count) count.textContent = memos.length ? `${memos.length}개` : '';
+  list.replaceChildren();
+  if (!memos.length) {
+    list.append(el('li', { class: 'empty' }, '저장된 메모가 없습니다.'));
     return;
   }
-  host.replaceChildren(...widgets.map(widgetCard).filter(Boolean));
-
-  if (widgets.includes('todo')) {
-    updateTodoCount();
-    scrollToIndex(false);
-    updateRotateControl();
-  }
-}
-
-function updateTodoCount() {
-  const countEl = $('#today-todo-count');
-  if (countEl) countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
-}
-
-/** 현재 순환 위치로 스크롤합니다. 항목 높이가 제각각이어도 되도록 실제 위치를 씁니다. */
-function scrollToIndex(smooth = true) {
-  const track = $('#today-rot');
-  const target = track?.children?.[rotateIndex];
-  if (!track || !target || !track.children[0]) return;
-  track.scrollTo({
-    top: target.offsetTop - track.children[0].offsetTop,
-    behavior: smooth && !prefersReducedMotion() ? 'smooth' : 'auto',
+  memos.forEach((memo) => {
+    list.append(el('li', { class: 'memo-item' },
+      el('div', { class: 'memo-body' }, memo.text),
+      el('div', { class: 'row', style: 'margin-top:5px' },
+        el('span', { class: 'memo-time grow' }, new Date(memo.at).toLocaleString('ko-KR')),
+        el('button', {
+          class: 'btn btn-sm btn-ghost',
+          dataset: { memoDraw: memo.id },
+          title: '이 메모를 그림으로 만들어 낙서판에 깝니다',
+          onclick: () => sendMemoToBoard(memo),
+        }, '🖍️ 낙서판으로'),
+        el('button', {
+          class: 'btn btn-sm btn-ghost',
+          onclick: async () => {
+            try { await navigator.clipboard.writeText(memo.text); toast('복사했습니다'); }
+            catch { toast('복사를 지원하지 않는 환경입니다', 'error'); }
+          },
+        }, '복사'),
+        el('button', {
+          class: 'btn btn-sm btn-ghost',
+          onclick: () => { memos = memos.filter((m) => m.id !== memo.id); save(MEMO_KEY, memos); renderMemos(); },
+        }, '삭제'),
+      ),
+    ));
   });
 }
 
-function updateRotateControl() {
-  const btn = $('#today-rot-toggle');
-  if (!btn) return;
-  // 순환할 것이 없으면 버튼을 숨깁니다. 눌러도 아무 일이 없는 버튼은 혼란만 줍니다.
-  const needed = !prefersReducedMotion() && maxRotateIndex(rows.length) > 0;
-  btn.hidden = !needed;
-  btn.textContent = paused ? '▶' : '⏸';
-  btn.setAttribute('aria-label', t(paused ? 'today.rotate.play' : 'today.rotate.pause'));
-  btn.setAttribute('title', t(paused ? 'today.rotate.play' : 'today.rotate.pause'));
-  btn.setAttribute('aria-pressed', String(paused));
+// --- 낙서판 ---
+// 캔버스를 컨테이너 너비에 맞추고 devicePixelRatio 를 적용해 선명하게 그립니다.
+function resizeCanvas(preserve = true, cssHeightWanted = 0) {
+  const snapshot = preserve && canvas.width ? canvas.toDataURL('image/png') : null;
+  const cssWidth = canvas.parentElement.clientWidth || 320;
+  // 메모를 올릴 때는 글 길이에 맞춘 높이를 그대로 씁니다. 평소에는 폭에 비례한 기본값입니다.
+  const cssHeight = cssHeightWanted
+    ? Math.round(cssHeightWanted)
+    : Math.round(Math.min(Math.max(cssWidth * 0.62, 220), 420));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  canvas.style.height = `${cssHeight}px`;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+
+  resetContext();
+
+  if (snapshot) restoreImage(snapshot);
 }
 
-function tick() {
-  const limit = maxRotateIndex(rows.length);
-  if (limit <= 0) return;
-  rotateIndex = rotateIndex >= limit ? 0 : rotateIndex + 1;
-  scrollToIndex(true);
-}
-
-function shouldRun() {
-  return tabActive && !paused && !hovering
-    && !prefersReducedMotion()
-    && maxRotateIndex(rows.length) > 0
-    && document.visibilityState !== 'hidden';
-}
-
-function syncTimer() {
-  if (shouldRun()) {
-    if (!rotateTimer) rotateTimer = setInterval(tick, ROTATE_MS);
-  } else if (rotateTimer) {
-    clearInterval(rotateTimer);
-    rotateTimer = null;
-  }
+function restoreImage(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    resetContext();
+  };
+  img.src = dataUrl;
 }
 
 /**
- * 시계·타이머 위젯은 1초마다 숫자만 갈아 끼웁니다.
- * 카드를 통째로 다시 그리면 매 초 포커스가 날아갑니다.
+ * 되돌리기 한 칸.
+ *
+ * 그림만이 아니라 캔버스 크기도 같이 담습니다.
+ * 메모를 올리면 글 길이에 맞춰 판이 길어지는데, 크기를 안 담아 두면 되돌릴 때
+ * 예전 그림이 새 크기로 늘어나 찌그러집니다.
  */
-function tickClock() {
-  const clockEl = $('#today-clock');
-  if (clockEl) {
-    const now = new Date();
-    clockEl.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
-  }
-  const timerEl = $('#today-timer');
-  if (timerEl) {
-    const state = getTimerState();
-    const idle = !state.running && state.remain === state.total;
-    timerEl.textContent = idle ? t('today.timer.idle') : clock(state.remain);
-  }
+function pushUndo() {
+  try {
+    undoStack.push({
+      url: canvas.toDataURL('image/png'),
+      w: canvas.width,
+      h: canvas.height,
+      cssH: canvas.style.height,
+    });
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+  } catch { /* 캔버스가 오염된 경우 무시 */ }
 }
 
-function syncClock() {
-  const needed = tabActive && document.visibilityState !== 'hidden'
-    && ($('#today-clock') || $('#today-timer'));
-  if (needed) {
-    if (!clockTimer) clockTimer = setInterval(tickClock, TICK_MS);
-  } else if (clockTimer) {
-    clearInterval(clockTimer);
-    clockTimer = null;
-  }
+/** 캔버스 그리기 상태를 화면 배율에 맞춰 다시 잡습니다. */
+function resetContext() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  return dpr;
 }
 
-function renderAll() {
-  const lang = getLang();
-  $('#panel-today')?.setAttribute('lang', lang);
-  const dateEl = $('#today-date');
-  if (dateEl) dateEl.textContent = formatDate(lang);
-  renderWidgets();
-  syncTimer();
-  syncClock();
+function pointFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-function initToday() {
-  const host = $('#today-widgets');
-  if (!host) return;
+function onPointerDown(e) {
+  if (!ctx) return;
+  e.preventDefault();
+  // 그 위에 그리기 시작하면 더는 '메모만 깔린 판'이 아닙니다. 다시 그려 주면 그림이 지워집니다.
+  placedMemo = null;
+  pushUndo();
+  drawing = true;
+  canvas.setPointerCapture?.(e.pointerId);
+  const p = pointFromEvent(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  // 점 하나만 찍는 경우도 보이도록 아주 짧은 선을 그립니다.
+  ctx.lineTo(p.x + 0.01, p.y);
+  applyStroke();
+}
 
-  // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
-  host.addEventListener('click', (e) => {
+function applyStroke() {
+  ctx.lineWidth = eraser ? Math.max(penSize * 3, 12) : penSize;
+  ctx.strokeStyle = eraser ? '#ffffff' : penColor;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.stroke();
+}
+
+function onPointerMove(e) {
+  if (!drawing || !ctx) return;
+  e.preventDefault();
+  const p = pointFromEvent(e);
+  ctx.lineTo(p.x, p.y);
+  applyStroke();
+}
+
+function onPointerUp() {
+  if (!drawing) return;
+  drawing = false;
+  ctx?.closePath();
+}
+
+function clearCanvas() {
+  placedMemo = null;
+  pushUndo();
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+  resetContext();
+}
+
+/* ---------- 메모를 이미지로 만들어 낙서판에 올리기 ----------
+ *
+ * 회의 중에 적어 둔 메모를 낙서판으로 보내, 중요한 부분에 동그라미를 치거나
+ * 화살표를 긋기 위한 기능입니다. 글을 그림으로 바꿔 판에 깔아 두면 그 위에 그릴 수 있습니다.
+ *
+ * 글자를 '그림'으로 바꾸므로 한 번 올리면 글자를 고칠 수 없습니다.
+ * 원본 메모는 목록에 그대로 남습니다. 지우지 않습니다.
+ */
+
+/** 글씨 크기와 줄 간격. 글이 길면 이 안에서 줄여 맞춥니다. */
+const MEMO_FONT_MAX = 19;
+const MEMO_FONT_MIN = 12;
+const MEMO_PAD = 18;
+/*
+ * 판 높이 상한.
+ *
+ * 입력칸이 한 메모를 2000자로 막고 있습니다. 그 2000자가 가장 좁은 화면(320px)에서
+ * 가장 작은 글씨로 펼쳐져도 다 들어가도록 잡은 값입니다. 회의록이 잘려 나가는 것보다
+ * 판이 긴 편이 낫습니다. (판이 길면 스크롤해서 그리면 됩니다)
+ * 그래도 넘치는 경우(예전 버전이나 손으로 넣은 더 긴 값)에는 몇 줄이 잘렸는지 알려 줍니다.
+ */
+const MEMO_MAX_CSS_HEIGHT = 2400;
+
+/**
+ * 글을 판 너비에 맞춰 줄로 자릅니다.
+ *
+ * 한국어는 단어 사이에 공백이 없어서 공백 기준으로만 자르면 한 줄이 통째로 넘칩니다.
+ * 그래서 한 글자씩 재되, 영어처럼 공백이 있으면 그 직전에서 끊어 단어가 갈라지지 않게 합니다.
+ */
+function wrapLines(measure, text, maxWidth) {
+  const out = [];
+  String(text ?? '').split(/\r?\n/).forEach((paragraph) => {
+    if (!paragraph) { out.push(''); return; }
     /*
-     * 줄에서 '글' 을 눌렀을 때만 계획표로 건너뜁니다.
-     * 줄 전체를 기준으로 잡으면 체크칸이나 고치기를 눌러도 탭이 넘어가 버립니다.
+     * 글자를 코드포인트 단위로 담습니다.
+     * 문자열 인덱스로 자르면 이모지 같은 서로게이트 쌍이 반쪽 나서 글자가 깨집니다.
+     * (여러 글자가 붙어 한 글자로 보이는 이모지는 줄이 갈릴 수 있지만, 깨지지는 않습니다)
      */
-    const text = e.target.closest('.today-rot-text');
-    if (text) {
-      goToTab('todo');
-      revealItem(text.dataset.id);
-      return;
+    let buf = [];
+    let lastSpace = -1;   // 지금 줄에서 마지막으로 본 공백의 자리
+    for (const ch of paragraph) {
+      // 줄 첫머리의 공백은 줄을 바꾸며 생긴 찌꺼기입니다. 버립니다.
+      if (!buf.length && ch === ' ') continue;
+
+      if (buf.length && measure(buf.join('') + ch) > maxWidth) {
+        if (lastSpace > 0) {
+          // 공백이 있었으면 거기서 끊어 단어가 갈라지지 않게 합니다. (영어)
+          out.push(buf.slice(0, lastSpace).join(''));
+          buf = buf.slice(lastSpace + 1);
+        } else {
+          // 공백이 없으면 (한국어) 그 자리에서 끊습니다.
+          out.push(buf.join(''));
+          buf = [];
+        }
+        lastSpace = buf.lastIndexOf(' ');
+        // 끊은 자리에 있던 공백은 새 줄 앞에 남기지 않습니다.
+        if (ch === ' ') continue;
+      }
+
+      buf.push(ch);
+      if (ch === ' ') lastSpace = buf.length - 1;
     }
-    // 체크칸과 고치기는 제 일만 하고 여기서 끝냅니다.
-    if (e.target.closest('.today-rot-check, .today-rot-edit, .today-rot-input')) return;
-    if (e.target.closest('#today-rot-toggle')) {
-      paused = !paused;
-      updateRotateControl();
-      syncTimer();
-      return;
-    }
-    /*
-     * 카드 아무 데나 눌러도 그 탭으로 갑니다.
-     *
-     * 예전에는 '.today-card' 로 찾았는데, 할 일 위젯만 카드가 button 이 아니라
-     * div 라서 클래스가 'today-card-static' 입니다. 클래스 선택자는 토큰이 정확히
-     * 맞아야 걸리므로 할 일 카드만 통째로 빠져, 제목이나 여백을 눌러도 아무 일이
-     * 없었습니다. data 속성으로 찾으면 둘 다 걸립니다.
-     */
-    const card = e.target.closest('[data-widget][data-goto]');
-    if (!card) return;
-    const tab = card.dataset.goto;
-    goToTab(tab);
-    // 탭을 바꾼 직후에는 아직 배치가 끝나지 않아 스크롤이 먹지 않습니다. 한 프레임 뒤에 옮깁니다.
-    if (tab === 'weather') {
-      requestAnimationFrame(() => {
-        $('#wx-week')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      });
-    }
+    out.push(buf.join(''));
   });
+  return out;
+}
+
+/** 저장된 시각을 사람이 읽는 꼴로. */
+function stampOf(at) {
+  try { return new Date(at).toLocaleString('ko-KR'); }
+  catch { return ''; }
+}
+
+/**
+ * 메모 하나를 낙서판에 깔아 놓습니다.
+ *
+ * 판에 있던 그림은 지웁니다. 대신 되돌리기 한 칸을 먼저 쌓아 두므로
+ * '되돌리기'를 누르면 원래 그림과 원래 판 크기로 돌아옵니다.
+ *
+ * @returns {{lines:number, fontSize:number, cut:number}|null} 실패하면 null
+ */
+function placeMemoOnCanvas(memo, { keepUndo = true } = {}) {
+  if (!canvas || !memo || typeof memo.text !== 'string') return null;
+
+  // 창 크기가 바뀌어 다시 그리는 경우에는 되돌리기를 쌓지 않습니다. 한 칸이 계속 늘어납니다.
+  if (keepUndo) pushUndo();
+
+  const cssWidth = canvas.parentElement.clientWidth || 320;
+  const maxTextWidth = cssWidth - MEMO_PAD * 2;
+  const probe = canvas.getContext('2d');
 
   /*
-   * 순환 목록 위에 손이나 포커스가 있는 동안만 멈춥니다.
-   * 위젯은 다시 그려질 때마다 새 요소가 되므로 컨테이너에 위임하는데,
-   * pointerenter/leave 는 버블링하지 않아 위임이 되지 않습니다. over/out 을 씁니다.
-   * 카드 전체가 아니라 #today-rot 안일 때만 멈춰야 합니다.
-   * (일시정지 버튼은 카드 머리에 있어서, 카드 전체를 기준으로 잡으면
-   *  버튼을 한 번 누른 뒤 마우스가 그 자리에 남아 순환이 영영 멈춥니다)
+   * 글씨 크기를 위에서부터 줄여 가며, 기본 판 높이 안에 들어가는 크기를 찾습니다.
+   * 가장 작은 크기로도 안 들어가면 판을 길게 늘입니다. (상한까지)
    */
-  const inRot = (node) => !!(node && node.closest && node.closest('#today-rot'));
-  host.addEventListener('pointerover', (e) => { if (inRot(e.target)) setHover(true); });
-  host.addEventListener('pointerout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
-  host.addEventListener('pointerdown', (e) => { if (inRot(e.target)) setHover(true); });
-  host.addEventListener('focusin', (e) => { if (inRot(e.target)) setHover(true); });
-  host.addEventListener('focusout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
+  const baseCssHeight = Math.round(Math.min(Math.max(cssWidth * 0.62, 220), 420));
+  let fontSize = MEMO_FONT_MAX;
+  let lines = [];
+  let needed = 0;
+  for (; fontSize >= MEMO_FONT_MIN; fontSize -= 1) {
+    probe.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
+    lines = wrapLines((t) => probe.measureText(t).width, memo.text, maxTextWidth);
+    needed = MEMO_PAD * 2 + 26 + lines.length * Math.round(fontSize * 1.5);
+    if (needed <= baseCssHeight) break;
+  }
+  if (fontSize < MEMO_FONT_MIN) fontSize = MEMO_FONT_MIN;
 
-  // 탭을 떠나거나 앱이 백그라운드로 가면 타이머를 멈춥니다.
-  onTabChange((name) => {
-    tabActive = name === 'today';
-    if (tabActive) renderAll(); else { syncTimer(); syncClock(); }
+  const cssHeight = Math.min(Math.max(needed, baseCssHeight), MEMO_MAX_CSS_HEIGHT);
+  // 판을 새로 깝니다. 앞의 그림은 되돌리기에 들어가 있으므로 preserve 는 false 입니다.
+  resizeCanvas(false, cssHeight);
+
+  const lineHeight = Math.round(fontSize * 1.5);
+  const bodyTop = MEMO_PAD + 26;
+  // 잘린 줄 수. 판 상한을 넘겼을 때만 0 보다 큽니다.
+  const fit = Math.max(Math.floor((cssHeight - bodyTop - MEMO_PAD) / lineHeight), 1);
+  const shown = lines.slice(0, fit);
+  const cut = lines.length - shown.length;
+
+  // 바탕을 흰 종이로 깔아야 지우개(흰색)와 색이 맞습니다.
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+  // 머리글: 언제 적은 메모인지.
+  ctx.fillStyle = '#8a8f98';
+  ctx.font = '12px system-ui, -apple-system, sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`메모 · ${stampOf(memo.at)}`, MEMO_PAD, MEMO_PAD);
+
+  // 본문.
+  ctx.fillStyle = '#1a1d21';
+  ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
+  shown.forEach((line, i) => {
+    ctx.fillText(line, MEMO_PAD, bodyTop + i * lineHeight);
   });
-  document.addEventListener('visibilitychange', () => { syncTimer(); syncClock(); });
 
-  onTodoChange(() => { renderAll(); });
-  onWeatherChange(() => { renderAll(); });
-  // 손가락이 떨어지고 편집도 끝나면, 그동안 미뤄 둔 그리기를 한 번 처리합니다.
-  onArrangeChange(() => {
-    if (arrangeBusy() || !renderHeld) return;
-    renderHeld = false;
-    renderAll();
-  });
-  onLangChange(renderAll);
-  onPrefsChange(renderAll);
+  if (cut > 0) {
+    ctx.fillStyle = '#c0392b';
+    ctx.font = '12px system-ui, -apple-system, sans-serif';
+    ctx.fillText(`… ${cut}줄이 더 있습니다 (판에 다 담지 못했습니다)`,
+      MEMO_PAD, cssHeight - MEMO_PAD - 14);
+  }
+  ctx.restore();
+  resetContext();
 
-  renderAll();
+  placedMemo = memo;
+  boardCssHeight = cssHeight;
+  return { lines: lines.length, fontSize, cut };
 }
-  return { todayRows, maxRotateIndex, initToday };
+
+function renderPenColors() {
+  const box = $('#pen-colors');
+  box.replaceChildren();
+  COLORS.forEach((color) => {
+    const btn = el('button', {
+      class: 'pen-dot',
+      type: 'button',
+      style: `background:${color}`,
+      'aria-label': `펜 색 ${color}`,
+      'aria-pressed': String(color === penColor && !eraser),
+      onclick: () => {
+        penColor = color;
+        eraser = false;
+        $('#pen-eraser').setAttribute('aria-pressed', 'false');
+        renderPenColors();
+      },
+    });
+    box.append(btn);
+  });
+}
+
+/**
+ * 밖에서 메모를 한 줄 남깁니다. ('오늘' 탭의 빠른 입력이 씁니다)
+ *
+ * 메모 탭을 숨겨 둔 사람도 적을 수 있어야 합니다. 저장은 언제나 되고,
+ * 화면이 없으면 renderMemos 가 알아서 건너뜁니다.
+ *
+ * @param {string} text 메모 내용
+ * @returns {boolean} 실제로 저장했으면 true (빈 글이면 false)
+ */
+function addMemo(text) {
+  const body = typeof text === 'string' ? text.trim() : '';
+  if (!body) return false;
+  memos.unshift({ id: uid(), text: body, at: Date.now() });
+  save(MEMO_KEY, memos);
+  renderMemos();
+  return true;
+}
+
+function initMemo() {
+  memos = load(MEMO_KEY, []);
+  if (!Array.isArray(memos)) memos = [];
+  renderMemos();
+
+  $('#memo-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#memo-input');
+    const text = input.value.trim();
+    if (!text) return;
+    memos.unshift({ id: uid(), text, at: Date.now() });
+    input.value = '';
+    save(MEMO_KEY, memos);
+    renderMemos();
+    toast('메모를 저장했습니다');
+  });
+
+  $('#memo-input').addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      $('#memo-form').requestSubmit();
+    }
+  });
+
+  // --- 캔버스 준비 ---
+  canvas = $('#draw-canvas');
+  resizeCanvas(false);
+  renderPenColors();
+
+  const savedDrawing = load(DRAW_KEY, null);
+  if (typeof savedDrawing === 'string' && savedDrawing.startsWith('data:image')) {
+    restoreImage(savedDrawing);
+    $('#draw-status').textContent = '저장된 그림을 불러왔습니다';
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
+  canvas.addEventListener('pointerleave', onPointerUp);
+
+  $('#pen-size').addEventListener('input', (e) => { penSize = Number(e.target.value) || 3; });
+
+  $('#pen-eraser').addEventListener('click', (e) => {
+    eraser = !eraser;
+    e.currentTarget.setAttribute('aria-pressed', String(eraser));
+    renderPenColors();
+  });
+
+  $('#draw-undo').addEventListener('click', () => {
+    const prev = undoStack.pop();
+    if (!prev) { toast('되돌릴 작업이 없습니다'); return; }
+    // 판 크기가 달랐으면 그 크기로 되돌린 뒤에 그림을 얹어야 찌그러지지 않습니다.
+    placedMemo = null;
+    if (prev.w !== canvas.width || prev.h !== canvas.height) {
+      canvas.width = prev.w;
+      canvas.height = prev.h;
+      canvas.style.height = prev.cssH;
+      resetContext();
+    }
+    boardCssHeight = parseFloat(prev.cssH) || 0;
+    restoreImage(prev.url);
+  });
+
+  $('#draw-clear').addEventListener('click', clearCanvas);
+
+  $('#draw-save').addEventListener('click', () => {
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      // localStorage 용량(보통 5MB)을 넘기지 않도록 크기를 확인합니다.
+      if (dataUrl.length > 4_000_000) {
+        toast('그림이 너무 커서 저장할 수 없습니다. PNG 로 내려받아 주세요.', 'error');
+        return;
+      }
+      if (save(DRAW_KEY, dataUrl)) {
+        $('#draw-status').textContent = `저장됨 · ${new Date().toLocaleTimeString('ko-KR')}`;
+        toast('그림을 저장했습니다');
+      } else {
+        toast('저장 공간이 부족합니다', 'error');
+      }
+    } catch {
+      toast('그림을 저장하지 못했습니다', 'error');
+    }
+  });
+
+  $('#draw-download').addEventListener('click', () => {
+    try {
+      const link = document.createElement('a');
+      link.download = `낙서_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch {
+      toast('내려받기에 실패했습니다', 'error');
+    }
+  });
+
+  // 창 크기가 바뀌면 캔버스를 다시 맞춥니다. (연속 호출 방지를 위해 디바운스)
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (placedMemo) {
+        // 아직 아무것도 안 그렸으면 새 폭에 맞춰 메모를 처음부터 다시 그립니다. (늘어나지 않습니다)
+        placeMemoOnCanvas(placedMemo, { keepUndo: false });
+        return;
+      }
+      // 메모를 올려 길어진 판이면 그 높이를 지킵니다. 기본 높이로 줄이면 그림이 뭉갭니다.
+      resizeCanvas(true, boardCssHeight);
+    }, 200);
+  });
+}
+  return { wrapLines, addMemo, initMemo };
 })();
 
 /* ===== js/lib/calc-engine.js ===== */
@@ -7473,6 +7895,27 @@ function equals() {
   }
 }
 
+/**
+ * 밖에서 계산 하나를 기록에 남깁니다. ('오늘' 탭의 빠른 계산이 씁니다)
+ *
+ * 남기지 않으면 오늘 탭에서 계산한 것이 어디에도 안 남아, 결과를 한 번 보고 나면
+ * 다시 꺼낼 길이 없습니다. '최근 계산' 위젯과 계산기 탭이 같은 기록을 봅니다.
+ *
+ * historyList 는 initCalculator 가 잡아 둔 노드입니다. 계산기 탭을 숨겨 두면
+ * 문서에서 빠지지만 노드 자체는 살아 있어, replaceChildren 은 그대로 동작합니다.
+ *
+ * @returns {boolean} 실제로 기록했으면 true
+ */
+function recordCalc(expr, value) {
+  const raw = typeof expr === 'string' ? expr.trim() : '';
+  if (!raw || typeof value !== 'number' || !Number.isFinite(value)) return false;
+  history.unshift({ id: uid(), expr: raw, value, at: Date.now(), note: null });
+  history = history.slice(0, MAX_HISTORY);
+  save(HISTORY_KEY, history);
+  if (historyList) renderHistory();
+  return true;
+}
+
 function initCalculator() {
   exprInput = $('#calc-expr');
   resultBox = $('#calc-result');
@@ -7526,7 +7969,773 @@ function initCalculator() {
     else if (e.key === 'Escape') { e.preventDefault(); clearAll(); }
   });
 }
-  return { initCalculator };
+  return { recordCalc, initCalculator };
+})();
+
+/* ===== js/modules/today.js ===== */
+const __m_js_modules_today_js = (function () {
+  const { $, el, toast } = __m_js_lib_dom_js;
+  const { t, getLang, onLangChange, applyStatic } = __m_js_lib_i18n_js;
+  const { isCurrent, SCOPES } = __m_js_lib_period_js;
+  const { load } = __m_js_lib_store_js;
+  const { getPrefs, onPrefsChange, visibleTabs } = __m_js_lib_prefs_js;
+  const { getItems, onTodoChange, revealItem, setDone, renameItem, addItem } = __m_js_modules_todo_js;
+  const { emojiOf, labelOf } = __m_js_lib_categories_js;
+  const { getWeather, onWeatherChange, describe } = __m_js_modules_weather_js;
+  const { arrangeBusy, onArrangeChange } = __m_js_modules_arrange_js;
+  const { getTimerState } = __m_js_modules_time_js;
+  const { goToTab, onTabChange, tabIcon } = __m_js_lib_nav_js;
+  const { addMemo } = __m_js_modules_memo_js;
+  const { recordCalc } = __m_js_modules_calculator_js;
+  const { evaluate, formatNumber } = __m_js_lib_calc_engine_js;
+/**
+ * '오늘' 탭 — 플래너의 첫 페이지
+ *
+ * 앱을 열면 가장 먼저 보이는 화면입니다.
+ * 어떤 요약 카드를 어떤 순서로 놓을지는 설정 탭에서 고릅니다. (lib/prefs.js 의 widgets)
+ * 카드는 전부 버튼이고, 누르면 그 기능의 탭으로 넘어갑니다.
+ *
+ * 자동으로 움직이는 화면은 읽으려는 순간 지나가버리므로,
+ * 손을 올리거나 포커스가 들어오면 멈추고 일시정지 버튼도 따로 둡니다. (WCAG 2.2.2)
+ * OS 의 '동작 줄이기' 설정이 켜져 있으면 자동 순환을 아예 하지 않습니다.
+ */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const ROTATE_MS = 3500;
+const VISIBLE_ROWS = 3; // 상자 안에 한 번에 보이는 할 일 개수
+const TICK_MS = 1000;   // 시계·타이머 위젯 갱신 주기
+
+// 다른 모듈이 localStorage 에 쓰는 키입니다.
+// 모듈마다 구독 훅을 새로 만드는 대신, 요약만 필요하므로 저장된 값을 직접 읽습니다.
+const QUOTE_KEY = 'quote.items';
+const MEMO_KEY = 'memo.items';
+const CALC_HISTORY_KEY = 'calc.history';
+
+let rotateTimer = null;
+let clockTimer = null;
+let rotateIndex = 0;
+let paused = false;      // 사용자가 버튼으로 멈춘 상태
+let hovering = false;    // 손/포인터가 올라가 있거나, 글자를 고치는 중
+
+/**
+ * 순환을 멈출지 여부. 손이 올라가 있거나 글을 고치는 중이면 멈춥니다.
+ * initToday 안에만 두면 글자 고치기에서 부를 수가 없어 모듈 범위로 올렸습니다.
+ */
+function setHover(on) {
+  if (hovering === on) return;
+  hovering = on;
+  syncTimer();
+}
+let tabActive = false;   // '오늘' 탭이 보이는 동안만 타이머를 돌립니다
+let rows = [];           // 현재 보여주는 미완료 항목
+
+/** OS 의 '동작 줄이기' 설정. 켜져 있으면 자동 순환을 하지 않습니다. */
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 오늘 해야 할 미완료 항목.
+ * 일간은 오늘, 주간은 이번 주, 월간은 이번 달, 연간은 올해 것까지 포함합니다.
+ * (주간 계획만 쓰는 사용자에게 빈 화면을 보여주지 않기 위해서입니다)
+ * 짧은 주기가 먼저 오도록 정렬합니다.
+ */
+const SCOPE_ORDER = { day: 0, week: 1, month: 2, year: 3 };
+
+/**
+ * localStorage 가 손상되면 scope 가 없거나 이상한 값인 항목이 섞여 들어옵니다.
+ * isCurrent() 는 모르는 단위에 예외를 던지므로, 여기서 먼저 걸러야
+ * 항목 하나 때문에 '오늘' 탭 전체가 죽지 않습니다.
+ */
+const usable = (item) => (
+  item != null
+  && !item.done
+  && typeof item.text === 'string'
+  && SCOPES.includes(item.scope)
+  && typeof item.period === 'string'
+);
+
+function todayRows(items = getItems()) {
+  return items
+    .filter((item) => usable(item) && isCurrent(item.scope, item.period))
+    .sort((a, b) => (SCOPE_ORDER[a.scope] ?? 9) - (SCOPE_ORDER[b.scope] ?? 9));
+}
+
+/** 순환 위치의 최댓값. 보이는 개수만큼은 끝에 남겨 둬야 빈 칸이 생기지 않습니다. */
+function maxRotateIndex(count, visible = VISIBLE_ROWS) {
+  return Math.max(0, count - visible);
+}
+
+/** 저장된 배열을 읽습니다. 값이 망가져 있으면 빈 배열로 취급합니다. */
+function listOf(key) {
+  const raw = load(key, []);
+  return Array.isArray(raw) ? raw : [];
+}
+
+function formatDate(lang) {
+  const locale = lang === 'en' ? 'en-US' : 'ko-KR';
+  try {
+    return new Date().toLocaleDateString(locale, {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+    });
+  } catch {
+    // 로케일 데이터가 없는 환경(축소 빌드 등)에서도 날짜는 보여야 합니다.
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  }
+}
+
+const numOr = (value, digits = 0) => (
+  typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—'
+);
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** 초를 mm:ss 로. 한 시간이 넘으면 h:mm:ss 로 늘립니다. */
+function clock(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${pad2(m)}:${pad2(s % 60)}`;
+}
+
+/* =========================================================
+   위젯
+   각 위젯은 { title, tab, body } 를 돌려줍니다.
+   body 는 카드 안에 들어갈 요소이고, tab 은 눌렀을 때 이동할 탭입니다.
+   ========================================================= */
+
+function weatherBody() {
+  const wx = getWeather();
+  const lang = getLang();
+
+  if (wx.status === 'loading') {
+    return el('div', { class: 'today-wx', id: 'today-weather' },
+      el('div', { class: 'today-wx-icon' }, el('span', { class: 'spinner' })),
+      el('div', { class: 'today-wx-body' },
+        el('div', { class: 'today-wx-desc' }, t('today.weather.loading'))));
+  }
+  if (wx.status === 'error') {
+    return el('div', { class: 'today-wx', id: 'today-weather' },
+      el('div', { class: 'today-wx-icon' }, '🌡️'),
+      el('div', { class: 'today-wx-body' },
+        el('div', { class: 'today-wx-desc' }, t('today.weather.error')),
+        el('div', { class: 'today-wx-sub' }, t('today.weather.hint'))));
+  }
+
+  const [desc, icon] = describe(wx.code, lang);
+  return el('div', { class: 'today-wx', id: 'today-weather' },
+    el('div', { class: 'today-wx-icon', 'aria-hidden': 'true' }, icon),
+    el('div', { class: 'today-wx-body' },
+      el('div', { class: 'today-wx-temp' }, `${numOr(wx.temperature, 1)}°`),
+      el('div', { class: 'today-wx-desc' }, desc),
+      el('div', { class: 'today-wx-sub' },
+        `${wx.place?.name || ''} · ${numOr(wx.low)}° / ${numOr(wx.high)}°`)),
+    el('div', { class: 'today-wx-go', 'aria-hidden': 'true' }, '›'));
+}
+
+/**
+ * '오늘 할 일' 한 줄.
+ *
+ * 예전에는 줄 전체가 버튼이라 누르면 계획표로 건너뛰는 것 말고는 할 수 있는 게 없었습니다.
+ * 요약을 보다가 체크하려고 탭을 옮겨야 하면 요약을 보는 의미가 없습니다.
+ * 이제 한 줄에 체크칸 · 분류 이모지 · 글 · 고치기가 같이 있습니다.
+ *
+ * 글을 누르면 예전처럼 계획표로 갑니다. 고치기는 그 자리에서 글자만 바꿉니다.
+ */
+function todoRow(item, index, total) {
+  const check = el('input', {
+    type: 'checkbox',
+    class: 'today-rot-check',
+    checked: item.done === true,
+    'aria-label': t('today.todo.check', item.text),
+  });
+  // 체크하면 목록에서 빠집니다. 순환 위치가 목록 밖을 가리키지 않게 renderAll 이 다시 맞춥니다.
+  check.addEventListener('change', () => setDone(item.id, check.checked));
+
+  const text = el('button', {
+    class: 'today-rot-text', type: 'button',
+    dataset: { id: item.id },
+    'aria-label': `${t('today.todo.open', item.text)}. ${t('today.aria.position', index + 1, total)}`,
+  }, item.text);
+
+  const edit = el('button', {
+    class: 'today-rot-edit icon-btn', type: 'button',
+    'aria-label': t('today.todo.edit', item.text),
+    title: t('today.todo.edit', item.text),
+  }, '✎');
+
+  const row = el('div', {
+    class: `today-rot-item scope-${item.scope}`,
+    dataset: { id: item.id },
+  },
+  check,
+  el('span', { class: 'today-rot-cat', title: labelOf(item.category, t) }, emojiOf(item.category)),
+  text,
+  edit);
+
+  edit.addEventListener('click', () => startEdit(row, item));
+  return row;
+}
+
+/**
+ * 그 자리에서 글자 고치기.
+ * Enter 로 저장, Esc 로 취소, 다른 곳을 누르면 저장합니다.
+ * 고치는 동안에는 순환이 돌면 안 됩니다. 글자가 흘러가면 고칠 수가 없습니다.
+ */
+function startEdit(row, item) {
+  if (row.querySelector('.today-rot-input')) return;
+  const textBtn = row.querySelector('.today-rot-text');
+  if (!textBtn) return;
+
+  const input = el('input', {
+    type: 'text',
+    class: 'field today-rot-input',
+    value: item.text,
+    'aria-label': t('today.todo.edit', item.text),
+    title: t('today.todo.editHint'),
+    maxlength: '200',
+  });
+
+  let closed = false;
+  const close = (save) => {
+    if (closed) return;
+    closed = true;
+    setHover(false);
+    // 저장하면 목록이 다시 그려지므로 되돌릴 필요가 없습니다. 취소면 원래 버튼을 되돌립니다.
+    if (save && renameItem(item.id, input.value)) return;
+    input.replaceWith(textBtn);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); close(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+  });
+  input.addEventListener('blur', () => close(true));
+
+  textBtn.replaceWith(input);
+  setHover(true);   // 고치는 동안 순환을 멈춥니다
+  input.focus();
+  input.select();
+}
+
+function todoBody() {
+  rows = todayRows();
+  const track = el('div', {
+    class: 'today-rot', id: 'today-rot', tabindex: '0',
+    'aria-label': t('today.aria.rotation'),
+  });
+
+  if (!rows.length) {
+    const items = getItems();
+    // 항목 자체가 없는 것과 '전부 끝낸 것'은 다른 상황이라 문구를 나눕니다.
+    const finishedToday = items.some((item) => (
+      item?.done && SCOPES.includes(item.scope) && typeof item.period === 'string'
+      && isCurrent(item.scope, item.period)
+    ));
+    /*
+     * 버튼입니다. 문구가 '눌러서 계획표를 여세요' 라고 말하고 있습니다.
+     *
+     * div 로 두었더니 눌러도 아무 일이 없었습니다. 할 일 위젯만 카드가 button 이 아니라
+     * div(.today-card-static) 여서, 카드 단위 위임이 잡는 선택자에 걸리지 않았습니다.
+     * 여기를 버튼으로 두면 키보드로도 갈 수 있습니다. (div 는 초점이 가지 않습니다)
+     */
+    track.append(el('button', {
+      class: 'today-rot-empty', type: 'button',
+      onclick: () => goToTab('todo'),
+    }, t(finishedToday ? 'today.todo.allDone' : 'today.todo.empty')));
+    return track;
+  }
+
+  rows.forEach((item, i) => track.append(todoRow(item, i, rows.length)));
+
+  if (rotateIndex > maxRotateIndex(rows.length)) rotateIndex = 0;
+  return track;
+}
+
+function clockBody() {
+  const now = new Date();
+  return el('div', { class: 'today-line' },
+    el('div', { class: 'today-big', id: 'today-clock' },
+      `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`));
+}
+
+function timerBody() {
+  const state = getTimerState();
+  if (!state.running && state.remain === state.total) {
+    return el('div', { class: 'today-line' },
+      el('div', { class: 'today-sub', id: 'today-timer' }, t('today.timer.idle')));
+  }
+  return el('div', { class: 'today-line' },
+    el('div', { class: 'today-big', id: 'today-timer' }, clock(state.remain)),
+    el('div', { class: 'today-sub' },
+      state.running ? t('today.timer.running') : t('today.rotate.pause')));
+}
+
+function quoteBody() {
+  const items = listOf(QUOTE_KEY);
+  const first = items.find((q) => q && typeof q.text === 'string' && q.text.trim());
+  if (!first) return el('div', { class: 'today-sub' }, t('today.quote.empty'));
+  return el('div', { class: 'today-quote' },
+    el('div', { class: 'today-quote-text' }, first.text),
+    first.author ? el('div', { class: 'today-sub' }, `— ${first.author}`) : '');
+}
+
+function memoBody() {
+  const items = listOf(MEMO_KEY);
+  const first = items.find((m) => m && typeof m.text === 'string' && m.text.trim());
+  if (!first) return el('div', { class: 'today-sub' }, t('today.memo.empty'));
+  return el('div', {},
+    el('div', { class: 'today-clip' }, first.text),
+    items.length > 1 ? el('div', { class: 'today-sub' }, t('today.memo.more', items.length - 1)) : '');
+}
+
+function calcBody() {
+  const items = listOf(CALC_HISTORY_KEY);
+  const first = items.find((h) => h && typeof h.expr === 'string');
+  if (!first) return el('div', { class: 'today-sub' }, t('today.calc.empty'));
+  return el('div', {},
+    el('div', { class: 'today-sub today-clip' }, first.expr),
+    el('div', { class: 'today-big today-big-sm' }, String(first.value ?? '')),
+    first.note ? el('div', { class: 'today-sub today-clip' }, `📝 ${first.note}`) : '');
+}
+
+const WIDGETS = {
+  weather: { tab: 'weather', title: 'today.weather.title', hint: 'today.weather.hint', body: weatherBody },
+  todo: { tab: 'todo', title: 'today.todo.title', hint: 'today.todo.hint', body: todoBody },
+  clock: { tab: 'time', title: 'today.clock.title', hint: 'today.clock.hint', body: clockBody },
+  timer: { tab: 'time', title: 'today.timer.title', hint: 'today.timer.hint', body: timerBody },
+  quote: { tab: 'quote', title: 'today.quote.title', hint: 'today.quote.hint', body: quoteBody },
+  memo: { tab: 'memo', title: 'today.memo.title', hint: 'today.memo.hint', body: memoBody },
+  calc: { tab: 'calc', title: 'today.calc.title', hint: 'today.calc.hint', body: calcBody },
+};
+
+/**
+ * 카드 하나를 만듭니다.
+ * 할 일 위젯만 버튼이 아니라 div 입니다. 안에 항목 버튼과 일시정지 버튼이 들어가는데,
+ * 버튼 안에 버튼을 넣으면 HTML 규칙 위반이고 클릭이 엉킵니다.
+ */
+function widgetCard(name) {
+  const spec = WIDGETS[name];
+  if (!spec) return null;
+  const interactive = name !== 'todo';
+
+  const head = el('div', { class: 'today-card-head' },
+    el('span', { class: 'card-title' }, t(spec.title)),
+    el('span', { class: 'card-sub', ...(name === 'todo' ? { id: 'today-todo-count' } : {}) },
+      name === 'todo' ? '' : t(spec.hint)));
+
+  if (name === 'todo') {
+    const toggle = el('button', {
+      class: 'icon-btn today-rot-toggle', id: 'today-rot-toggle', type: 'button',
+      'aria-pressed': String(paused),
+    }, paused ? '▶' : '⏸');
+    head.append(toggle);
+  }
+
+  const card = el(interactive ? 'button' : 'div', {
+    class: `card today-card${interactive ? '' : '-static'}`,
+    dataset: { widget: name, goto: spec.tab },
+    ...(interactive ? { type: 'button', id: `today-${name}-card` } : {}),
+  }, head, spec.body());
+
+  return card;
+}
+
+/* 편집 중에 그리지 못하고 미뤄 둔 것이 있는지. 편집이 끝나면 한 번 그립니다. */
+let renderHeld = false;
+
+function renderWidgets() {
+  const host = $('#today-widgets');
+  if (!host) return;
+  /*
+   * 손가락이 카드에 걸려 있는 동안에는 위젯을 다시 그리지 않습니다.
+   *
+   * 아래 replaceChildren 은 위젯 노드를 통째로 갈아치웁니다. 그런데 이 함수는
+   * 날씨가 도착하거나, 할 일이 하나 바뀌거나, 설정이 바뀌기만 해도 불립니다.
+   * 그 순간 손가락 밑의 노드가 DOM 에서 빠지면 브라우저가 pointercancel 을 쏘고,
+   * 한 번 취소된 손가락으로는 그 뒤에 무엇을 해도 끌 수 없습니다.
+   *
+   * 편집 모드만 보면 늦습니다. 꾹 누르고 있는 0.5초 사이가 그대로 뚫립니다.
+   * 앱을 열자마자 날씨가 도착하므로 하필 그때 잘 걸렸습니다. 그래서 '누르는 중'
+   * 까지 포함해서 봅니다.
+   */
+  if (arrangeBusy()) { renderHeld = true; return; }
+  const { widgets } = getPrefs();
+  if (!widgets.length) {
+    /*
+     * 이쪽도 버튼입니다. 문구가 '설정 탭에서 골라 주세요' 라고 말하는데
+     * 누를 수 없으면 읽은 사람이 직접 탭을 찾아가야 합니다.
+     */
+    host.replaceChildren(el('button', {
+      class: 'today-rot-empty', type: 'button',
+      onclick: () => goToTab('settings'),
+    }, t('today.empty')));
+    rows = [];
+    return;
+  }
+  host.replaceChildren(...widgets.map(widgetCard).filter(Boolean));
+
+  if (widgets.includes('todo')) {
+    updateTodoCount();
+    scrollToIndex(false);
+    updateRotateControl();
+  }
+}
+
+/**
+ * 위젯 하나의 몸통만 다시 그립니다. 카드 껍데기와 머리는 그대로 둡니다.
+ *
+ * 왜 통째로 갈면 안 되는가
+ *   renderWidgets 의 replaceChildren 은 카드를 전부 새로 만듭니다.
+ *   그런데 이 함수가 날씨 도착·할 일 변경 어느 쪽으로도 불립니다.
+ *   날씨가 도착했다고 할 일 줄까지 갈아 버리면, 고치기 버튼을 누르려던 손가락이
+ *   허공을 짚습니다. 자동 검사에서도 '방금 있던 요소가 없다' 로 터집니다.
+ *   바뀐 카드만 손대면 옆 카드는 건드리지 않습니다.
+ *
+ * @returns {boolean} 그 카드가 화면에 있어 실제로 갈아 끼웠으면 true
+ */
+function renderWidgetBody(name) {
+  const spec = WIDGETS[name];
+  if (!spec) return false;
+  const card = $(`#today-widgets [data-widget="${name}"]`);
+  const head = card?.querySelector('.today-card-head');
+  if (!card || !head) return false;
+  /*
+   * 손가락이 카드에 걸려 있는 동안에는 손대지 않습니다.
+   * 이유는 renderWidgets 쪽에 적어 두었습니다. 여기도 같은 위험입니다.
+   */
+  if (arrangeBusy()) { renderHeld = true; return true; }
+  card.replaceChildren(head, spec.body());
+  return true;
+}
+
+function updateTodoCount() {
+  const countEl = $('#today-todo-count');
+  if (countEl) countEl.textContent = rows.length ? t('today.todo.remaining', rows.length) : '';
+}
+
+/** 현재 순환 위치로 스크롤합니다. 항목 높이가 제각각이어도 되도록 실제 위치를 씁니다. */
+function scrollToIndex(smooth = true) {
+  const track = $('#today-rot');
+  const target = track?.children?.[rotateIndex];
+  if (!track || !target || !track.children[0]) return;
+  track.scrollTo({
+    top: target.offsetTop - track.children[0].offsetTop,
+    behavior: smooth && !prefersReducedMotion() ? 'smooth' : 'auto',
+  });
+}
+
+function updateRotateControl() {
+  const btn = $('#today-rot-toggle');
+  if (!btn) return;
+  // 순환할 것이 없으면 버튼을 숨깁니다. 눌러도 아무 일이 없는 버튼은 혼란만 줍니다.
+  const needed = !prefersReducedMotion() && maxRotateIndex(rows.length) > 0;
+  btn.hidden = !needed;
+  btn.textContent = paused ? '▶' : '⏸';
+  btn.setAttribute('aria-label', t(paused ? 'today.rotate.play' : 'today.rotate.pause'));
+  btn.setAttribute('title', t(paused ? 'today.rotate.play' : 'today.rotate.pause'));
+  btn.setAttribute('aria-pressed', String(paused));
+}
+
+function tick() {
+  const limit = maxRotateIndex(rows.length);
+  if (limit <= 0) return;
+  rotateIndex = rotateIndex >= limit ? 0 : rotateIndex + 1;
+  scrollToIndex(true);
+}
+
+function shouldRun() {
+  return tabActive && !paused && !hovering
+    && !prefersReducedMotion()
+    && maxRotateIndex(rows.length) > 0
+    && document.visibilityState !== 'hidden';
+}
+
+function syncTimer() {
+  if (shouldRun()) {
+    if (!rotateTimer) rotateTimer = setInterval(tick, ROTATE_MS);
+  } else if (rotateTimer) {
+    clearInterval(rotateTimer);
+    rotateTimer = null;
+  }
+}
+
+/**
+ * 시계·타이머 위젯은 1초마다 숫자만 갈아 끼웁니다.
+ * 카드를 통째로 다시 그리면 매 초 포커스가 날아갑니다.
+ */
+function tickClock() {
+  const clockEl = $('#today-clock');
+  if (clockEl) {
+    const now = new Date();
+    clockEl.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  }
+  const timerEl = $('#today-timer');
+  if (timerEl) {
+    const state = getTimerState();
+    const idle = !state.running && state.remain === state.total;
+    timerEl.textContent = idle ? t('today.timer.idle') : clock(state.remain);
+  }
+}
+
+function syncClock() {
+  const needed = tabActive && document.visibilityState !== 'hidden'
+    && ($('#today-clock') || $('#today-timer'));
+  if (needed) {
+    if (!clockTimer) clockTimer = setInterval(tickClock, TICK_MS);
+  } else if (clockTimer) {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+}
+
+/* =========================================================
+   기능 바로가기 (런처)
+
+   이 앱에는 탭 막대가 없습니다. 좌우로 쓸거나 ••• 을 눌러야 다른 화면으로 가는데,
+   처음 켠 사람은 그 사실을 모르니 '오늘' 하나만 보고 앱이 그게 전부인 줄 압니다.
+   위젯을 늘리는 것으로는 이 문제가 풀리지 않습니다. 위젯은 '요약' 이라
+   기록이 없는 첫날에는 '없습니다' 만 적힌 빈 상자가 됩니다.
+
+   그래서 자리를 차지하되 절대 비지 않는 것을 둡니다.
+   이모지는 전부 aria-hidden 이고 이름은 옆의 글자가 맡습니다.
+   (이모지만 두면 🗓️ 이 'spiral calendar', ⏱️ 가 'stopwatch' 로 읽힙니다)
+   ========================================================= */
+
+/**
+ * 바로가기에 올릴 탭.
+ * 지금 보고 있는 화면이라 '오늘' 자신은 뺍니다. 숨긴 탭도 애초에 들어오지 않습니다.
+ */
+function launcherTabs(tabs) {
+  return (Array.isArray(tabs) ? tabs : []).filter((name) => name && name !== 'today');
+}
+
+function renderLauncher() {
+  const host = $('#today-launcher');
+  if (!host) return;
+  const tabs = launcherTabs(visibleTabs());
+  /*
+   * '오늘' 말고 전부 숨겨 둔 사람도 있습니다. 그때 빈 nav 를 남겨 두면
+   * 위아래 여백만 벌어지고, 화면 읽기 프로그램에는 아무것도 없는 이정표가 읽힙니다.
+   */
+  host.hidden = tabs.length === 0;
+  if (host.hidden) { host.replaceChildren(); return; }
+  host.setAttribute('aria-label', t('today.launcher.label'));
+  host.replaceChildren(...tabs.map((name) => el('button', {
+    class: 'today-launch', type: 'button', dataset: { tab: name },
+  },
+  el('span', { class: 'today-launch-icon', 'aria-hidden': 'true' }, tabIcon(name)),
+  el('span', { class: 'today-launch-name' }, t(`tab.${name}`)))));
+}
+
+/* =========================================================
+   바로 적기
+
+   할 일 하나 적으러 탭을 넘어갔다 돌아오는 것이 첫 사용에서 가장 많이 막히는 자리였습니다.
+   저장은 각 모듈의 문(addItem / addMemo / recordCalc)을 통해서만 합니다.
+   여기서 localStorage 를 직접 건드리면 같은 데이터를 쓰는 곳이 둘로 갈라집니다.
+   ========================================================= */
+
+function quickTodo(e) {
+  e.preventDefault();
+  const input = $('#today-quick-todo');
+  const text = input?.value.trim();
+  if (!text) return;
+  if (!addItem(text)) return;
+  input.value = '';
+  toast(t('today.quick.todoDone', text));
+}
+
+function showCalcOut(message, isError) {
+  const out = $('#today-quick-calc-out');
+  if (!out) return;
+  out.hidden = false;
+  out.classList.toggle('is-error', isError === true);
+  out.textContent = message;
+}
+
+function quickCalc(e) {
+  e.preventDefault();
+  const input = $('#today-quick-calc');
+  const raw = input?.value.trim();
+  if (!raw) return;
+  try {
+    const value = evaluate(raw);
+    showCalcOut(`${raw} = ${formatNumber(value)}`, false);
+    // 기록에 남겨야 '최근 계산' 위젯과 계산기 탭에서 다시 꺼낼 수 있습니다.
+    recordCalc(raw, value);
+    // 결과를 이어서 계산할 수 있도록 남겨 둡니다. 계산기 탭과 같은 습관입니다.
+    input.value = String(value);
+  } catch {
+    /*
+     * 엔진이 주는 문구는 한국어로 박혀 있습니다. 영어로 쓰는 사람에게 한국어가
+     * 튀어나오는 것보다는, 짧아도 고른 언어로 말하는 편이 낫습니다.
+     */
+    showCalcOut(t('today.quick.calcError'), true);
+  }
+}
+
+function quickMemo(e) {
+  e.preventDefault();
+  const input = $('#today-quick-memo');
+  const text = input?.value.trim();
+  if (!text) return;
+  if (!addMemo(text)) return;
+  input.value = '';
+  toast(t('today.quick.memoDone'));
+}
+
+function renderAll() {
+  const lang = getLang();
+  $('#panel-today')?.setAttribute('lang', lang);
+  const dateEl = $('#today-date');
+  if (dateEl) dateEl.textContent = formatDate(lang);
+  /*
+   * 이 패널의 정적 문구(바로 적기 칸의 이름과 안내)는 여기서 언어를 맞춥니다.
+   * applyStatic 은 문서 전체에 한 번도 불리지 않아서, 부르지 않으면
+   * 영어로 바꿔도 한국어가 그대로 남습니다.
+   */
+  // applyStatic 은 root.querySelectorAll 을 부릅니다. null 을 넘기면 그 자리에서 던집니다.
+  const panel = $('#panel-today');
+  if (panel) applyStatic(panel);
+  renderLauncher();
+  renderWidgets();
+  syncTimer();
+  syncClock();
+}
+
+function initToday() {
+  const host = $('#today-widgets');
+  if (!host) return;
+
+  /*
+   * 바로가기는 다시 그릴 때마다 칩이 새 노드가 되므로 컨테이너에 위임합니다.
+   * 칩 안의 이모지/글자를 눌러도 closest 로 버튼까지 올라갑니다.
+   */
+  $('#today-launcher')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.today-launch');
+    if (chip?.dataset.tab) goToTab(chip.dataset.tab);
+  });
+
+  // 바로 적기. form 이라 Enter 로도 넘어갑니다.
+  $('#today-quick-todo-form')?.addEventListener('submit', quickTodo);
+  $('#today-quick-calc-form')?.addEventListener('submit', quickCalc);
+  /*
+   * 다시 치기 시작하면 앞선 결과와 오류를 지웁니다.
+   * 남겨 두면 '((1+' 를 고쳐 '(1+2)' 로 만들어 놓고도 빨간 '계산할 수 없습니다' 가
+   * 그대로 붙어 있어, 고친 것이 틀린 줄 압니다.
+   */
+  $('#today-quick-calc')?.addEventListener('input', () => {
+    const out = $('#today-quick-calc-out');
+    if (!out || out.hidden) return;
+    out.hidden = true;
+    out.textContent = '';
+    out.classList.remove('is-error');
+  });
+  $('#today-quick-memo-form')?.addEventListener('submit', quickMemo);
+
+  // 위젯이 다시 그려져도 살아 있도록 컨테이너에 한 번만 위임합니다.
+  host.addEventListener('click', (e) => {
+    /*
+     * 줄에서 '글' 을 눌렀을 때만 계획표로 건너뜁니다.
+     * 줄 전체를 기준으로 잡으면 체크칸이나 고치기를 눌러도 탭이 넘어가 버립니다.
+     */
+    const text = e.target.closest('.today-rot-text');
+    if (text) {
+      goToTab('todo');
+      revealItem(text.dataset.id);
+      return;
+    }
+    // 체크칸과 고치기는 제 일만 하고 여기서 끝냅니다.
+    if (e.target.closest('.today-rot-check, .today-rot-edit, .today-rot-input')) return;
+    if (e.target.closest('#today-rot-toggle')) {
+      paused = !paused;
+      updateRotateControl();
+      syncTimer();
+      return;
+    }
+    /*
+     * 카드 아무 데나 눌러도 그 탭으로 갑니다.
+     *
+     * 예전에는 '.today-card' 로 찾았는데, 할 일 위젯만 카드가 button 이 아니라
+     * div 라서 클래스가 'today-card-static' 입니다. 클래스 선택자는 토큰이 정확히
+     * 맞아야 걸리므로 할 일 카드만 통째로 빠져, 제목이나 여백을 눌러도 아무 일이
+     * 없었습니다. data 속성으로 찾으면 둘 다 걸립니다.
+     */
+    const card = e.target.closest('[data-widget][data-goto]');
+    if (!card) return;
+    const tab = card.dataset.goto;
+    goToTab(tab);
+    // 탭을 바꾼 직후에는 아직 배치가 끝나지 않아 스크롤이 먹지 않습니다. 한 프레임 뒤에 옮깁니다.
+    if (tab === 'weather') {
+      requestAnimationFrame(() => {
+        $('#wx-week')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  });
+
+  /*
+   * 순환 목록 위에 손이나 포커스가 있는 동안만 멈춥니다.
+   * 위젯은 다시 그려질 때마다 새 요소가 되므로 컨테이너에 위임하는데,
+   * pointerenter/leave 는 버블링하지 않아 위임이 되지 않습니다. over/out 을 씁니다.
+   * 카드 전체가 아니라 #today-rot 안일 때만 멈춰야 합니다.
+   * (일시정지 버튼은 카드 머리에 있어서, 카드 전체를 기준으로 잡으면
+   *  버튼을 한 번 누른 뒤 마우스가 그 자리에 남아 순환이 영영 멈춥니다)
+   */
+  const inRot = (node) => !!(node && node.closest && node.closest('#today-rot'));
+  host.addEventListener('pointerover', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('pointerout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
+  host.addEventListener('pointerdown', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('focusin', (e) => { if (inRot(e.target)) setHover(true); });
+  host.addEventListener('focusout', (e) => { if (!inRot(e.relatedTarget)) setHover(false); });
+
+  // 탭을 떠나거나 앱이 백그라운드로 가면 타이머를 멈춥니다.
+  onTabChange((name) => {
+    tabActive = name === 'today';
+    if (tabActive) renderAll(); else { syncTimer(); syncClock(); }
+  });
+  document.addEventListener('visibilitychange', () => { syncTimer(); syncClock(); });
+
+  onTodoChange(() => {
+    // 할 일 카드만 다시 그립니다. 없으면(위젯을 끈 경우) 그릴 것도 없습니다.
+    if (!renderWidgetBody('todo')) return;
+    updateTodoCount();
+    scrollToIndex(false);
+    updateRotateControl();
+    // 남은 개수가 바뀌면 순환을 돌릴지 말지도 달라집니다. (shouldRun 이 rows.length 를 봅니다)
+    syncTimer();
+  });
+  // 날씨가 도착했다고 할 일 줄을 뜯어내면 안 됩니다. 날씨 카드만 손댑니다.
+  onWeatherChange(() => { renderWidgetBody('weather'); });
+  // 손가락이 떨어지고 편집도 끝나면, 그동안 미뤄 둔 그리기를 한 번 처리합니다.
+  onArrangeChange(() => {
+    if (arrangeBusy() || !renderHeld) return;
+    renderHeld = false;
+    renderAll();
+  });
+  onLangChange(renderAll);
+  onPrefsChange(renderAll);
+
+  renderAll();
+}
+  return { todayRows, maxRotateIndex, launcherTabs, initToday };
 })();
 
 /* ===== js/modules/calendar.js ===== */
@@ -7568,6 +8777,12 @@ const __m_js_modules_calendar_js = (function () {
 
 
 const MAX_DOTS = 3;         // 한 칸에 보여 줄 이모지 개수. 넘치면 +N 으로 줄입니다.
+
+/**
+ * 연간 미니 달력 한 장의 칸 수. 6줄 x 7칸입니다.
+ * 어떤 달도 6주를 넘지 않으므로(monthGrid 와 같은 근거) 이 수로 고르게 맞출 수 있습니다.
+ */
+const MINI_CELLS = 42;
 
 /** 화면에 쓸 요일 머리글 순서. 일요일 시작입니다. */
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -7803,7 +9018,8 @@ function monthShape(ctx) {
  */
 function miniMonth(monthStart, ctx) {
   const month = monthStart.getMonth();
-  const cells = monthGrid(monthStart).map((d) => {
+  const days = monthGrid(monthStart);
+  const cells = days.map((d) => {
     // 옆 달 날짜는 자리만 지킵니다. 숫자를 흐리게 놔두면 작은 판에서 지저분합니다.
     if (d.getMonth() !== month) return el('span', { class: 'cal-mini-day is-blank' }, '');
     const key = dayKey(d);
@@ -7814,8 +9030,18 @@ function miniMonth(monthStart, ctx) {
     return el('span', { class: classes.join(' ') }, String(d.getDate()));
   });
 
+  /*
+   * 여섯 줄로 맞춥니다.
+   *
+   * 달마다 다섯 줄이었다 여섯 줄이었다 해서, 열두 장을 늘어놓으면 카드 안이
+   * 들쭉날쭉해 보였습니다. 빈 칸으로 채워 줄 수를 고르게 합니다.
+   *
+   * 전체 높이는 늘지 않습니다. 격자가 stretch 라 어차피 가장 긴 달이 높이를 정합니다.
+   */
+  while (cells.length < MINI_CELLS) cells.push(el('span', { class: 'cal-mini-day is-blank' }, ''));
+
   const monthKey = `${monthStart.getFullYear()}-${pad(month + 1)}`;
-  const count = monthGrid(monthStart)
+  const count = days
     .filter((d) => d.getMonth() === month)
     .reduce((n, d) => n + (ctx.byDay.get(dayKey(d))?.length || 0), 0);
 
@@ -7848,6 +9074,26 @@ function yearShape(ctx) {
 
 const SHAPES = { day: dayShape, week: weekShape, month: monthShape, year: yearShape };
 
+/* 마지막으로 그린 모양. 모양이 '바뀐 순간' 에만 나타나는 동작을 붙이려고 둡니다. */
+let lastShape = null;
+
+/**
+ * 모양이 달라졌을 때만 살짝 올라오며 나타나게 합니다.
+ *
+ * 달력은 할 일을 체크하기만 해도 다시 그려집니다. 그릴 때마다 애니메이션을 걸면
+ * 체크 한 번에 달력이 깜빡여서 도리어 거슬립니다.
+ *
+ * 클래스를 뗐다 붙이는 것만으로는 애니메이션이 다시 시작되지 않습니다.
+ * 사이에 리플로를 한 번 일으켜야 브라우저가 '새 애니메이션' 으로 봅니다.
+ */
+function playShapeEnter(grid, shape) {
+  if (shape === lastShape) return;
+  lastShape = shape;
+  grid.classList.remove('is-enter');
+  void grid.offsetWidth;
+  grid.classList.add('is-enter');
+}
+
 function render() {
   const grid = $('#cal-grid');
   if (!grid) return;
@@ -7868,6 +9114,7 @@ function render() {
   grid.dataset.shape = shape;
   grid.setAttribute('aria-label', t(`cal.aria.${shape}`));
   grid.replaceChildren(...SHAPES[shape](ctx));
+  playShapeEnter(grid, shape);
 }
 
 /* ---------- 일정(Schedule) 보기 ----------
@@ -8132,493 +9379,6 @@ function shownMonth() {
 /** 요일 머리글 순서. 일요일 시작인지 확인할 때 씁니다. */
 const WEEK_START_KEYS = WEEKDAY_KEYS;
   return { dayKey, shapeOf, weekRow, monthGrid, monthsOfYear, groupByDay, agendaDays, calendarView, isPickOpen, initCalendar, shownMonth, WEEK_START_KEYS };
-})();
-
-/* ===== js/modules/memo.js ===== */
-const __m_js_modules_memo_js = (function () {
-  const { $, el, toast, uid } = __m_js_lib_dom_js;
-  const { load, save } = __m_js_lib_store_js;
-/**
- * 메모 · 낙서판 모듈
- * 낙서판은 Pointer Events 로 마우스/터치/펜을 동일하게 처리합니다.
- */
-
-
-const MEMO_KEY = 'memo.items';
-const DRAW_KEY = 'memo.drawing';
-const COLORS = ['#1a1d21', '#e0533d', '#3b6ef6', '#1a8f5a', '#c47b12', '#8b5cf6'];
-const MAX_UNDO = 12;
-
-let memos = [];
-let canvas, ctx;
-let drawing = false;
-let penColor = COLORS[0];
-let penSize = 3;
-let eraser = false;
-let undoStack = [];
-/*
- * 판에 깔아 둔 메모와 그때 잡은 판 높이.
- *
- * 창 크기가 바뀌면 캔버스를 다시 만드는데, 그냥 두면 메모를 올려 길어진 판이
- * 기본 높이로 줄면서 글씨가 세로로 뭉갭니다. (1142px -> 225px 로 찌그러졌습니다)
- * 아직 그 위에 그리지 않았으면 새 폭에 맞춰 메모를 다시 그리고,
- * 이미 그렸으면 그림을 지킬 수 없으므로 높이만이라도 유지합니다.
- */
-let placedMemo = null;
-let boardCssHeight = 0;
-
-/**
- * 메모를 낙서판으로 보냅니다.
- *
- * 그림으로 바꿔 판에 깔고, 낙서판이 화면에 오도록 옮겨 줍니다.
- * 원본 메모는 목록에 그대로 남습니다.
- */
-function sendMemoToBoard(memo) {
-  const placed = placeMemoOnCanvas(memo);
-  if (!placed) { toast('낙서판을 찾지 못했습니다', 'error'); return; }
-  $('#draw-status').textContent = placed.cut
-    ? `메모를 올렸습니다 · ${placed.cut}줄은 담지 못했습니다`
-    : '메모를 올렸습니다 · 위에 바로 그릴 수 있습니다';
-  // 바로 그릴 수 있게 낙서판을 보여 줍니다. 목록 아래에 있으면 올려 준 걸 못 봅니다.
-  $('[data-card="memo.draw"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  toast(placed.cut
-    ? `메모를 낙서판에 올렸습니다 (${placed.cut}줄은 잘렸습니다)`
-    : '메모를 낙서판에 올렸습니다');
-}
-
-// --- 메모 ---
-function renderMemos() {
-  const list = $('#memo-list');
-  $('#memo-count').textContent = memos.length ? `${memos.length}개` : '';
-  list.replaceChildren();
-  if (!memos.length) {
-    list.append(el('li', { class: 'empty' }, '저장된 메모가 없습니다.'));
-    return;
-  }
-  memos.forEach((memo) => {
-    list.append(el('li', { class: 'memo-item' },
-      el('div', { class: 'memo-body' }, memo.text),
-      el('div', { class: 'row', style: 'margin-top:5px' },
-        el('span', { class: 'memo-time grow' }, new Date(memo.at).toLocaleString('ko-KR')),
-        el('button', {
-          class: 'btn btn-sm btn-ghost',
-          dataset: { memoDraw: memo.id },
-          title: '이 메모를 그림으로 만들어 낙서판에 깝니다',
-          onclick: () => sendMemoToBoard(memo),
-        }, '🖍️ 낙서판으로'),
-        el('button', {
-          class: 'btn btn-sm btn-ghost',
-          onclick: async () => {
-            try { await navigator.clipboard.writeText(memo.text); toast('복사했습니다'); }
-            catch { toast('복사를 지원하지 않는 환경입니다', 'error'); }
-          },
-        }, '복사'),
-        el('button', {
-          class: 'btn btn-sm btn-ghost',
-          onclick: () => { memos = memos.filter((m) => m.id !== memo.id); save(MEMO_KEY, memos); renderMemos(); },
-        }, '삭제'),
-      ),
-    ));
-  });
-}
-
-// --- 낙서판 ---
-// 캔버스를 컨테이너 너비에 맞추고 devicePixelRatio 를 적용해 선명하게 그립니다.
-function resizeCanvas(preserve = true, cssHeightWanted = 0) {
-  const snapshot = preserve && canvas.width ? canvas.toDataURL('image/png') : null;
-  const cssWidth = canvas.parentElement.clientWidth || 320;
-  // 메모를 올릴 때는 글 길이에 맞춘 높이를 그대로 씁니다. 평소에는 폭에 비례한 기본값입니다.
-  const cssHeight = cssHeightWanted
-    ? Math.round(cssHeightWanted)
-    : Math.round(Math.min(Math.max(cssWidth * 0.62, 220), 420));
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-  canvas.style.height = `${cssHeight}px`;
-  canvas.width = Math.round(cssWidth * dpr);
-  canvas.height = Math.round(cssHeight * dpr);
-
-  resetContext();
-
-  if (snapshot) restoreImage(snapshot);
-}
-
-function restoreImage(dataUrl) {
-  const img = new Image();
-  img.onload = () => {
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
-    resetContext();
-  };
-  img.src = dataUrl;
-}
-
-/**
- * 되돌리기 한 칸.
- *
- * 그림만이 아니라 캔버스 크기도 같이 담습니다.
- * 메모를 올리면 글 길이에 맞춰 판이 길어지는데, 크기를 안 담아 두면 되돌릴 때
- * 예전 그림이 새 크기로 늘어나 찌그러집니다.
- */
-function pushUndo() {
-  try {
-    undoStack.push({
-      url: canvas.toDataURL('image/png'),
-      w: canvas.width,
-      h: canvas.height,
-      cssH: canvas.style.height,
-    });
-    if (undoStack.length > MAX_UNDO) undoStack.shift();
-  } catch { /* 캔버스가 오염된 경우 무시 */ }
-}
-
-/** 캔버스 그리기 상태를 화면 배율에 맞춰 다시 잡습니다. */
-function resetContext() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  return dpr;
-}
-
-function pointFromEvent(e) {
-  const rect = canvas.getBoundingClientRect();
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-}
-
-function onPointerDown(e) {
-  if (!ctx) return;
-  e.preventDefault();
-  // 그 위에 그리기 시작하면 더는 '메모만 깔린 판'이 아닙니다. 다시 그려 주면 그림이 지워집니다.
-  placedMemo = null;
-  pushUndo();
-  drawing = true;
-  canvas.setPointerCapture?.(e.pointerId);
-  const p = pointFromEvent(e);
-  ctx.beginPath();
-  ctx.moveTo(p.x, p.y);
-  // 점 하나만 찍는 경우도 보이도록 아주 짧은 선을 그립니다.
-  ctx.lineTo(p.x + 0.01, p.y);
-  applyStroke();
-}
-
-function applyStroke() {
-  ctx.lineWidth = eraser ? Math.max(penSize * 3, 12) : penSize;
-  ctx.strokeStyle = eraser ? '#ffffff' : penColor;
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.stroke();
-}
-
-function onPointerMove(e) {
-  if (!drawing || !ctx) return;
-  e.preventDefault();
-  const p = pointFromEvent(e);
-  ctx.lineTo(p.x, p.y);
-  applyStroke();
-}
-
-function onPointerUp() {
-  if (!drawing) return;
-  drawing = false;
-  ctx?.closePath();
-}
-
-function clearCanvas() {
-  placedMemo = null;
-  pushUndo();
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.restore();
-  resetContext();
-}
-
-/* ---------- 메모를 이미지로 만들어 낙서판에 올리기 ----------
- *
- * 회의 중에 적어 둔 메모를 낙서판으로 보내, 중요한 부분에 동그라미를 치거나
- * 화살표를 긋기 위한 기능입니다. 글을 그림으로 바꿔 판에 깔아 두면 그 위에 그릴 수 있습니다.
- *
- * 글자를 '그림'으로 바꾸므로 한 번 올리면 글자를 고칠 수 없습니다.
- * 원본 메모는 목록에 그대로 남습니다. 지우지 않습니다.
- */
-
-/** 글씨 크기와 줄 간격. 글이 길면 이 안에서 줄여 맞춥니다. */
-const MEMO_FONT_MAX = 19;
-const MEMO_FONT_MIN = 12;
-const MEMO_PAD = 18;
-/*
- * 판 높이 상한.
- *
- * 입력칸이 한 메모를 2000자로 막고 있습니다. 그 2000자가 가장 좁은 화면(320px)에서
- * 가장 작은 글씨로 펼쳐져도 다 들어가도록 잡은 값입니다. 회의록이 잘려 나가는 것보다
- * 판이 긴 편이 낫습니다. (판이 길면 스크롤해서 그리면 됩니다)
- * 그래도 넘치는 경우(예전 버전이나 손으로 넣은 더 긴 값)에는 몇 줄이 잘렸는지 알려 줍니다.
- */
-const MEMO_MAX_CSS_HEIGHT = 2400;
-
-/**
- * 글을 판 너비에 맞춰 줄로 자릅니다.
- *
- * 한국어는 단어 사이에 공백이 없어서 공백 기준으로만 자르면 한 줄이 통째로 넘칩니다.
- * 그래서 한 글자씩 재되, 영어처럼 공백이 있으면 그 직전에서 끊어 단어가 갈라지지 않게 합니다.
- */
-function wrapLines(measure, text, maxWidth) {
-  const out = [];
-  String(text ?? '').split(/\r?\n/).forEach((paragraph) => {
-    if (!paragraph) { out.push(''); return; }
-    /*
-     * 글자를 코드포인트 단위로 담습니다.
-     * 문자열 인덱스로 자르면 이모지 같은 서로게이트 쌍이 반쪽 나서 글자가 깨집니다.
-     * (여러 글자가 붙어 한 글자로 보이는 이모지는 줄이 갈릴 수 있지만, 깨지지는 않습니다)
-     */
-    let buf = [];
-    let lastSpace = -1;   // 지금 줄에서 마지막으로 본 공백의 자리
-    for (const ch of paragraph) {
-      // 줄 첫머리의 공백은 줄을 바꾸며 생긴 찌꺼기입니다. 버립니다.
-      if (!buf.length && ch === ' ') continue;
-
-      if (buf.length && measure(buf.join('') + ch) > maxWidth) {
-        if (lastSpace > 0) {
-          // 공백이 있었으면 거기서 끊어 단어가 갈라지지 않게 합니다. (영어)
-          out.push(buf.slice(0, lastSpace).join(''));
-          buf = buf.slice(lastSpace + 1);
-        } else {
-          // 공백이 없으면 (한국어) 그 자리에서 끊습니다.
-          out.push(buf.join(''));
-          buf = [];
-        }
-        lastSpace = buf.lastIndexOf(' ');
-        // 끊은 자리에 있던 공백은 새 줄 앞에 남기지 않습니다.
-        if (ch === ' ') continue;
-      }
-
-      buf.push(ch);
-      if (ch === ' ') lastSpace = buf.length - 1;
-    }
-    out.push(buf.join(''));
-  });
-  return out;
-}
-
-/** 저장된 시각을 사람이 읽는 꼴로. */
-function stampOf(at) {
-  try { return new Date(at).toLocaleString('ko-KR'); }
-  catch { return ''; }
-}
-
-/**
- * 메모 하나를 낙서판에 깔아 놓습니다.
- *
- * 판에 있던 그림은 지웁니다. 대신 되돌리기 한 칸을 먼저 쌓아 두므로
- * '되돌리기'를 누르면 원래 그림과 원래 판 크기로 돌아옵니다.
- *
- * @returns {{lines:number, fontSize:number, cut:number}|null} 실패하면 null
- */
-function placeMemoOnCanvas(memo, { keepUndo = true } = {}) {
-  if (!canvas || !memo || typeof memo.text !== 'string') return null;
-
-  // 창 크기가 바뀌어 다시 그리는 경우에는 되돌리기를 쌓지 않습니다. 한 칸이 계속 늘어납니다.
-  if (keepUndo) pushUndo();
-
-  const cssWidth = canvas.parentElement.clientWidth || 320;
-  const maxTextWidth = cssWidth - MEMO_PAD * 2;
-  const probe = canvas.getContext('2d');
-
-  /*
-   * 글씨 크기를 위에서부터 줄여 가며, 기본 판 높이 안에 들어가는 크기를 찾습니다.
-   * 가장 작은 크기로도 안 들어가면 판을 길게 늘입니다. (상한까지)
-   */
-  const baseCssHeight = Math.round(Math.min(Math.max(cssWidth * 0.62, 220), 420));
-  let fontSize = MEMO_FONT_MAX;
-  let lines = [];
-  let needed = 0;
-  for (; fontSize >= MEMO_FONT_MIN; fontSize -= 1) {
-    probe.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
-    lines = wrapLines((t) => probe.measureText(t).width, memo.text, maxTextWidth);
-    needed = MEMO_PAD * 2 + 26 + lines.length * Math.round(fontSize * 1.5);
-    if (needed <= baseCssHeight) break;
-  }
-  if (fontSize < MEMO_FONT_MIN) fontSize = MEMO_FONT_MIN;
-
-  const cssHeight = Math.min(Math.max(needed, baseCssHeight), MEMO_MAX_CSS_HEIGHT);
-  // 판을 새로 깝니다. 앞의 그림은 되돌리기에 들어가 있으므로 preserve 는 false 입니다.
-  resizeCanvas(false, cssHeight);
-
-  const lineHeight = Math.round(fontSize * 1.5);
-  const bodyTop = MEMO_PAD + 26;
-  // 잘린 줄 수. 판 상한을 넘겼을 때만 0 보다 큽니다.
-  const fit = Math.max(Math.floor((cssHeight - bodyTop - MEMO_PAD) / lineHeight), 1);
-  const shown = lines.slice(0, fit);
-  const cut = lines.length - shown.length;
-
-  // 바탕을 흰 종이로 깔아야 지우개(흰색)와 색이 맞습니다.
-  ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, cssWidth, cssHeight);
-
-  // 머리글: 언제 적은 메모인지.
-  ctx.fillStyle = '#8a8f98';
-  ctx.font = '12px system-ui, -apple-system, sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.fillText(`메모 · ${stampOf(memo.at)}`, MEMO_PAD, MEMO_PAD);
-
-  // 본문.
-  ctx.fillStyle = '#1a1d21';
-  ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
-  shown.forEach((line, i) => {
-    ctx.fillText(line, MEMO_PAD, bodyTop + i * lineHeight);
-  });
-
-  if (cut > 0) {
-    ctx.fillStyle = '#c0392b';
-    ctx.font = '12px system-ui, -apple-system, sans-serif';
-    ctx.fillText(`… ${cut}줄이 더 있습니다 (판에 다 담지 못했습니다)`,
-      MEMO_PAD, cssHeight - MEMO_PAD - 14);
-  }
-  ctx.restore();
-  resetContext();
-
-  placedMemo = memo;
-  boardCssHeight = cssHeight;
-  return { lines: lines.length, fontSize, cut };
-}
-
-function renderPenColors() {
-  const box = $('#pen-colors');
-  box.replaceChildren();
-  COLORS.forEach((color) => {
-    const btn = el('button', {
-      class: 'pen-dot',
-      type: 'button',
-      style: `background:${color}`,
-      'aria-label': `펜 색 ${color}`,
-      'aria-pressed': String(color === penColor && !eraser),
-      onclick: () => {
-        penColor = color;
-        eraser = false;
-        $('#pen-eraser').setAttribute('aria-pressed', 'false');
-        renderPenColors();
-      },
-    });
-    box.append(btn);
-  });
-}
-
-function initMemo() {
-  memos = load(MEMO_KEY, []);
-  if (!Array.isArray(memos)) memos = [];
-  renderMemos();
-
-  $('#memo-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = $('#memo-input');
-    const text = input.value.trim();
-    if (!text) return;
-    memos.unshift({ id: uid(), text, at: Date.now() });
-    input.value = '';
-    save(MEMO_KEY, memos);
-    renderMemos();
-    toast('메모를 저장했습니다');
-  });
-
-  $('#memo-input').addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      $('#memo-form').requestSubmit();
-    }
-  });
-
-  // --- 캔버스 준비 ---
-  canvas = $('#draw-canvas');
-  resizeCanvas(false);
-  renderPenColors();
-
-  const savedDrawing = load(DRAW_KEY, null);
-  if (typeof savedDrawing === 'string' && savedDrawing.startsWith('data:image')) {
-    restoreImage(savedDrawing);
-    $('#draw-status').textContent = '저장된 그림을 불러왔습니다';
-  }
-
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
-  canvas.addEventListener('pointerleave', onPointerUp);
-
-  $('#pen-size').addEventListener('input', (e) => { penSize = Number(e.target.value) || 3; });
-
-  $('#pen-eraser').addEventListener('click', (e) => {
-    eraser = !eraser;
-    e.currentTarget.setAttribute('aria-pressed', String(eraser));
-    renderPenColors();
-  });
-
-  $('#draw-undo').addEventListener('click', () => {
-    const prev = undoStack.pop();
-    if (!prev) { toast('되돌릴 작업이 없습니다'); return; }
-    // 판 크기가 달랐으면 그 크기로 되돌린 뒤에 그림을 얹어야 찌그러지지 않습니다.
-    placedMemo = null;
-    if (prev.w !== canvas.width || prev.h !== canvas.height) {
-      canvas.width = prev.w;
-      canvas.height = prev.h;
-      canvas.style.height = prev.cssH;
-      resetContext();
-    }
-    boardCssHeight = parseFloat(prev.cssH) || 0;
-    restoreImage(prev.url);
-  });
-
-  $('#draw-clear').addEventListener('click', clearCanvas);
-
-  $('#draw-save').addEventListener('click', () => {
-    try {
-      const dataUrl = canvas.toDataURL('image/png');
-      // localStorage 용량(보통 5MB)을 넘기지 않도록 크기를 확인합니다.
-      if (dataUrl.length > 4_000_000) {
-        toast('그림이 너무 커서 저장할 수 없습니다. PNG 로 내려받아 주세요.', 'error');
-        return;
-      }
-      if (save(DRAW_KEY, dataUrl)) {
-        $('#draw-status').textContent = `저장됨 · ${new Date().toLocaleTimeString('ko-KR')}`;
-        toast('그림을 저장했습니다');
-      } else {
-        toast('저장 공간이 부족합니다', 'error');
-      }
-    } catch {
-      toast('그림을 저장하지 못했습니다', 'error');
-    }
-  });
-
-  $('#draw-download').addEventListener('click', () => {
-    try {
-      const link = document.createElement('a');
-      link.download = `낙서_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch {
-      toast('내려받기에 실패했습니다', 'error');
-    }
-  });
-
-  // 창 크기가 바뀌면 캔버스를 다시 맞춥니다. (연속 호출 방지를 위해 디바운스)
-  let resizeTimer = null;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      if (placedMemo) {
-        // 아직 아무것도 안 그렸으면 새 폭에 맞춰 메모를 처음부터 다시 그립니다. (늘어나지 않습니다)
-        placeMemoOnCanvas(placedMemo, { keepUndo: false });
-        return;
-      }
-      // 메모를 올려 길어진 판이면 그 높이를 지킵니다. 기본 높이로 줄이면 그림이 뭉갭니다.
-      resizeCanvas(true, boardCssHeight);
-    }, 200);
-  });
-}
-  return { wrapLines, initMemo };
 })();
 
 /* ===== js/modules/quote.js ===== */
@@ -9436,9 +10196,217 @@ function saveBanner(list) {
   return { hintEnv, parseBannerText, applyBanner, initBanner, saveBanner, BANNER_KEY };
 })();
 
+/* ===== js/modules/intro.js ===== */
+const __m_js_modules_intro_js = (function () {
+  const { $, el } = __m_js_lib_dom_js;
+  const { t, onLangChange } = __m_js_lib_i18n_js;
+  const { load, save } = __m_js_lib_store_js;
+/**
+ * intro.js — 처음 켰을 때 한 번 보여 주는 사용 안내
+ *
+ * 이 앱에는 탭 막대가 없습니다. 좌우로 쓸어 넘기거나 ••• 을 눌러야 다른 화면으로 갑니다.
+ * 카드를 꾹 눌러 옮기는 것도, 데이터가 이 기기에만 남는다는 것도 화면만 봐서는 알 수 없습니다.
+ * 그 '안 보이는 것' 들만 다섯 장으로 짚어 줍니다.
+ *
+ * 왜 손가락으로 가리키지 않고 슬라이드인가
+ *   이 앱은 탭을 숨기고 순서를 바꿀 수 있고 카드도 옮길 수 있습니다.
+ *   특정 요소를 가리키는 안내는 그 요소가 없으면 그대로 깨집니다.
+ *   '다시 보기' 로 나중에 열 때는 구성이 또 달라져 있습니다.
+ *   슬라이드는 화면 구성과 무관하게 언제 열어도 같습니다.
+ *
+ * 쓰던 사람에게는 띄우지 않습니다
+ *   '첫 접속' 은 기록이 아예 없는 상태입니다. 업데이트를 받았다고 해서
+ *   쓰던 사람에게 안내가 튀어나오면 그건 방해입니다. (§shouldShowIntro)
+ */
+
+
+
+const KEY = 'ui.intro';
+
+/**
+ * 안내 판의 판 번호.
+ * 내용을 크게 바꿔 다시 보여 주고 싶으면 이 수를 올립니다.
+ * 예전 판을 본 사람은 saved.v 가 작아서 다시 한 번 보게 됩니다.
+ */
+const INTRO_VERSION = 1;
+
+/**
+ * 보여 줄 장들.
+ *
+ * 사전 키를 문자열 그대로 적어 둡니다. i18n 검사가 html 과 js 를 통째로 훑어
+ * '쓰이지 않는 키' 를 잡는데, 여기 적혀 있으면 쓰이는 것으로 읽힙니다.
+ */
+const INTRO_STEPS = Object.freeze([
+  { icon: '↔', title: 'intro.move.title', text: 'intro.move.text' },
+  { icon: '🗓️', title: 'intro.today.title', text: 'intro.today.text' },
+  { icon: '✅', title: 'intro.plan.title', text: 'intro.plan.text' },
+  { icon: '⠿', title: 'intro.arrange.title', text: 'intro.arrange.text' },
+  { icon: '💾', title: 'intro.data.title', text: 'intro.data.text' },
+]);
+
+/**
+ * 안내를 띄울 때인가.
+ *
+ * 브라우저 없이 검사할 수 있도록 순수 함수로 둡니다.
+ *
+ * @param {boolean} hadData 부팅 전에 이미 이 앱이 저장한 것이 있었는지
+ * @param {*} saved 저장된 ui.intro 값 (없으면 null)
+ * @returns {boolean}
+ */
+function shouldShowIntro(hadData, saved) {
+  // 이미 본 판이면 다시 띄우지 않습니다.
+  if (saved && Number(saved.v) >= INTRO_VERSION) return false;
+  /*
+   * 쓰던 사람입니다.
+   * 기록이 있다는 건 이미 앱을 써 봤다는 뜻이라 '첫 접속' 이 아닙니다.
+   * 업데이트를 받았다고 안내가 튀어나오면 방해가 됩니다.
+   */
+  if (hadData) return false;
+  return true;
+}
+
+/** 지금 보고 있는 장. 열려 있지 않으면 -1 입니다. */
+let step = -1;
+/** 안내를 열기 직전에 초점이 있던 곳. 닫을 때 돌려줍니다. */
+let lastTrigger = null;
+
+const isOpen = () => step >= 0;
+
+/** 본 것으로 기록합니다. 화면에 띄우지 않고 기록만 할 때도 씁니다. */
+function markIntroSeen() {
+  save(KEY, { v: INTRO_VERSION, at: Date.now() });
+}
+
+function paint() {
+  const spec = INTRO_STEPS[step];
+  if (!spec) return;
+  const icon = $('#intro-icon');
+  if (icon) icon.textContent = spec.icon;
+  const title = $('#intro-title');
+  if (title) title.textContent = t(spec.title);
+  const text = $('#intro-text');
+  if (text) text.textContent = t(spec.text);
+
+  // 몇 번째 장인지. 점은 보여 주기만 하고 누르는 곳은 아닙니다.
+  const dots = $('#intro-dots');
+  if (dots) {
+    dots.replaceChildren(...INTRO_STEPS.map((_, i) => el('span', {
+      class: `intro-dot${i === step ? ' is-on' : ''}`,
+    })));
+    dots.setAttribute('aria-label', t('intro.progress', step + 1, INTRO_STEPS.length));
+  }
+
+  const prev = $('#intro-prev');
+  // 첫 장에서는 '이전' 이 할 일이 없습니다. 눌러도 아무 일 없는 버튼은 혼란만 줍니다.
+  if (prev) prev.hidden = step === 0;
+  const next = $('#intro-next');
+  const last = step === INTRO_STEPS.length - 1;
+  if (next) next.textContent = t(last ? 'intro.start' : 'intro.next');
+  const skip = $('#intro-skip');
+  // 마지막 장에서는 건너뛸 것이 없습니다.
+  if (skip) skip.hidden = last;
+}
+
+/** 안내를 엽니다. 설정 탭의 '사용법 다시 보기' 도 이 함수를 부릅니다. */
+function openIntro() {
+  const panel = $('#intro');
+  const scrim = $('#intro-scrim');
+  if (!panel || !scrim) return false;
+  lastTrigger = document.activeElement;
+  step = 0;
+  panel.hidden = false;
+  scrim.hidden = false;
+  document.body.dataset.intro = 'open';
+  paint();
+  /*
+   * 초점은 카드가 받습니다.
+   * 버튼에 주면 열자마자 두꺼운 초점 링이 걸려 그리다 만 것처럼 보입니다.
+   * 카드가 받아도 화면 읽기 프로그램은 제목부터 읽고, Tab 한 번이면 버튼입니다.
+   */
+  ($('#intro-card') || panel).focus?.();
+  return true;
+}
+
+/**
+ * 안내를 닫습니다.
+ * 끝까지 봤든 건너뛰었든 '봤다' 로 기록합니다. 다시 보고 싶으면 설정 탭에서 엽니다.
+ */
+function closeIntro() {
+  const panel = $('#intro');
+  const scrim = $('#intro-scrim');
+  if (!isOpen()) return;
+  step = -1;
+  if (panel) panel.hidden = true;
+  if (scrim) scrim.hidden = true;
+  delete document.body.dataset.intro;
+  markIntroSeen();
+  const back = lastTrigger && document.contains(lastTrigger) ? lastTrigger : null;
+  back?.focus();
+  lastTrigger = null;
+}
+
+/** 다음 장으로. 마지막 장에서 누르면 닫힙니다. */
+function next() {
+  if (!isOpen()) return;
+  if (step >= INTRO_STEPS.length - 1) { closeIntro(); return; }
+  step += 1;
+  paint();
+}
+
+function prev() {
+  if (!isOpen() || step <= 0) return;
+  step -= 1;
+  paint();
+}
+
+/** 지금 몇 번째 장인지. 테스트와 다른 모듈이 상태를 볼 때 씁니다. */
+function introStep() {
+  return step;
+}
+
+/**
+ * @param {{firstRun: boolean}} opts firstRun 은 main.js 가 부팅 전에 재어 둔 값입니다.
+ *   부팅이 시작되면 모듈들이 저장을 시작해서, 그 뒤에 재면 언제나 '쓰던 사람' 이 됩니다.
+ */
+function initIntro({ firstRun } = {}) {
+  const panel = $('#intro');
+  if (!panel) return;
+
+  $('#intro-next')?.addEventListener('click', next);
+  $('#intro-prev')?.addEventListener('click', prev);
+  $('#intro-skip')?.addEventListener('click', closeIntro);
+  // 바깥을 누르면 닫습니다. 갇힌 느낌이 들지 않게 나갈 길을 늘 열어 둡니다.
+  $('#intro-scrim')?.addEventListener('click', closeIntro);
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen()) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeIntro(); return; }
+    // 좌우 키로도 넘깁니다. 슬라이드니까 그게 자연스럽습니다.
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  });
+  // 언어를 바꾸면 열려 있는 장도 따라가야 합니다.
+  onLangChange(() => { if (isOpen()) paint(); });
+
+  const saved = load(KEY, null);
+  // firstRun 은 '기록이 하나도 없었다' 는 뜻입니다. 그 반대가 '쓰던 사람' 입니다.
+  const hadData = !firstRun;
+  if (!shouldShowIntro(hadData, saved)) {
+    /*
+     * 안 띄우는 경우에도 기록은 남깁니다.
+     * 그래야 나중에 키를 하나 지웠다고 해서 안내가 불쑥 뜨지 않습니다.
+     */
+    if (!saved || Number(saved.v) < INTRO_VERSION) markIntroSeen();
+    return;
+  }
+  openIntro();
+}
+  return { shouldShowIntro, markIntroSeen, openIntro, closeIntro, introStep, initIntro, INTRO_VERSION, INTRO_STEPS };
+})();
+
 /* ===== js/modules/settings.js ===== */
 const __m_js_modules_settings_js = (function () {
   const { $, toast } = __m_js_lib_dom_js;
+  const { openIntro } = __m_js_modules_intro_js;
   const { load, save, remove, clearAll, exportAll, importAll, isPersistent,
   saveSecret, loadSecret, removeSecret, isSharedStorage } = __m_js_lib_store_js;
   const { BANNER_KEY, parseBannerText, saveBanner } = __m_js_modules_banner_js;
@@ -9446,6 +10414,7 @@ const __m_js_modules_settings_js = (function () {
   const { getLang, setLang, onLangChange, LANGS } = __m_js_lib_i18n_js;
   const { isNative } = __m_js_modules_update_js;
 /** 설정 모듈: 테마, 배너 편집, API 키 관리, 데이터 백업/복원/초기화 */
+
 
 
 
@@ -9577,6 +10546,9 @@ function initSettings() {
     save(MODEL_KEY, modelSelect.value);
     refreshAiMode();
   });
+
+  // 처음 켰을 때 뜨는 안내를 다시 엽니다. 한 번 보고 나면 여기가 유일한 입구입니다.
+  $('#set-intro')?.addEventListener('click', () => openIntro());
 
   // --- 데이터 백업 / 복원 / 초기화 ---
   $('#set-export').addEventListener('click', () => {
@@ -10113,7 +11085,7 @@ function awayTooLong(lastSeen, now = Date.now(), limit = AWAY_RESET_MS) {
 /* ===== js/main.js ===== */
 const __m_js_main_js = (function () {
   const { $, $$, toast, initToastRegion } = __m_js_lib_dom_js;
-  const { load, save } = __m_js_lib_store_js;
+  const { load, save, hasAnyData } = __m_js_lib_store_js;
   const { initToday } = __m_js_modules_today_js;
   const { initCalculator } = __m_js_modules_calculator_js;
   const { initWeather } = __m_js_modules_weather_js;
@@ -10128,14 +11100,16 @@ const __m_js_main_js = (function () {
   const { initAppearance, refreshAppearance, applyTabLayout } = __m_js_modules_appearance_js;
   const { initArrange, startArrange, arrangeFollowTab } = __m_js_modules_arrange_js;
   const { initUpdate, registerServiceWorker } = __m_js_modules_update_js;
+  const { initIntro } = __m_js_modules_intro_js;
   const { initLang, t, onLangChange, applyStatic } = __m_js_lib_i18n_js;
-  const { setNavigator, notifyTabChange } = __m_js_lib_nav_js;
+  const { setNavigator, notifyTabChange, tabIcon } = __m_js_lib_nav_js;
   const { awayTooLong } = __m_js_lib_session_js;
   const { ALL_TABS, onPrefsChange } = __m_js_lib_prefs_js;
 /**
  * main.js — 앱 부트스트랩
  * 탭 전환, 각 모듈 초기화, 서비스 워커 등록을 담당합니다.
  */
+
 
 
 
@@ -10481,12 +11455,6 @@ function unlockPager() {
   pagerIntent = null;
 }
 
-/** 탭 버튼 앞의 이모지. 목록이 HTML 한 군데에만 있도록 여기서 읽어 씁니다. */
-function iconOf(tab) {
-  const btn = document.querySelector(`.tab[data-tab="${tab}"] span`);
-  return btn ? btn.textContent.trim() : '';
-}
-
 /*
  * 지금 헤더에 쓰여 있는 탭. 스크롤 중에는 한 프레임에 한 번씩 부르는데,
  * 같은 글자를 다시 써도 그때마다 헤더(블러가 걸린 sticky 요소)가 다시 그려져 넘기기가 무거워집니다.
@@ -10500,7 +11468,7 @@ function showHeaderTab(tab) {
   const name = $('#header-now-name');
   const icon = $('#header-now-icon');
   if (name) name.textContent = t(`tab.${tab}`);
-  if (icon) icon.textContent = iconOf(tab);
+  if (icon) icon.textContent = tabIcon(tab);
 }
 
 /**
@@ -10627,6 +11595,12 @@ function safeInit(name, fn) {
 
 
 function boot() {
+  /*
+   * '첫 접속인가' 는 아무것도 초기화하기 전에 재야 합니다.
+   * 부팅이 시작되면 모듈들이 저장을 시작해서, 그 뒤에 재면 언제나 '쓰던 사람' 이 됩니다.
+   */
+  const firstRun = !hasAnyData();
+
   safeInit('알림영역', initToastRegion);
   safeInit('언어', initLang);
   safeInit('테마', initTheme);
@@ -10648,6 +11622,8 @@ function boot() {
   // '오늘'은 할 일/날씨 데이터를 구독하므로 두 모듈 뒤에 초기화합니다.
   safeInit('오늘', initToday);
   safeInit('탭', initTabs);
+  // 안내는 맨 마지막입니다. 뒤에 있는 화면이 다 준비된 뒤에 덮어야 합니다.
+  safeInit('사용 안내', () => initIntro({ firstRun }));
   registerServiceWorker();
   document.body.dataset.ready = 'true'; // 자동화 테스트용 준비 완료 신호
   dismissSplash();

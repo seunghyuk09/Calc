@@ -207,7 +207,13 @@ export function initTime() {
   let wasHidden = true;
   let lastSecond = -1;
   setInterval(() => {
-    const hidden = $('#panel-time').hidden;
+    /*
+     * 시계 탭을 숨기면 이 패널이 문서에서 빠져 null 이 됩니다.
+     * 예전에는 여기서 250ms 마다 던져서 그 아래 tickAlarm() 까지 내려가지 못했고,
+     * 탭을 숨긴 사람은 알람이 영영 울리지 않았습니다.
+     * 문서에 없으면 '안 보이는 것' 으로 봅니다. 그리기만 건너뛰고 알람은 그대로 돕니다.
+     */
+    const hidden = $('#panel-time')?.hidden ?? true;
     const second = new Date().getSeconds();
     if (second !== lastSecond) {
       lastSecond = second;

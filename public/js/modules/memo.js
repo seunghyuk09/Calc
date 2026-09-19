@@ -50,7 +50,14 @@ function sendMemoToBoard(memo) {
 // --- 메모 ---
 function renderMemos() {
   const list = $('#memo-list');
-  $('#memo-count').textContent = memos.length ? `${memos.length}개` : '';
+  /*
+   * 메모 탭을 숨겨 두면 이 패널이 문서에서 빠집니다. (appearance.js 의 applyTabLayout)
+   * '오늘' 탭에서 메모를 적으면 여기까지 내려오는데, 그때 두 요소가 모두 null 입니다.
+   * 저장은 이미 끝났으므로 그릴 곳이 없으면 조용히 돌아갑니다.
+   */
+  if (!list) return;
+  const count = $('#memo-count');
+  if (count) count.textContent = memos.length ? `${memos.length}개` : '';
   list.replaceChildren();
   if (!memos.length) {
     list.append(el('li', { class: 'empty' }, '저장된 메모가 없습니다.'));
@@ -366,6 +373,24 @@ function renderPenColors() {
     });
     box.append(btn);
   });
+}
+
+/**
+ * 밖에서 메모를 한 줄 남깁니다. ('오늘' 탭의 빠른 입력이 씁니다)
+ *
+ * 메모 탭을 숨겨 둔 사람도 적을 수 있어야 합니다. 저장은 언제나 되고,
+ * 화면이 없으면 renderMemos 가 알아서 건너뜁니다.
+ *
+ * @param {string} text 메모 내용
+ * @returns {boolean} 실제로 저장했으면 true (빈 글이면 false)
+ */
+export function addMemo(text) {
+  const body = typeof text === 'string' ? text.trim() : '';
+  if (!body) return false;
+  memos.unshift({ id: uid(), text: body, at: Date.now() });
+  save(MEMO_KEY, memos);
+  renderMemos();
+  return true;
 }
 
 export function initMemo() {

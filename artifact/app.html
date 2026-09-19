@@ -89,11 +89,70 @@
     <section class="panel grid" id="panel-today" role="tabpanel" aria-label="오늘" lang="ko">
       <div class="today-head">
         <div class="today-date" id="today-date">—</div>
-        <div class="today-swipe-hint" aria-hidden="true">← 좌우로 쓸어 탭 이동 →</div>
+        <div class="today-swipe-hint" aria-hidden="true" data-i18n="today.swipe">← 좌우로 쓸어 탭 이동 →</div>
       </div>
+
+      <!--
+        기능 바로가기.
+        이 앱에는 탭 막대가 없어서, 처음 켠 사람은 '오늘' 하나만 보고 앱이 그게 전부인 줄 압니다.
+        여기가 무엇이 있는지 보여 주는 유일한 자리라, 숨기거나 옮길 수 없게 고정해 둡니다.
+        칩은 today.js 가 실제로 보이는 탭만 그 순서대로 그립니다. (숨긴 탭은 빠집니다)
+      -->
+      <nav class="today-launcher" id="today-launcher"></nav>
 
       <!-- 위젯은 설정 탭에서 고른 것만, 고른 순서대로 today.js 가 그립니다. -->
       <div class="today-widgets grid grid-2" id="today-widgets"></div>
+
+      <!--
+        바로 적기.
+        할 일 하나 적으러 탭을 넘어갔다 돌아오는 것이 첫 사용에서 가장 많이 막히는 자리였습니다.
+        이모지는 전부 aria-hidden 이고, 입력칸의 이름은 옆의 글자(label)가 맡습니다.
+      -->
+      <div class="card today-quick" id="today-quick">
+        <div class="today-card-head">
+          <span class="card-title" data-i18n="today.quick.title">바로 적기</span>
+          <span class="card-sub" data-i18n="today.quick.hint">탭을 옮기지 않아도 됩니다</span>
+        </div>
+
+        <form class="today-quick-row" id="today-quick-todo-form">
+          <label class="today-quick-label" for="today-quick-todo">
+            <span aria-hidden="true">✅</span>
+            <span data-i18n="today.quick.todo">할 일</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-todo" type="text" autocomplete="off"
+                 enterkeyhint="done" data-i18n-placeholder="today.quick.todoPlaceholder"
+                 placeholder="오늘 할 일 한 줄">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.todoAdd"
+                  aria-label="할 일 추가"><span aria-hidden="true">＋</span></button>
+        </form>
+
+        <form class="today-quick-row" id="today-quick-calc-form">
+          <label class="today-quick-label" for="today-quick-calc">
+            <span aria-hidden="true">🧮</span>
+            <span data-i18n="today.quick.calc">계산</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-calc" type="text" autocomplete="off"
+                 inputmode="text" enterkeyhint="go" data-i18n-placeholder="today.quick.calcPlaceholder"
+                 placeholder="예: 12000*3">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.calcGo"
+                  aria-label="계산하기"><span aria-hidden="true">＝</span></button>
+        </form>
+        <!-- 계산 결과. 비어 있을 때는 자리를 차지하지 않습니다. -->
+        <output class="today-quick-out" id="today-quick-calc-out" for="today-quick-calc" hidden></output>
+
+        <form class="today-quick-row" id="today-quick-memo-form">
+          <label class="today-quick-label" for="today-quick-memo">
+            <span aria-hidden="true">✏️</span>
+            <span data-i18n="today.quick.memo">메모</span>
+          </label>
+          <input class="today-quick-input" id="today-quick-memo" type="text" autocomplete="off"
+                 enterkeyhint="done" data-i18n-placeholder="today.quick.memoPlaceholder"
+                 placeholder="기억해 둘 것 한 줄">
+          <button class="today-quick-go" type="submit" data-i18n-aria="today.quick.memoAdd"
+                  aria-label="메모 저장"><span aria-hidden="true">＋</span></button>
+        </form>
+      </div>
+
     </section>
 
     <!-- ================= 계산기 ================= -->
@@ -453,6 +512,10 @@
           </div>
         </div>
         <p class="card-sub" style="margin:-6px 0 14px">TO DO 탭의 버튼과 날짜 표기 언어입니다. 입력한 계획 내용은 바뀌지 않습니다.</p>
+        <!-- 처음 켰을 때 뜨는 안내를 다시 엽니다. 한 번 보고 나면 여기가 유일한 입구입니다. -->
+        <div class="row" style="margin-bottom:14px">
+          <button class="btn btn-sm" id="set-intro" type="button" data-i18n="intro.again">사용법 다시 보기</button>
+        </div>
         <div class="card-head"><h3 class="card-title">배너 문구</h3></div>
         <p class="card-sub" style="margin-bottom:8px">한 줄에 하나씩. <code>제목 | 내용</code> 형식으로 적으면 제목과 내용이 나뉩니다.</p>
         <textarea class="field" id="set-banner" rows="4" placeholder="오늘의 목표 | 집중 3시간"></textarea>
@@ -531,6 +594,35 @@
     (실제로 재현됨: 화면 높이 844px 인데 막대가 3311px 위치에 놓였습니다)
     .app 은 딱 보이는 만큼의 높이라, 그 안에 붙이면 어떤 환경에서도 화면 안에 있습니다.
   -->
+  <!--
+    처음 켰을 때 한 번 보여 주는 사용 안내.
+
+    이 앱에는 탭 막대가 없어서, 좌우로 쓸어 넘긴다는 것부터 알려 줘야 합니다.
+    카드를 꾹 눌러 옮기는 것도, 데이터가 이 기기에만 남는다는 것도 화면만 봐서는 모릅니다.
+
+    .arr-dock 과 같은 이유로 .app 안에 둡니다. body 바로 밑에서 position: fixed 로
+    띄우면 안드로이드 WebView 에서 화면 밖으로 밀려납니다.
+
+    쓰던 사람에게는 뜨지 않습니다. 기록이 하나도 없을 때만 뜨고,
+    그 뒤에는 설정 탭의 '사용법 다시 보기' 로 엽니다.
+  -->
+  <div class="intro-scrim" id="intro-scrim" hidden></div>
+  <div class="intro" id="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" hidden>
+    <!-- 초점은 버튼이 아니라 이 카드가 받습니다. 열자마자 버튼에 두꺼운 초점 링이
+         걸리면 손으로 쓰는 사람에게는 그리다 만 것처럼 보입니다. -->
+    <div class="intro-card" id="intro-card" tabindex="-1">
+      <span class="intro-icon" id="intro-icon" aria-hidden="true">↔</span>
+      <h2 class="intro-title" id="intro-title">—</h2>
+      <p class="intro-text" id="intro-text">—</p>
+      <div class="intro-dots" id="intro-dots" role="img"></div>
+      <div class="intro-actions">
+        <button class="btn btn-sm btn-ghost" id="intro-skip" type="button" data-i18n="intro.skip">건너뛰기</button>
+        <button class="btn btn-sm" id="intro-prev" type="button" data-i18n="intro.prev" hidden>이전</button>
+        <button class="btn btn-sm btn-primary" id="intro-next" type="button" data-i18n="intro.next">다음</button>
+      </div>
+    </div>
+  </div>
+
   <!--
     어느 탭에 있든 한 번에 '오늘' 로 돌아오는 버튼.
 

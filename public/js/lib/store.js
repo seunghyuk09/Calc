@@ -57,6 +57,27 @@ export function remove(key) {
   } catch { /* 무시 */ }
 }
 
+/**
+ * 이 앱이 저장한 것이 하나라도 있는지.
+ *
+ * '첫 접속' 판정에 씁니다. exportAll() 은 값을 전부 JSON 으로 풀어 내므로
+ * 있는지만 보려고 부르기에는 무겁습니다. 키 하나만 찾으면 바로 끝냅니다.
+ */
+export function hasAnyData() {
+  try {
+    if (checkStorage()) {
+      for (let i = 0; i < window.localStorage.length; i += 1) {
+        if (String(window.localStorage.key(i)).startsWith(PREFIX)) return true;
+      }
+      return false;
+    }
+    return memoryFallback.size > 0;
+  } catch {
+    // 저장소를 못 읽으면 '모른다' 입니다. 안내를 띄우지 않는 쪽으로 기웁니다.
+    return true;
+  }
+}
+
 /** 이 앱이 저장한 모든 키를 삭제합니다. */
 export function clearAll() {
   try {
