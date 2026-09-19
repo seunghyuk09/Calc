@@ -1207,6 +1207,71 @@ const main = async () => {
   await sp.waitForSelector('body[data-ready="true"]');
   await sp.waitForTimeout(400);
 
+  /*
+   * iOS 사파리에서 앱 위쪽이 주소창 뒤로 숨던 문제를 막는 규칙을 지킵니다.
+   *
+   * 원인: html/body 의 height:100% 는 '주소창이 접혔을 때'의 큰 뷰포트를 기준으로
+   * 잡히는데 .app 은 100dvh(지금 보이는 높이)를 씁니다. 그 차이만큼 문서 자체가
+   * 스크롤 가능해지고, 한 번 밀리면 앱 셸이 통째로 올라가 헤더가 주소창 뒤로 갑니다.
+   *
+   * 헤드리스 크로미움에는 접히는 주소창이 없어 현상 자체는 재현할 수 없습니다.
+   * 그래서 증상 대신 원인을 봅니다 — 문서 높이를 dvh 로 잡았는지, 문서 스크롤을
+   * 막았는지, 그리고 지금 실제로 문서가 스크롤될 여지가 없는지.
+   */
+  const shellCss = await sp.evaluate(() => {
+    const found = { dvh: false, hidden: false };
+    const walk = (rules) => {
+      for (const rule of rules) {
+        if (rule.cssRules) walk(rule.cssRules);
+        const sel = rule.selectorText || '';
+        if (!/(^|,\s*)(html|body)\b/.test(sel)) continue;
+        const style = rule.style;
+        if (!style) continue;
+        if ((style.getPropertyValue('height') || '').includes('dvh')) found.dvh = true;
+        if ((style.getPropertyValue('overflow') || '') === 'hidden') found.hidden = true;
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try { walk(sheet.cssRules); } catch { /* 읽을 수 없는 시트는 건너뜁니다 */ }
+    }
+    return found;
+  });
+  check('문서 높이를 dvh 로 잡는다 (iOS 주소창 가림 방지)', shellCss.dvh, JSON.stringify(shellCss));
+  check('문서 스크롤을 막아 둔다', shellCss.hidden, JSON.stringify(shellCss));
+
+  const shellBox = await sp.evaluate(() => {
+    const cs = getComputedStyle;
+    const se = document.scrollingElement;
+    return {
+      slack: se.scrollHeight - se.clientHeight,
+      htmlH: cs(document.documentElement).height,
+      bodyH: cs(document.body).height,
+      appH: cs(document.querySelector('.app')).height,
+      htmlOverflow: cs(document.documentElement).overflowY,
+      bodyOverflow: cs(document.body).overflowY,
+      viewH: window.innerHeight,
+    };
+  });
+  check('html·body 의 overflow 가 실제로 hidden 으로 적용된다',
+    shellBox.htmlOverflow === 'hidden' && shellBox.bodyOverflow === 'hidden', JSON.stringify(shellBox));
+  check('html·body·.app 높이가 보이는 화면과 같다',
+    shellBox.htmlH === `${shellBox.viewH}px`
+    && shellBox.bodyH === `${shellBox.viewH}px`
+    && shellBox.appH === `${shellBox.viewH}px`, JSON.stringify(shellBox));
+  check('문서가 스크롤될 여지가 없다', shellBox.slack === 0, JSON.stringify(shellBox));
+
+  // 사파리가 입력칸을 보이려고 문서를 미는 경로까지 막혔는지 봅니다.
+  // (스크롤이 반영될 틈을 준 뒤에 재야 실제 위치를 읽습니다)
+  await sp.evaluate(() => { window.scrollTo(0, 120); });
+  await sp.waitForTimeout(120);
+  const shellPush = await sp.evaluate(() => ({
+    scrollY: Math.round(window.scrollY),
+    headerTop: Math.round(document.querySelector('.app-header').getBoundingClientRect().top),
+  }));
+  await sp.evaluate(() => { window.scrollTo(0, 0); });
+  check('문서를 강제로 밀어도 헤더가 화면 위로 안 밀린다',
+    shellPush.headerTop === 0 && shellPush.scrollY === 0, JSON.stringify(shellPush));
+
   // 뒤로가기 제스처로 앱을 벗어나면 #main 자체가 사라집니다.
   // 그때 예외로 죽지 않고 검사 실패로 보이도록 -1 을 돌려줍니다.
   const pagerLeft = () => sp.evaluate(() => document.querySelector('#main')?.scrollLeft ?? -1);

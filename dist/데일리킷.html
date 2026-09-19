@@ -106,6 +106,22 @@
  */
 html, body { height: 100%; overscroll-behavior: none; }
 
+/*
+ * iOS 사파리에서 앱 위쪽이 주소창(검색창) 뒤로 가려지던 문제입니다.
+ * html/body 의 height:100% 는 '주소창이 접혔을 때'의 큰 뷰포트를 기준으로 잡히는데,
+ * 아래 .app 은 100dvh — 지금 실제로 보이는 높이 — 를 씁니다.
+ * 그래서 주소창 높이만큼 문서 자체가 스크롤 가능해지고,
+ * 한 번 밀려 올라가면 앱 셸이 통째로 올라가 헤더가 주소창 뒤로 숨습니다.
+ * 손으로 쓸지 않아도 scrollIntoView 한 번이면 같은 일이 벌어집니다.
+ * dvh 를 아는 브라우저에서는 문서 높이를 '보이는 높이'에 맞추고 문서 스크롤을 막습니다.
+ * dvh 를 모르는 옛 브라우저(iOS 15 등)는 예전 그대로 둡니다 — 거기서는 .app 이
+ * 100vh(큰 뷰포트)로 잡혀 화면 밖까지 내려가므로, 문서 스크롤마저 막으면
+ * 앱 아래쪽에 아예 닿을 수 없게 됩니다.
+ */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; overflow: hidden; }
+}
+
 body {
   margin: 0;
   background: var(--bg);
